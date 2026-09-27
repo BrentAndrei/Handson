@@ -1,0 +1,7 @@
+# Install into its own venv (or the same one as requirements-train.txt —
+# unlike tensorflowjs, mediapipe and opencv don't fight over a pinned
+# tensorflow version).
+mediapipe>=0.10.14
+opencv-python>=4.9
+numpy>=1.26,<2.0
+pandas>=2.0   # only needed for --mode csv

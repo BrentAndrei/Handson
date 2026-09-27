@@ -1,0 +1,19 @@
+{
+  "name": "HandsOn — Filipino Sign Language",
+  "short_name": "HandsOn",
+  "description": "Practice Filipino Sign Language with live recognition.",
+  "lang": "en",
+  "dir": "ltr",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "background_color": "#0a0e1a",
+  "theme_color": "#38bdf8",
+  "icons": [
+    {
+      "src": "/favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml"
+    }
+  ],
+  "categories": ["education", "productivity"]
+}

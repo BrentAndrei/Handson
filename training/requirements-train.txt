@@ -1,0 +1,9 @@
+# Install into its own virtualenv, separate from requirements-convert.txt.
+# tensorflowjs pins an exact tensorflow version internally (it has
+# historically broken hard on any tensorflow version other than the one
+# it was released against), so training and conversion should not share
+# an environment even though "just pip install everything together"
+# looks simpler. See step_3_convert.sh for details.
+tensorflow>=2.17,<2.19
+numpy>=1.26,<2.0
+scikit-learn>=1.3
