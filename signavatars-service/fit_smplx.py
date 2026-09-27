@@ -235,7 +235,11 @@ def rotvec_to_quat(rotvec: np.ndarray) -> np.ndarray:
 # ---------------------------------------------------------------------------
 
 class CCDIKChain:
-    """Simple Cyclic-Coordinate-Descent IK for a kinematic chain of joints."""
+    """Simple Cyclic-Coordinate-Descent IK for a kinematic chain of joints.
+    
+    Computes local joint rotations (relative to parent) as the rotation from
+    each joint's initial bone direction to its final solved bone direction.
+    """
 
     def __init__(self, joint_names: list[str], joint_parents: list[int | None]):
         self.joint_names = joint_names
@@ -244,9 +248,32 @@ class CCDIKChain:
         self.joint_rotations: list[np.ndarray] = [
             np.array([0.0, 0.0, 0.0, 1.0]) for _ in joint_names
         ]
+        self._initial_dirs: list[np.ndarray | None] = [None] * len(joint_names)
+
+    def _capture_initial_directions(self):
+        """Capture initial bone directions (from parent to joint) before solving."""
+        for i in range(len(self.joint_names)):
+            parent_idx = self.joint_parents[i]
+            if parent_idx is not None:
+                direction = self.joint_positions[i] - self.joint_positions[parent_idx]
+                norm = np.linalg.norm(direction)
+                if norm > 1e-10:
+                    self._initial_dirs[i] = direction / norm
+                else:
+                    self._initial_dirs[i] = None
+            else:
+                self._initial_dirs[i] = None
 
     def solve(self, targets: dict[str, np.ndarray], iterations: int = 20, tolerance: float = 1e-4):
-        """Solve IK for given target positions."""
+        """Solve IK using Cyclic Coordinate Descent.
+        
+        For each joint that has a target, standard CCDIK processes each joint
+        from end-effector toward root, rotating the joint to bring the
+        TARGETED joint closer to its target. After all iterations, computes
+        final joint rotations as the delta from initial to final bone direction.
+        """
+        self._capture_initial_directions()
+        
         for _ in range(iterations):
             solved = True
             for joint_idx in range(len(self.joint_names) - 1, -1, -1):
@@ -262,24 +289,19 @@ class CCDIKChain:
 
                 solved = False
 
-                # Compute the rotation needed to align effector to target
                 parent_idx = self.joint_parents[joint_idx]
                 if parent_idx is None:
-                    # Root joint: adjust position directly
                     self.joint_positions[joint_idx] += (target - effector) * 0.3
                     continue
 
                 parent_pos = self.joint_positions[parent_idx]
 
-                # CCDIK update: rotate this joint so that the effector moves toward target
-                # Direction from joint to current effector
                 to_eff = effector - parent_pos
                 to_target = target - parent_pos
 
                 if np.linalg.norm(to_eff) < 1e-10 or np.linalg.norm(to_target) < 1e-10:
                     continue
 
-                # Compute rotation axis and angle
                 axis = np.cross(to_eff, to_target)
                 axis_norm = np.linalg.norm(axis)
                 if axis_norm < 1e-10:
@@ -288,29 +310,50 @@ class CCDIKChain:
                 angle = np.arccos(np.clip(np.dot(to_eff, to_target) /
                                           (np.linalg.norm(to_eff) * np.linalg.norm(to_target)), -1, 1))
 
-                # Apply rotation to this joint and all children
-                rot = R.from_rotvec(axis * angle * 0.5)
+                # Apply rotation to this joint AND all children
+                rot = R.from_rotvec(axis * angle)
                 rotation_matrix = rot.as_matrix()
 
-                for child_idx in self._get_children(joint_idx):
-                    rel_pos = self.joint_positions[child_idx] - parent_pos
-                    self.joint_positions[child_idx] = parent_pos + rotation_matrix @ rel_pos
-
-                # Update joint rotation
-                joint_rot = rot.as_quat(scalar_first=False)  # [x, y, z, w]
-                # Combine with existing rotation
-                existing = R.from_quat([
-                    self.joint_rotations[joint_idx][3],  # w
-                    self.joint_rotations[joint_idx][0],  # x
-                    self.joint_rotations[joint_idx][1],  # y
-                    self.joint_rotations[joint_idx][2],  # z
-                ])
-                combined = rot * existing
-                q = combined.as_quat(scalar_first=False)  # [x, y, z, w]
-                self.joint_rotations[joint_idx] = np.array([q[0], q[1], q[2], q[3]])
+                for idx in [joint_idx] + self._get_children(joint_idx):
+                    rel_pos = self.joint_positions[idx] - parent_pos
+                    self.joint_positions[idx] = parent_pos + rotation_matrix @ rel_pos
 
             if solved:
                 break
+
+        # Compute final joint rotations from initial to final bone directions
+        for i in range(len(self.joint_names)):
+            parent_idx = self.joint_parents[i]
+            if parent_idx is None:
+                continue
+            if self._initial_dirs[i] is None:
+                continue
+            
+            initial_dir = self._initial_dirs[i]
+            current_dir = self.joint_positions[i] - self.joint_positions[parent_idx]
+            current_norm = np.linalg.norm(current_dir)
+            if current_norm < 1e-10:
+                continue
+            current_dir = current_dir / current_norm
+
+            # Compute rotation that aligns initial_dir to current_dir
+            dot = np.dot(initial_dir, current_dir)
+            if dot > 0.99999:
+                joint_rot = R.from_rotvec(np.array([0.0, 0.0, 0.0]))
+            elif dot < -0.99999:
+                # 180 degree rotation
+                ortho = np.array([1.0, 0, 0]) if abs(initial_dir[0]) < 0.9 else np.array([0, 1.0, 0])
+                rot_axis = np.cross(initial_dir, ortho)
+                rot_axis = rot_axis / (np.linalg.norm(rot_axis) + 1e-10)
+                joint_rot = R.from_rotvec(rot_axis * np.pi)
+            else:
+                rot_axis = np.cross(initial_dir, current_dir)
+                rot_axis = rot_axis / (np.linalg.norm(rot_axis) + 1e-10)
+                rot_angle = np.arccos(np.clip(dot, -1, 1))
+                joint_rot = R.from_rotvec(rot_axis * rot_angle)
+            
+            q = joint_rot.as_quat(scalar_first=False)  # [x, y, z, w]
+            self.joint_rotations[i] = np.array([q[0], q[1], q[2], q[3]])
 
     def _get_children(self, idx: int) -> list[int]:
         children = []
@@ -596,6 +639,8 @@ class SmplxFitter:
         # Arm lengths
         l_upperarm_len = np.linalg.norm(l_elbow - l_shoulder)
         l_forearm_len = np.linalg.norm(l_wrist - l_elbow)
+        r_upperarm_len = np.linalg.norm(r_elbow - r_shoulder)
+        r_forearm_len = np.linalg.norm(r_wrist - r_elbow)
 
         # --- T-Pose initialization ---
         # Root (pelvis) at hip center
@@ -636,42 +681,70 @@ class SmplxFitter:
         head_init = neck_pos + np.array([0, 0.15, 0])
         ik.joint_positions[name_to_idx["head"]] = head_init
 
-        # Clavicles — in T-pose, arms are at shoulder height, stretched outward
-        clavicle_angle = 0.35  # ~20 degrees forward from horizontal
-        l_clav_end = l_shoulder
-        r_clav_end = r_shoulder
-        ik.joint_positions[name_to_idx["left_clavicle"]] = shoulder_center + np.array([-shoulder_width * 0.4, torso_height * 0.3, 0])
-        ik.joint_positions[name_to_idx["right_clavicle"]] = shoulder_center + np.array([shoulder_width * 0.4, torso_height * 0.3, 0])
+        # Clavicles — positioned at shoulder landmarks (T-pose: clavicle runs horizontally to shoulders)
+        ik.joint_positions[name_to_idx["left_clavicle"]] = l_shoulder.copy()
+        ik.joint_positions[name_to_idx["right_clavicle"]] = r_shoulder.copy()
 
-        # Upper arms in T-pose (pointing sideways/downward)
-        ik.joint_positions[name_to_idx["left_upper_arm"]] = l_clav_end.copy()
-        ik.joint_positions[name_to_idx["right_upper_arm"]] = r_clav_end.copy()
+        # Upper arms in T-pose (arms out to the sides, matching SMPL-X zero pose)
+        # Upper arm extends from clavicle (shoulder) to elbow, in T-pose pointing sideways
+        l_arm_dir = np.array([-1, 0, 0])
+        r_arm_dir = np.array([1, 0, 0])
+        ik.joint_positions[name_to_idx["left_upper_arm"]] = l_shoulder + l_arm_dir * l_upperarm_len
+        ik.joint_positions[name_to_idx["right_upper_arm"]] = r_shoulder + r_arm_dir * r_upperarm_len
 
-        # Forearms in T-pose (hanging down)
-        ik.joint_positions[name_to_idx["left_forearm"]] = l_elbow.copy()
-        ik.joint_positions[name_to_idx["right_forearm"]] = r_elbow.copy()
+        # Forearms in T-pose: from elbow, hanging down (pointing toward ground)
+        l_forearm_dir = np.array([0, -1, 0])
+        r_forearm_dir = np.array([0, -1, 0])
+        ik.joint_positions[name_to_idx["left_forearm"]] = ik.joint_positions[name_to_idx["left_upper_arm"]] + l_forearm_dir * l_forearm_len
+        ik.joint_positions[name_to_idx["right_forearm"]] = ik.joint_positions[name_to_idx["right_upper_arm"]] + r_forearm_dir * r_forearm_len
 
-        # Hands
-        ik.joint_positions[name_to_idx["left_hand"]] = l_wrist.copy()
-        ik.joint_positions[name_to_idx["right_hand"]] = r_wrist.copy()
+        # Hands at end of forearm chains (wrist position in T-pose)
+        ik.joint_positions[name_to_idx["left_hand"]] = ik.joint_positions[name_to_idx["left_forearm"]] + l_forearm_dir * l_forearm_len
+        ik.joint_positions[name_to_idx["right_hand"]] = ik.joint_positions[name_to_idx["right_forearm"]] + r_forearm_dir * r_forearm_len
 
         # Target positions: actual landmark positions
+        # In the IK hierarchy, each joint position = end of that bone (toward child)
+        # - left_upper_arm joint position = elbow position → target left_elbow
+        # - left_forearm joint position = wrist position → target left_wrist
+        # - left_hand joint position = hand center → target left_wrist
+        # Key fixes:
+        # - neck targets nose (head_top) to orient forward head tilt
+        # - clavicles target shoulder landmarks (constrains shoulder tilt)
+        # - head is NOT targeted (follows from neck)
+        # - spine_3 is NOT targeted (follows passively from neck)
+        IK_TO_LANDMARK = {
+            "pelvis": None,
+            "left_hip": None,
+            "right_hip": None,
+            "spine_1": None,
+            "left_knee": None,
+            "right_knee": None,
+            "spine_2": None,
+            "left_ankle": None,
+            "right_ankle": None,
+            "spine_3": None,  # passive - follows from neck via chain
+            "neck": "head_top",  # nose position
+            "head": None,  # follows from neck
+            "left_clavicle": "left_shoulder",  # constrain shoulder position
+            "right_clavicle": "right_shoulder",
+            "left_upper_arm": "left_elbow",  # constrain elbow position
+            "right_upper_arm": "right_elbow",
+            "left_forearm": "left_wrist",     # constrain wrist position
+            "right_forearm": "right_wrist",
+            "left_hand": "left_wrist",        # constrain hand position to wrist
+            "right_hand": "right_wrist",
+        }
+
         targets = {}
         for name in joint_names_ordered:
-            if name in mp_lm:
-                targets[name] = mp_lm[name]
+            lm_name = IK_TO_LANDMARK.get(name, name)
+            if lm_name is not None and lm_name in mp_lm:
+                targets[name] = mp_lm[lm_name]
             elif name == "pelvis":
                 targets[name] = hip_center.copy()
 
         # Run IK
-        for name in joint_names_ordered:
-            if name in mp_lm:
-                targets[name] = mp_lm[name]
-            elif name == "pelvis":
-                targets[name] = (l_hip + r_hip) / 2
-
-        # Run IK
-        ik.solve(targets, iterations=15)
+        ik.solve(targets, iterations=15, tolerance=1e-3)
 
         # Extract pose parameters (axis-angle format)
         # SMPL-X pose: 72 values = 3 (global_orient) + 63 (body_pose) + 6 (hand_pose minimal)
@@ -695,13 +768,31 @@ class SmplxFitter:
             "left_hip", "right_hip", "spine_1",
             "left_knee", "right_knee", "spine_2",
             "left_ankle", "right_ankle", "spine_3",
+            "left_foot", "right_foot",               # joints 10, 11 — must be present
             "neck", "left_clavicle", "right_clavicle", "head",
             "left_upper_arm", "right_upper_arm",
             "left_forearm", "right_forearm",
             "left_hand", "right_hand",
         ]
 
-        for i, jname in enumerate(body_joint_order):
+        # Map each body joint name to its SMPL-X body_pose index (joints 1-21).
+        # body_pose starts at pose[3], each joint occupies 3 values:
+        #   pose[3 + (smpl_idx - 1) * 3 : 3 + smpl_idx * 3]
+        JOINT_TO_SMPL_BODY_IDX = {
+            "left_hip": 1, "right_hip": 2, "spine_1": 3,
+            "left_knee": 4, "right_knee": 5, "spine_2": 6,
+            "left_ankle": 7, "right_ankle": 8, "spine_3": 9,
+            "left_foot": 10, "right_foot": 11,
+            "neck": 12, "left_clavicle": 13, "right_clavicle": 14, "head": 15,
+            "left_upper_arm": 16, "right_upper_arm": 17,
+            "left_forearm": 18, "right_forearm": 19,
+            "left_hand": 20, "right_hand": 21,
+        }
+
+        for jname in body_joint_order:
+            smpl_idx = JOINT_TO_SMPL_BODY_IDX.get(jname)
+            if smpl_idx is None or smpl_idx >= 22:
+                continue
             if jname in name_to_idx:
                 quat = ik.joint_rotations[name_to_idx[jname]]
                 # Convert quaternion [x,y,z,w] to axis-angle
@@ -714,7 +805,7 @@ class SmplxFitter:
                         aa = np.array([0.0, 0.0, 0.0])
                     else:
                         aa = np.array([quat[0] / s, quat[1] / s, quat[2] / s]) * angle
-                pose_idx = 3 + i * 3
+                pose_idx = smpl_idx * 3
                 if pose_idx + 3 <= 72:
                     pose[pose_idx:pose_idx + 3] = aa
 

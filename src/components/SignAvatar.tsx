@@ -52,7 +52,7 @@ const QUAT_BONE_KEYS = new Set([
   "leftShoulder", "rightShoulder", "head", "neck",
 ]);
 const SMOOTHING = 0.25;
-const MAX_BONE_ANGLE = Math.PI * 0.45;
+const MAX_BONE_ANGLE = Math.PI * 0.9;  // 162 degrees - allows full signing arm movements
 
 function easeInOutCubic(t: number): number {
   return t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;

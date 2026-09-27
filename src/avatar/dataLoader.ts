@@ -17,6 +17,11 @@ const dataCache: Map<string, AvatarDataset> = new Map();
 let allAvailableLabels: string[] = [];
 let labelsLoaded = false;
 
+// Label-to-filename lookup maps, built from manifests
+let sourceFileMap: Map<string, string> = new Map(); // label -> source filename (e.g. "HE/SHE" -> "HE_SHE.json")
+let smplxFileByLabel: Map<string, string> = new Map(); // label -> smplx filename (e.g. "HE/SHE" -> "HE_SHE.smplx.json")
+let smplxFileMap: Map<string, string> = new Map();  // label -> smplx filename from SMPL-X manifest entries
+
 // SMPL-X service configuration
 const SMPLX_SERVICE_URL = (import.meta.env.VITE_SMPLX_SERVICE_URL as string) ||
   (typeof window !== 'undefined' && (window as any).__smplxServiceUrl) ||
@@ -49,8 +54,46 @@ export async function loadAvatarData(): Promise<string[]> {
     if (labels.length === 0) {
       throw new Error('Manifest has no labels');
     }
+
+    // Build label-to-file map from entries if available, or derive from labels
+    if (manifest.entries && manifest.entries.length > 0) {
+      for (const entry of manifest.entries) {
+        if (entry.label && entry.file) {
+          sourceFileMap.set(entry.label, entry.file);
+        }
+        if (entry.label && entry.smplxFile) {
+          smplxFileByLabel.set(entry.label, entry.smplxFile);
+        }
+      }
+    } else {
+      // Derive filenames from labels (files use underscore format)
+      for (const label of labels) {
+        const sanitized = label.replace(/[^a-zA-Z0-9]/g, '_');
+        sourceFileMap.set(label, `${sanitized}.json`);
+        smplxFileByLabel.set(label, `${sanitized}.smplx.json`);
+      }
+    }
+
     allAvailableLabels = labels;
     labelsLoaded = true;
+
+    // Also load SMPL-X manifest to build the file lookup map
+    try {
+      const smplxManifestResp = await fetch('/avatar-data-smplx/manifest.json', { signal: AbortSignal.timeout(3000) });
+      if (smplxManifestResp.ok) {
+        const smplxManifest = await smplxManifestResp.json();
+        if (smplxManifest.entries && smplxManifest.entries.length > 0) {
+          for (const entry of smplxManifest.entries) {
+            if (entry.label && entry.file) {
+              smplxFileMap.set(entry.label, entry.file);
+            }
+          }
+        }
+      }
+    } catch (e) {
+      console.warn('[dataLoader] SMPL-X manifest load failed:', e);
+    }
+
     return allAvailableLabels;
   } catch {
     labelsLoaded = true;
@@ -62,6 +105,9 @@ export function resetAvatarData(): void {
   dataCache.clear();
   allAvailableLabels = [];
   labelsLoaded = false;
+  sourceFileMap.clear();
+  smplxFileByLabel.clear();
+  smplxFileMap.clear();
 }
 
 export async function loadLabelData(label: string, parentWorldQuats?: ParentWorldQuats): Promise<AvatarDataset | null> {
@@ -79,7 +125,9 @@ export async function loadLabelData(label: string, parentWorldQuats?: ParentWorl
 
   // Fallback: traditional quaternion-based retargeting from MediaPipe landmarks
   const sanitized = label.replace(/[^a-zA-Z0-9]/g, '_');
-  const url = `/avatar-data/${sanitized}.json`;
+  // Look up the actual filename from the manifest map; fall back to sanitized
+  const sourceFile = sourceFileMap.get(label) || `${sanitized}.json`;
+  const url = `/avatar-data/${sourceFile}`;
 
   try {
     const resp = await fetch(url);
@@ -117,7 +165,9 @@ async function loadLabelDataSmplx(
 
     // 1. Try local pre-computed SMPL-X data (served from public/)
     try {
-      const localUrl = `/avatar-data-smplx/${sanitized}.smplx.json`;
+      // Look up the actual SMPL-X filename from the source manifest's smplxFile field
+      const localFile = smplxFileByLabel.get(label) || smplxFileMap.get(label) || `${sanitized}.smplx.json`;
+      const localUrl = `/avatar-data-smplx/${localFile}`;
       const resp = await fetch(localUrl, { signal: AbortSignal.timeout(3000) });
       if (resp.ok) {
         smplxData = await resp.json();
@@ -137,25 +187,10 @@ async function loadLabelDataSmplx(
     }
 
     if (!smplxData) {
-      // Fall back to current quaternion retargeting
-      const url = `/avatar-data/${sanitized}.json`;
-      const resp = await fetch(url);
-      if (!resp.ok) return null;
-      const data: AvatarData = await resp.json();
-
-      const landmarksData = data.frames.flat();
-      const fitResp = await fetch(`${SMPLX_SERVICE_URL}/fit-sequence`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          label,
-          frames: [landmarksData],
-          parent_world_quats: parentWorldQuats,
-        }),
-      });
-      if (!fitResp.ok) return null;
-      const fitResult = await fitResp.json();
-      smplxData = { label, frames: fitResult.frames || [], frameRate: 30 };
+      // No SMPL-X data available (local or service).
+      // Return null and let the caller handle the fallback to quaternion
+      // retargeting, which works without any service.
+      return null;
     }
 
     const parentQuatDict = parentWorldQuats
