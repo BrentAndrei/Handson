@@ -146,25 +146,24 @@ export function smplxPoseToAvatarFrame(
   // Right upper arm: SMPL-X joint 17
   frame.rightUpperArm = [...getBodyJointQuat(17)] as [number, number, number, number];
 
-  // Left forearm: SMPL-X joint 20
-  frame.leftForearm = [...getBodyJointQuat(20)] as [number, number, number, number];
+   // Left forearm: SMPL-X joint 18 (left_elbow/left_forearm)
+   frame.leftForearm = [...getBodyJointQuat(18)] as [number, number, number, number];
 
-  // Right forearm: SMPL-X joint 21
-  frame.rightForearm = [...getBodyJointQuat(21)] as [number, number, number, number];
+   // Right forearm: SMPL-X joint 19 (right_elbow/right_forearm)
+   frame.rightForearm = [...getBodyJointQuat(19)] as [number, number, number, number];
 
-  // Left hand: SMPL-X joint 22 + hand_pose
-  const lhBodyQuat = getBodyJointQuat(22);
-  // Hand pose: pose[66] = left hand (3 floats)
-  const leftHandAA: [number, number, number] = [pose[66], pose[67], pose[68]];
-  const leftHandPoseQuat = axisAngleToQuat(leftHandAA);
-  // Combine: hand global orientation × body pose hand rotation
-  frame.leftHand = multiplyQuats(leftHandPoseQuat, [...lhBodyQuat]) as [number, number, number, number];
+   // Left hand: SMPL-X joint 20 (left_wrist/left_hand) + hand_pose (pose[66:69])
+   const lhBodyQuat = getBodyJointQuat(20);
+   const leftHandAA: [number, number, number] = [pose[66], pose[67], pose[68]];
+   const leftHandPoseQuat = axisAngleToQuat(leftHandAA);
+   // Combine: hand global orientation × body pose hand rotation
+   frame.leftHand = multiplyQuats(leftHandPoseQuat, [...lhBodyQuat]) as [number, number, number, number];
 
-  // Right hand: SMPL-X joint 23 + hand_pose
-  const rhBodyQuat = getBodyJointQuat(23);
-  const rightHandAA: [number, number, number] = [pose[69], pose[70], pose[71]];
-  const rightHandPoseQuat = axisAngleToQuat(rightHandAA);
-  frame.rightHand = multiplyQuats(rightHandPoseQuat, [...rhBodyQuat]) as [number, number, number, number];
+   // Right hand: SMPL-X joint 21 (right_wrist/right_hand) + hand_pose (pose[69:72])
+   const rhBodyQuat = getBodyJointQuat(21);
+   const rightHandAA: [number, number, number] = [pose[69], pose[70], pose[71]];
+   const rightHandPoseQuat = axisAngleToQuat(rightHandAA);
+   frame.rightHand = multiplyQuats(rightHandPoseQuat, [...rhBodyQuat]) as [number, number, number, number];
 
   // Root position
   if (smplxPose.transl && smplxPose.transl.length >= 3) {

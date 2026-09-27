@@ -572,61 +572,98 @@ class SmplxFitter:
         # Initialize joint positions from landmarks
         ik = CCDIKChain(joint_names_ordered, parents)
 
-        # Set initial positions from landmarks
-        # Root (pelvis) → use midpoint of hips
+        # Extract landmark-derived positions
         l_hip = mp_lm.get("left_hip", np.zeros(3))
         r_hip = mp_lm.get("right_hip", np.zeros(3))
-        ik.joint_positions[name_to_idx["pelvis"]] = (l_hip + r_hip) / 2
-
-        # Hips
-        ik.joint_positions[name_to_idx["left_hip"]] = l_hip
-        ik.joint_positions[name_to_idx["right_hip"]] = r_hip
-
-        # Spine (estimate)
-        spine1_pos = (l_hip + r_hip) / 2 + np.array([0, 0.2, 0])
-        spine2_pos = spine1_pos + np.array([0, 0.2, 0])
-        spine3_pos = spine2_pos + np.array([0, 0.2, 0])
-        ik.joint_positions[name_to_idx["spine_1"]] = spine1_pos
-        ik.joint_positions[name_to_idx["spine_2"]] = spine2_pos
-        ik.joint_positions[name_to_idx["spine_3"]] = spine3_pos
-
-        # Neck and head
-        neck_pos = spine3_pos + np.array([0, 0.1, 0])
-        nose_pos = mp_lm.get("nose", np.zeros(3))
-        head_pos = nose_pos
-        ik.joint_positions[name_to_idx["neck"]] = neck_pos
-        ik.joint_positions[name_to_idx["head"]] = head_pos
-
-        # Clavicles (estimate from shoulders)
         l_shoulder = mp_lm.get("left_shoulder", np.zeros(3))
         r_shoulder = mp_lm.get("right_shoulder", np.zeros(3))
-        ik.joint_positions[name_to_idx["left_clavicle"]] = l_shoulder
-        ik.joint_positions[name_to_idx["right_clavicle"]] = r_shoulder
-
-        # Arms
         l_elbow = mp_lm.get("left_elbow", np.zeros(3))
         r_elbow = mp_lm.get("right_elbow", np.zeros(3))
         l_wrist = mp_lm.get("left_wrist", np.zeros(3))
         r_wrist = mp_lm.get("right_wrist", np.zeros(3))
-        ik.joint_positions[name_to_idx["left_upper_arm"]] = l_shoulder
-        ik.joint_positions[name_to_idx["right_upper_arm"]] = r_shoulder
-        ik.joint_positions[name_to_idx["left_forearm"]] = l_elbow
-        ik.joint_positions[name_to_idx["right_forearm"]] = r_elbow
-        ik.joint_positions[name_to_idx["left_hand"]] = l_wrist
-        ik.joint_positions[name_to_idx["right_hand"]] = r_wrist
-
-        # Knees and ankles
         l_knee = mp_lm.get("left_knee", np.zeros(3))
         r_knee = mp_lm.get("right_knee", np.zeros(3))
         l_ankle = mp_lm.get("left_ankle", np.zeros(3))
         r_ankle = mp_lm.get("right_ankle", np.zeros(3))
-        ik.joint_positions[name_to_idx["left_knee"]] = l_knee
-        ik.joint_positions[name_to_idx["right_knee"]] = r_knee
-        ik.joint_positions[name_to_idx["left_ankle"]] = l_ankle
-        ik.joint_positions[name_to_idx["right_ankle"]] = r_ankle
+        nose_pos = mp_lm.get("nose", np.zeros(3))
 
-        # Target positions for IK solving
+        # Estimate body proportions from landmarks
+        hip_center = (l_hip + r_hip) / 2
+        shoulder_center = (l_shoulder + r_shoulder) / 2
+        shoulder_width = np.linalg.norm(l_shoulder - r_shoulder)
+        torso_height = np.linalg.norm(shoulder_center - hip_center)
+
+        # Arm lengths
+        l_upperarm_len = np.linalg.norm(l_elbow - l_shoulder)
+        l_forearm_len = np.linalg.norm(l_wrist - l_elbow)
+
+        # --- T-Pose initialization ---
+        # Root (pelvis) at hip center
+        ik.joint_positions[name_to_idx["pelvis"]] = hip_center.copy()
+
+        # Hips (spread slightly in T-pose)
+        hip_offset = shoulder_width * 0.12
+        ik.joint_positions[name_to_idx["left_hip"]] = hip_center + np.array([-hip_offset, 0, 0])
+        ik.joint_positions[name_to_idx["right_hip"]] = hip_center + np.array([hip_offset, 0, 0])
+
+        # Knees (below hips, estimate from hip to ankle distance)
+        l_leg_len = np.linalg.norm(l_ankle - l_hip) if np.linalg.norm(l_ankle - l_hip) > 0.01 else 0.4
+        r_leg_len = np.linalg.norm(r_ankle - r_hip) if np.linalg.norm(r_ankle - r_hip) > 0.01 else 0.4
+        ik.joint_positions[name_to_idx["left_knee"]] = hip_center + np.array([-hip_offset, -l_leg_len * 0.5, 0])
+        ik.joint_positions[name_to_idx["right_knee"]] = hip_center + np.array([hip_offset, -r_leg_len * 0.5, 0])
+
+        # Ankles (at landmark positions)
+        ik.joint_positions[name_to_idx["left_ankle"]] = l_ankle.copy()
+        ik.joint_positions[name_to_idx["right_ankle"]] = r_ankle.copy()
+
+        # Spine chain stacked vertically from pelvis
+        if torso_height > 0.01:
+            spine_step = torso_height / 3
+        else:
+            spine_step = 0.15
+        spine1_pos = hip_center + np.array([0, spine_step, 0])
+        spine2_pos = spine1_pos + np.array([0, spine_step, 0])
+        spine3_pos = spine2_pos + np.array([0, spine_step, 0])
+        ik.joint_positions[name_to_idx["spine_1"]] = spine1_pos
+        ik.joint_positions[name_to_idx["spine_2"]] = spine2_pos
+        ik.joint_positions[name_to_idx["spine_3"]] = spine3_pos
+
+        # Neck above spine3
+        neck_pos = spine3_pos + np.array([0, 0.1, 0])
+        ik.joint_positions[name_to_idx["neck"]] = neck_pos
+
+        # Head — start at T-pose (above neck) so IK rotates toward nose
+        head_init = neck_pos + np.array([0, 0.15, 0])
+        ik.joint_positions[name_to_idx["head"]] = head_init
+
+        # Clavicles — in T-pose, arms are at shoulder height, stretched outward
+        clavicle_angle = 0.35  # ~20 degrees forward from horizontal
+        l_clav_end = l_shoulder
+        r_clav_end = r_shoulder
+        ik.joint_positions[name_to_idx["left_clavicle"]] = shoulder_center + np.array([-shoulder_width * 0.4, torso_height * 0.3, 0])
+        ik.joint_positions[name_to_idx["right_clavicle"]] = shoulder_center + np.array([shoulder_width * 0.4, torso_height * 0.3, 0])
+
+        # Upper arms in T-pose (pointing sideways/downward)
+        ik.joint_positions[name_to_idx["left_upper_arm"]] = l_clav_end.copy()
+        ik.joint_positions[name_to_idx["right_upper_arm"]] = r_clav_end.copy()
+
+        # Forearms in T-pose (hanging down)
+        ik.joint_positions[name_to_idx["left_forearm"]] = l_elbow.copy()
+        ik.joint_positions[name_to_idx["right_forearm"]] = r_elbow.copy()
+
+        # Hands
+        ik.joint_positions[name_to_idx["left_hand"]] = l_wrist.copy()
+        ik.joint_positions[name_to_idx["right_hand"]] = r_wrist.copy()
+
+        # Target positions: actual landmark positions
         targets = {}
+        for name in joint_names_ordered:
+            if name in mp_lm:
+                targets[name] = mp_lm[name]
+            elif name == "pelvis":
+                targets[name] = hip_center.copy()
+
+        # Run IK
         for name in joint_names_ordered:
             if name in mp_lm:
                 targets[name] = mp_lm[name]
@@ -687,12 +724,12 @@ class SmplxFitter:
         right_index_mcp = mp_lm.get("right_index_mcp", None)
 
         # Hand pose at indices 66-71 (6 values for minimal hand pose)
-        if left_index_mcp is not None and left_wrist is not None:
-            direction = left_index_mcp - left_wrist
+        if left_index_mcp is not None and l_wrist is not None:
+            direction = left_index_mcp - l_wrist
             direction = direction / (np.linalg.norm(direction) + 1e-10)
             pose[66:69] = direction * 0.1  # scale to small rotation
-        if right_index_mcp is not None and right_wrist is not None:
-            direction = right_index_mcp - right_wrist
+        if right_index_mcp is not None and r_wrist is not None:
+            direction = right_index_mcp - r_wrist
             direction = direction / (np.linalg.norm(direction) + 1e-10)
             pose[69:72] = direction * 0.1
 
@@ -747,10 +784,6 @@ SMPLX_TO_AVATAR_BONE_MAP: dict[str, str] = {
     "right_forearm":       "rightForearm",
     "left_hand":           "leftHand",
     "right_hand":          "rightHand",
-    "left_elbow":          "leftUpperArm",  # elbow is not a bone, use upper arm
-    "right_elbow":         "rightUpperArm",
-    "left_wrist":          "leftForearm",    # wrist is not a bone, use forearm
-    "right_wrist":         "rightForearm",
 }
 
 # SMPL-X joint index to name mapping (official order)
@@ -761,9 +794,8 @@ SMPLX_JOINT_INDEX_TO_NAME = {
     10: "left_foot", 11: "right_foot", 12: "neck",
     13: "left_clavicle", 14: "right_clavicle", 15: "head",
     16: "left_upper_arm", 17: "right_upper_arm",
-    18: "left_elbow", 19: "right_elbow",
-    20: "left_forearm", 21: "right_forearm",
-    22: "left_hand", 23: "right_hand",
+    18: "left_forearm", 19: "right_forearm",
+    20: "left_hand", 21: "right_hand",
 }
 
 # Hand joint indices in SMPL-X (24-53)
