@@ -9,7 +9,7 @@ export type ParentWorldQuats = Record<string, Quat>;
 export interface AvatarFrame {
   root: [number, number, number];
   hips: [number, number, number];
-  torso: [number, number, number];
+  torso: Quat;
   head: Quat;
   neck: Quat;
   leftShoulder: Quat;
@@ -37,16 +37,17 @@ function getData(data: Float32Array, offset: number, index: number): [number, nu
 const QUAT_IDENTITY: Quat = [0, 0, 0, 1];
 
 const DEFAULT_BONE_DIRS: Record<string, Vec3> = {
-  head: [0, 1, 0],
-  neck: [0, 1, 0],
-  leftShoulder: [0.423, 0.866, 0.268],
-  rightShoulder: [-0.423, 0.866, 0.268],
-  leftUpperArm: [0, -1, 0],
-  rightUpperArm: [0, -1, 0],
-  leftForearm: [0, -1, 0],
-  rightForearm: [0, -1, 0],
-  leftHand: [0, -1, 0],
-  rightHand: [0, -1, 0],
+  head: [0, 0, 1],
+  neck: [0, 0, 1],
+  torso: [0, 1, 0],
+  leftShoulder: [0.378, 0.866, -0.213],
+  rightShoulder: [-0.378, 0.866, -0.213],
+  leftUpperArm: [1, 0, 0],
+  rightUpperArm: [-1, 0, 0],
+  leftForearm: [1, 0, 0],
+  rightForearm: [-1, 0, 0],
+  leftHand: [1, 0, 0],
+  rightHand: [-1, 0, 0],
 };
 
 function normalizeVec3(v: Vec3): Vec3 {
@@ -329,6 +330,8 @@ export function squad(q0: Quat, q1: Quat, q2: Quat, q3: Quat, t: number): Quat {
 // Enhanced spline-based quaternion smoothing
 export function smoothFramesSpline(frames: AvatarFrame[], windowSize: number = 5): AvatarFrame[] {
   if (frames.length <= 2) return smoothFrames(frames, windowSize);
+  // Deep copy to avoid mutating input frames
+  const copied: AvatarFrame[] = frames.map((f) => ({ ...f }));
   const smoothed: AvatarFrame[] = [];
   const keys: (keyof AvatarFrame)[] = [
     'root', 'hips', 'torso', 'head', 'neck',
@@ -338,30 +341,30 @@ export function smoothFramesSpline(frames: AvatarFrame[], windowSize: number = 5
   
   // First pass: hemisphere alignment (ensure consistent quaternion signs)
   for (const key of keys) {
-    const isQuat = frames[0][key].length >= 4;
+    const isQuat = copied[0][key].length >= 4;
     if (isQuat) {
-      for (let i = 1; i < frames.length; i++) {
-        const prev = frames[i-1][key] as Quat;
-        const curr = frames[i][key] as Quat;
+      for (let i = 1; i < copied.length; i++) {
+        const prev = copied[i-1][key] as Quat;
+        const curr = copied[i][key] as Quat;
         if (quatDot(prev, curr) < 0) {
-          frames[i][key] = [-curr[0], -curr[1], -curr[2], -curr[3]] as any;
+          copied[i][key] = [-curr[0], -curr[1], -curr[2], -curr[3]] as any;
         }
       }
     }
   }
   
   // Second pass: catmull-rom style temporal smoothing using quaternion log maps
-  for (let i = 0; i < frames.length; i++) {
+  for (let i = 0; i < copied.length; i++) {
     const out = {} as AvatarFrame;
     for (const key of keys) {
-      const p0 = frames[i][key];
+      const p0 = copied[i][key];
       const isQuat = p0.length >= 4;
       
       if (isQuat) {
         // Get neighboring keyframes (catmull-rom)
-        const pPrev = frames[Math.max(0, i - 1)][key] as Quat;
-        const pNext = frames[Math.min(frames.length - 1, i + 1)][key] as Quat;
-        const pNext2 = frames[Math.min(frames.length - 1, i + 2)][key] as Quat;
+        const pPrev = copied[Math.max(0, i - 1)][key] as Quat;
+        const pNext = copied[Math.min(copied.length - 1, i + 1)][key] as Quat;
+        const pNext2 = copied[Math.min(copied.length - 1, i + 2)][key] as Quat;
         
         // Align neighbors to current frame
         const alignedPrev = alignQuat(p0 as Quat, pPrev);
@@ -377,8 +380,8 @@ export function smoothFramesSpline(frames: AvatarFrame[], windowSize: number = 5
         let count = 0;
         const half = Math.floor(windowSize / 2);
         for (let j = -half; j <= half; j++) {
-          const idx = Math.min(Math.max(i + j, 0), frames.length - 1);
-          const p = frames[idx][key] as number[];
+          const idx = Math.min(Math.max(i + j, 0), copied.length - 1);
+          const p = copied[idx][key] as number[];
           sx += p[0]; sy += p[1]; sz += p[2];
           count++;
         }
@@ -410,7 +413,26 @@ export function retargetFrame(
   const leftWrist = getData(data, poseOffset, 15);
   const rightWrist = getData(data, poseOffset, 16);
 
-  const torso: [number, number, number] = [0, 0, 0];
+  const shoulderMid: Vec3 = [
+    (leftShoulder[0] + rightShoulder[0]) / 2,
+    (leftShoulder[1] + rightShoulder[1]) / 2,
+    (leftShoulder[2] + rightShoulder[2]) / 2,
+  ];
+
+  // Torso forward: from shoulder midpoint toward nose, defines spine tilt
+  const torsoForward: Vec3 = dampZ(vSub(nose, shoulderMid));
+  const root: [number, number, number] = [0, 0, 0];
+  const hipsRel: [number, number, number] = [0, 0, 0];
+
+  // Compute torso (spine) rotation: align spine default direction (up [0,1,0])
+  // to the computed forward direction, with shoulder line as up reference
+  const shoulderLine: Vec3 = dampZ(vSub(rightShoulder, leftShoulder));
+  const torsoRot = alignBoneToDirection(
+    DEFAULT_BONE_DIRS.torso,
+    torsoForward,
+    parentWorldQuats?.["root"],
+    shoulderLine,
+  );
 
   const neckDir: Vec3 = dampZ(nose) as Vec3;
   const headDir: Vec3 = dampZ([nose[0], nose[1] + 0.15, nose[2]]) as Vec3;
@@ -420,10 +442,7 @@ export function retargetFrame(
   const leftHandMcp = getData(data, leftHandOffset, 9);
   const rightHandMcp = getData(data, rightHandOffset, 9);
 
-  const root: [number, number, number] = [0, 0, 0];
-  const hipsRel: [number, number, number] = [0, 0, 0];
-
-  const neckRot = alignBoneToDirection(DEFAULT_BONE_DIRS.neck, neckDir, parentWorldQuats?.["torso"]);
+  const neckRot = alignBoneToDirection(DEFAULT_BONE_DIRS.neck, neckDir, parentWorldQuats?.["torso"], [0, 0, 1]);
   const headRot = alignBoneToDirection(DEFAULT_BONE_DIRS.head, headDir, parentWorldQuats?.["neck"]);
 
   const shoulderDirL = dampZ(vSub(leftElbow, leftShoulder)) as [number, number, number];
@@ -486,7 +505,7 @@ export function retargetFrame(
   return {
     root,
     hips: hipsRel,
-    torso,
+    torso: torsoRot,
     head: headRot,
     neck: neckRot,
     leftShoulder: leftShoulderRot,

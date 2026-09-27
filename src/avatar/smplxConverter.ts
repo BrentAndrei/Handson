@@ -91,7 +91,7 @@ export function smplxPoseToAvatarFrame(
   const frame: AvatarFrame = {
     root: [0, 0, 0],
     hips: [0, 0, 0],
-    torso: [0, 0, 0],
+    torso: [0, 0, 0, 1],
     head: [0, 0, 0, 1],
     neck: [0, 0, 0, 1],
     leftShoulder: [0, 0, 0, 1],
@@ -122,13 +122,10 @@ export function smplxPoseToAvatarFrame(
   // Note: SMPL-X rotations are in the SMPL-X local frame; we need to convert
   // to the Xbot GLTF local frame. The parent world quaternions help bridge this.
 
-   // Torso: SMPL-X spine_3 (joint 9) → but torso in AvatarFrame is a position [x,y,z],
-  // not a quaternion. In the current T-pose retargeting, torso is [0,0,0] (identity rotation).
-  // We keep torso as zero (no spine rotation) for compatibility with SignAvatar.tsx.
-  // The full SMPL-X pipeline would convert spine_3 axis-angle to Euler here.
+   // Torso (spine): SMPL-X joint 9 (spine_3) - axis-angle to quaternion
+   frame.torso = [...getBodyJointQuat(9)] as [number, number, number, number];
 
-
-  // Head: SMPL-X joint 15
+   // Head: SMPL-X joint 15
   frame.head = [...getBodyJointQuat(15)] as [number, number, number, number];
 
   // Neck: SMPL-X joint 12
@@ -156,14 +153,15 @@ export function smplxPoseToAvatarFrame(
    const lhBodyQuat = getBodyJointQuat(20);
    const leftHandAA: [number, number, number] = [pose[66], pose[67], pose[68]];
    const leftHandPoseQuat = axisAngleToQuat(leftHandAA);
-   // Combine: hand global orientation × body pose hand rotation
-   frame.leftHand = multiplyQuats(leftHandPoseQuat, [...lhBodyQuat]) as [number, number, number, number];
+   // Combine: body pose hand rotation (parent) × hand pose rotation (local)
+   // Hand pose is a local rotation applied on top of the body joint orientation
+   frame.leftHand = multiplyQuats([...lhBodyQuat], leftHandPoseQuat) as [number, number, number, number];
 
    // Right hand: SMPL-X joint 21 (right_wrist/right_hand) + hand_pose (pose[69:72])
    const rhBodyQuat = getBodyJointQuat(21);
    const rightHandAA: [number, number, number] = [pose[69], pose[70], pose[71]];
    const rightHandPoseQuat = axisAngleToQuat(rightHandAA);
-   frame.rightHand = multiplyQuats(rightHandPoseQuat, [...rhBodyQuat]) as [number, number, number, number];
+   frame.rightHand = multiplyQuats([...rhBodyQuat], rightHandPoseQuat) as [number, number, number, number];
 
   // Root position
   if (smplxPose.transl && smplxPose.transl.length >= 3) {

@@ -46,6 +46,7 @@ const AVATAR_KEYS: (keyof AvatarFrame)[] = [
 const PLAYBACK_SPEEDS = [0.25, 0.5, 1, 2];
 
 const QUAT_BONE_KEYS = new Set([
+  "torso",
   "leftUpperArm", "leftForearm", "leftHand",
   "rightUpperArm", "rightForearm", "rightHand",
   "leftShoulder", "rightShoulder", "head", "neck",
@@ -572,37 +573,31 @@ export default function SignAvatar({
               const p2 = tgt[key] as number[];
               if (bone && p1 && p2) {
                 const isQuatBone = QUAT_BONE_KEYS.has(key);
-                if (isQuatBone && p1.length >= 4 && p2.length >= 4) {
-                  const isZero =
-                    Math.abs(p1[0]) < 1e-8 && Math.abs(p1[1]) < 1e-8 &&
-                    Math.abs(p1[2]) < 1e-8 && Math.abs(p1[3]) < 1e-8;
-                  if (isZero) { bonesSkipped++; continue; }
+                   if (isQuatBone && p1.length >= 4 && p2.length >= 4) {
+                     const isZero =
+                       Math.abs(p1[0]) < 1e-8 && Math.abs(p1[1]) < 1e-8 &&
+                       Math.abs(p1[2]) < 1e-8 && Math.abs(p1[3]) < 1e-8;
+                     if (isZero) { bonesSkipped++; continue; }
 
-                  tmpQuat1.current.set(p1[0], p1[1], p1[2], p1[3]);
-                  tmpQuat2.current.set(p2[0], p2[1], p2[2], p2[3]);
-                  resultQuat.current.slerpQuaternions(
-                    tmpQuat1.current, tmpQuat2.current,
-                    transitionProgressRef.current,
-                  );
+                     tmpQuat1.current.set(p1[0], p1[1], p1[2], p1[3]);
+                     tmpQuat2.current.set(p2[0], p2[1], p2[2], p2[3]);
+                     resultQuat.current.slerpQuaternions(
+                       tmpQuat1.current, tmpQuat2.current,
+                       transitionProgressRef.current,
+                     );
+                     resultQuat.current.normalize();
 
-                    const bp = bindPoseQuats.current[key];
-                    if (bp) {
-                      const deltaQuat = resultQuat.current;
-                      tmpQuat1.current.copy(deltaQuat).multiply(bp);
-
-                     const dot = bone.quaternion.dot(tmpQuat1.current);
+                     const targetQuat = resultQuat.current;
+                     const dot = bone.quaternion.dot(targetQuat);
                      const angle = Math.acos(Math.min(1, Math.max(-1, Math.abs(dot)))) * 2;
 
                      if (angle > MAX_BONE_ANGLE) {
-                       bone.quaternion.slerp(bp, SMOOTHING);
+                       bone.quaternion.slerp(targetQuat, SMOOTHING * 0.5);
                      } else {
-                       bone.quaternion.slerp(tmpQuat1.current, SMOOTHING);
+                       bone.quaternion.slerp(targetQuat, SMOOTHING);
                      }
-                   } else {
-                     bone.quaternion.slerp(resultQuat.current, SMOOTHING);
-                   }
-                  bone.quaternion.normalize();
-                  bonesUpdated++;
+                     bone.quaternion.normalize();
+                     bonesUpdated++;
                 } else {
                   const isZero =
                     Math.abs(p1[0]) < 1e-6 && Math.abs(p1[1]) < 1e-6 && Math.abs(p1[2]) < 1e-6;
