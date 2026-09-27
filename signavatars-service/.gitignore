@@ -1,0 +1,14 @@
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.venv/
+venv/
+.venv-*/
+env/
+models/
+*.task
+*.blend
+*.obj
+*.fbx
+*.dae

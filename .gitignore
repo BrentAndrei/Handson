@@ -21,3 +21,9 @@ training/roboflow_fsl_phrases/
 training/*.task
 
 holistic_landmarker.task
+
+# Python service
+signavatars-service/.venv/
+signavatars-service/.venv-*/
+signavatars-service/__pycache__/
+signavatars-service/models/
