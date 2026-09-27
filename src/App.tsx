@@ -9,6 +9,7 @@ import { Autocomplete } from "./components/Autocomplete";
 import { GlossDisplay } from "./components/GlossDisplay";
 import SignAvatar from "./components/SignAvatar";
 import { useHolisticPipeline } from "./hooks/useHolisticPipeline";
+import { enableSmplxService } from "./avatar/dataLoader";
 import { normalizeLandmarks, NormalizedFrame } from "./utils/normalizeLandmarks";
 import { selectFeatures } from "./features/featureSelect";
 import { useSignInference } from "./inference/useSignInference";
@@ -422,6 +423,7 @@ export default function App() {
     );
   }
   useEffect(() => {
+    enableSmplxService(true);
     const onOffline = () => setOffline(true);
     const onOnline = () => setOffline(false);
     const onSwOffline = () => setOffline(!!(window as any).__offline__);

@@ -22,6 +22,10 @@ training/*.task
 
 holistic_landmarker.task
 
+# SMPL-X pre-computed data (regenerate via signavatars-service/convert_avatar_data.py)
+public/avatar-data-smplx/
+!public/avatar-data-smplx/manifest.json
+
 # Python service
 signavatars-service/.venv/
 signavatars-service/.venv-*/

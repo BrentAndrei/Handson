@@ -114,13 +114,26 @@ async function loadLabelDataSmplx(
     const smplxUrl = `${SMPLX_SERVICE_URL}/avatar-data-smplx/${sanitized}.json`;
 
     let smplxData: SmplxFrame | null = null;
+
+    // 1. Try local pre-computed SMPL-X data (served from public/)
     try {
-      const resp = await fetch(smplxUrl, { signal: AbortSignal.timeout(3000) });
+      const localUrl = `/avatar-data-smplx/${sanitized}.smplx.json`;
+      const resp = await fetch(localUrl, { signal: AbortSignal.timeout(3000) });
       if (resp.ok) {
         smplxData = await resp.json();
       }
     } catch {
-      // Service not reachable, fall back to live fitting
+    }
+
+    // 2. Fall back to SMPL-X service for pre-computed data
+    if (!smplxData) {
+      try {
+        const resp = await fetch(smplxUrl, { signal: AbortSignal.timeout(3000) });
+        if (resp.ok) {
+          smplxData = await resp.json();
+        }
+      } catch {
+      }
     }
 
     if (!smplxData) {

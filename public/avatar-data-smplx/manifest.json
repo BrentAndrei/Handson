@@ -1,0 +1,2422 @@
+{
+  "generatedAt": "2026-09-27T07:36:13.945Z",
+  "source": "Batch-converted from avatar-data/*.json via convert_avatar_data.py (SMPL-X pipeline)",
+  "totalLabels": 402,
+  "totalFrames": 193152,
+  "labels": [
+    "_",
+    "__",
+    "A",
+    "Ã_",
+    "ADOPT",
+    "AGAIN",
+    "ALLOW",
+    "ALRIGHT__NO_PROBLEM",
+    "ALRIGHT, NO PROBLEM",
+    "APPOINT",
+    "APRIL",
+    "ARCHITECT",
+    "ARE",
+    "ARE_YOU_A_STUDENT_",
+    "ARE_YOU_DEAF",
+    "ARE_YOU_OKAY",
+    "ASSIST",
+    "ATTEMPT",
+    "AUGUST",
+    "AUNTIE",
+    "B",
+    "BABY",
+    "BATH",
+    "BEAUTIFUL",
+    "BECAUSE",
+    "BEER",
+    "BLACK",
+    "BLIND",
+    "BLUE",
+    "BOY",
+    "BREAD",
+    "BREAK",
+    "BRING",
+    "BROTHER",
+    "BROWN",
+    "BUY",
+    "C",
+    "CALL",
+    "CAN",
+    "CATCH",
+    "CHANGE",
+    "CHEF",
+    "CHICKEN",
+    "CHILD",
+    "CHILDREN",
+    "CHOOSE",
+    "CLEAN",
+    "COFFEE",
+    "COLD",
+    "COME",
+    "COME_TO_EAT_TOGETHER",
+    "CONTINUE",
+    "CONTROL",
+    "COOK",
+    "COOL",
+    "COPY",
+    "CORRECT",
+    "COULD",
+    "COUNT",
+    "COUSIN",
+    "CRAB",
+    "CRY",
+    "CUTE",
+    "D",
+    "DANCE",
+    "DANCER",
+    "DARK",
+    "DAUGHTER",
+    "DAY",
+    "DEAF",
+    "DEAF_BLIND",
+    "DECEMBER",
+    "DEVELOP",
+    "DID",
+    "DISTURB",
+    "DO",
+    "DOCTOR",
+    "DON_T_KNOW",
+    "DON_T_UNDERSTAND",
+    "DRINK",
+    "DRIVE",
+    "DRUNK",
+    "E",
+    "EAT",
+    "EGG",
+    "EIGHT",
+    "EIGHTEEN",
+    "ELEVEN",
+    "EXCHANGE",
+    "EXCUSE",
+    "F",
+    "FALL",
+    "FAMILY",
+    "FAST",
+    "FAT",
+    "FATHER",
+    "FEBRUARY",
+    "FEEL",
+    "FIFTEEN",
+    "FIGHT",
+    "FINALLY__I_MEET_YOU",
+    "FINGERSPELL",
+    "FINISH",
+    "FISH",
+    "FIVE",
+    "FOLLOW",
+    "FOSTERED",
+    "FOUR",
+    "FOURTEEN",
+    "FRIDAY",
+    "FROM",
+    "G",
+    "GET",
+    "GIRL",
+    "GO",
+    "GODFATHER",
+    "GODMOTHER",
+    "GOOD_AFTERNOON",
+    "GOOD_DAY",
+    "GOOD_EVENING",
+    "GOOD_MIDDAY",
+    "GOOD_MORNING",
+    "GOOD_NIGHT",
+    "GOODBYE",
+    "GRADUATE",
+    "GRANDCHILD",
+    "GRANDFATHER",
+    "GRANDMA",
+    "GRANDMOTHER",
+    "GRANDPA",
+    "GRAY",
+    "GREEN",
+    "H",
+    "HANDSOME",
+    "HAPPEN",
+    "HAPPY",
+    "HAPPY_BIRTHDAY",
+    "HAPPY_FATHERS_DAY",
+    "HAPPY_MOTHERS_DAY",
+    "HARD_OF_HEARING",
+    "HE_SHE",
+    "HE_SHE_IS_MY_CLASSMATE",
+    "HE_SHE_IS_MY_SWEETHEART",
+    "HEAR",
+    "HEARING",
+    "HELLO",
+    "HELP",
+    "HERE",
+    "HI",
+    "HIS_HER",
+    "HOLD",
+    "HOT",
+    "HOW",
+    "HOW_ARE_YOU",
+    "HOW_ARE_YOU_",
+    "HOW_MUCH",
+    "HOW_OLD_ARE_YOU_",
+    "HURRY",
+    "HUSBAND",
+    "I",
+    "I_DONT_KNOW",
+    "I_DONT_UNDERSTAND",
+    "I_KNOW_A_LITTLE_SIGN",
+    "I_KNOW_HE_SHE_IS_MY_FRIEND",
+    "I_LOVE_YOU",
+    "I_M_FINE",
+    "I_M_FINE__THANK_YOU",
+    "I_M_GOOD",
+    "I_M_NOT_VERY_WELL",
+    "I_M_OKAY",
+    "I_M_PRETTY_GOOD",
+    "I_M_SICK",
+    "I_M_WORKING",
+    "I_UNDERSTAND",
+    "I_VE_BEEN_FINE__THANK_YOU",
+    "IM_FINE",
+    "IM_PLEASED_TO_MEET_YOU",
+    "IMPROVE",
+    "IN",
+    "INTRODUCE",
+    "INTRODUCTION",
+    "INVITE",
+    "IS",
+    "IS_IT_ALRIGHT",
+    "IT_S_ALRIGHT",
+    "ITS_FINE",
+    "J",
+    "JANUARY",
+    "JUICE",
+    "JULY",
+    "JUMP",
+    "JUNE",
+    "K",
+    "KEEP",
+    "KILL",
+    "KNOW",
+    "L",
+    "LAUGH",
+    "LET",
+    "LIGHT",
+    "LINE",
+    "LISTEN",
+    "LIVE",
+    "LONG_TIME_NO_SEE",
+    "LONGANISA",
+    "LOOK",
+    "M",
+    "MAKE",
+    "MAN",
+    "MARCH",
+    "MARRIED",
+    "MATCH",
+    "MAY",
+    "MAYBE",
+    "ME",
+    "MEAT",
+    "MILK",
+    "MINE",
+    "MONDAY",
+    "MOTHER",
+    "MOVE",
+    "MY_NAME_IS",
+    "N",
+    "NEPHEW",
+    "NEW",
+    "NG",
+    "NICE_TO_MEET_YOU",
+    "NIECE",
+    "NINE",
+    "NINETEEN",
+    "NO",
+    "NO__I_AM_NOT_A_STUDENT",
+    "NO_PROBLEM",
+    "NO_SUGAR",
+    "NOT_BAD",
+    "NOT_SURE",
+    "NOVEMBER",
+    "NOW",
+    "NOWHERE",
+    "O",
+    "OCTOBER",
+    "OFF",
+    "OH_I_SEE",
+    "OK",
+    "OKAY__I_GUESS",
+    "OLD",
+    "ON",
+    "ONE",
+    "OO",
+    "OPO",
+    "ORANGE",
+    "OUR",
+    "OUT",
+    "OVER_THERE",
+    "P",
+    "PARENTS",
+    "PAYMENT",
+    "PEOPLE",
+    "PERMIT",
+    "PHOTOGRAPHER",
+    "PINK",
+    "PLAN",
+    "PLAY",
+    "PLEASE",
+    "PLEASE_SIGN_SLOWLY",
+    "PREGNANT",
+    "PREPARE",
+    "PROBLEM",
+    "PROFESSOR",
+    "PUT",
+    "Q",
+    "R",
+    "RED",
+    "RESPONSES",
+    "RICE",
+    "RUN",
+    "S",
+    "SAD",
+    "SATURDAY",
+    "SAY",
+    "SEARCH",
+    "SEE",
+    "SEE_YOU_TOMORROW",
+    "SEND",
+    "SEPTEMBER",
+    "SERVE",
+    "SEVEN",
+    "SEVENTEEN",
+    "SHOULD",
+    "SHRIMP",
+    "SING",
+    "SISTER",
+    "SIT",
+    "SIX",
+    "SIXTEEN",
+    "SLEEP",
+    "SLOW",
+    "SMELL",
+    "SMILE",
+    "SOMEWHERE",
+    "SON",
+    "SORRY",
+    "SPAGHETTI",
+    "STAND",
+    "STEAL",
+    "STEP_BROTHER",
+    "STEP_SISTER",
+    "STOP",
+    "STUDENT",
+    "STUDY",
+    "SUGAR",
+    "SUNDAY",
+    "SUPPORT",
+    "SURE",
+    "SWIM",
+    "T",
+    "TAKE",
+    "TAKE_CARE",
+    "TALK",
+    "TEA",
+    "TEACH",
+    "TEACHER",
+    "TEENAGER",
+    "TEMPT",
+    "TEN",
+    "THANK_YOU",
+    "THEIR",
+    "THEM",
+    "THINK",
+    "THIRTEEN",
+    "THREE",
+    "THURSDAY",
+    "TODAY",
+    "TOMORROW",
+    "TOUCH",
+    "TRADE",
+    "TRY",
+    "TUESDAY",
+    "TWELVE",
+    "TWENTY",
+    "TWO",
+    "U",
+    "UGLY",
+    "UNCLE",
+    "UNDERSTAND",
+    "USE",
+    "V",
+    "VIOLET",
+    "VISIT",
+    "W",
+    "WAIT",
+    "WAKE_UP",
+    "WALK",
+    "WANT",
+    "WAS",
+    "WASH",
+    "WATCH",
+    "WE",
+    "WEDDING",
+    "WEDNESDAY",
+    "WEEK",
+    "WEELCHAIR_PERSON",
+    "WELCOME",
+    "WERE",
+    "WHAT",
+    "WHAT_ARE_YOU_STUDYING_",
+    "WHAT_S_NEW",
+    "WHAT_S_YOUR_NAME",
+    "WHAT_S_YOUR_NAME_",
+    "WHAT_WORK_DO_YOU_DO_",
+    "WHATEVER",
+    "WHATS_YOUR_NAME_",
+    "WHEN",
+    "WHERE",
+    "WHERE_DO_YOU_LIVE_",
+    "WHICH",
+    "WHICH_UNIVERSITY_ARE_YOU_STUDYING_AT_",
+    "WHISPER",
+    "WHITE",
+    "WHO",
+    "WHY",
+    "WIFE",
+    "WILL",
+    "WINE",
+    "WOMAN",
+    "WORK",
+    "WOULD",
+    "WOW",
+    "WRITE",
+    "WRONG",
+    "X",
+    "Y",
+    "YELLOW",
+    "YES",
+    "YES__I_AM_A_STUDENT",
+    "YESTERDAY",
+    "YOU",
+    "YOU_SIGN_FAST",
+    "YOUNG",
+    "YOUR",
+    "YOURE_WELCOME",
+    "Z"
+  ],
+  "entries": [
+    {
+      "file": "_.smplx.json",
+      "label": "_",
+      "frameCount": 1
+    },
+    {
+      "file": "__.smplx.json",
+      "label": "__",
+      "frameCount": 1
+    },
+    {
+      "file": "A.smplx.json",
+      "label": "A",
+      "frameCount": 94
+    },
+    {
+      "file": "Ã_.smplx.json",
+      "label": "Ã_",
+      "frameCount": 37
+    },
+    {
+      "file": "ADOPT.smplx.json",
+      "label": "ADOPT",
+      "frameCount": 79
+    },
+    {
+      "file": "AGAIN.smplx.json",
+      "label": "AGAIN",
+      "frameCount": 163
+    },
+    {
+      "file": "ALLOW.smplx.json",
+      "label": "ALLOW",
+      "frameCount": 46
+    },
+    {
+      "file": "ALRIGHT__NO_PROBLEM.smplx.json",
+      "label": "ALRIGHT__NO_PROBLEM",
+      "frameCount": 217
+    },
+    {
+      "file": "ALRIGHT, NO PROBLEM.smplx.json",
+      "label": "ALRIGHT, NO PROBLEM",
+      "frameCount": 112
+    },
+    {
+      "file": "APPOINT.smplx.json",
+      "label": "APPOINT",
+      "frameCount": 43
+    },
+    {
+      "file": "APRIL.smplx.json",
+      "label": "APRIL",
+      "frameCount": 2240
+    },
+    {
+      "file": "ARCHITECT.smplx.json",
+      "label": "ARCHITECT",
+      "frameCount": 73
+    },
+    {
+      "file": "ARE.smplx.json",
+      "label": "ARE",
+      "frameCount": 82
+    },
+    {
+      "file": "ARE_YOU_A_STUDENT_.smplx.json",
+      "label": "ARE_YOU_A_STUDENT_",
+      "frameCount": 67
+    },
+    {
+      "file": "ARE_YOU_DEAF.smplx.json",
+      "label": "ARE_YOU_DEAF",
+      "frameCount": 199
+    },
+    {
+      "file": "ARE_YOU_OKAY.smplx.json",
+      "label": "ARE_YOU_OKAY",
+      "frameCount": 130
+    },
+    {
+      "file": "ASSIST.smplx.json",
+      "label": "ASSIST",
+      "frameCount": 31
+    },
+    {
+      "file": "ATTEMPT.smplx.json",
+      "label": "ATTEMPT",
+      "frameCount": 28
+    },
+    {
+      "file": "AUGUST.smplx.json",
+      "label": "AUGUST",
+      "frameCount": 2464
+    },
+    {
+      "file": "AUNTIE.smplx.json",
+      "label": "AUNTIE",
+      "frameCount": 55
+    },
+    {
+      "file": "B.smplx.json",
+      "label": "B",
+      "frameCount": 136
+    },
+    {
+      "file": "BABY.smplx.json",
+      "label": "BABY",
+      "frameCount": 85
+    },
+    {
+      "file": "BATH.smplx.json",
+      "label": "BATH",
+      "frameCount": 31
+    },
+    {
+      "file": "BEAUTIFUL.smplx.json",
+      "label": "BEAUTIFUL",
+      "frameCount": 277
+    },
+    {
+      "file": "BECAUSE.smplx.json",
+      "label": "BECAUSE",
+      "frameCount": 112
+    },
+    {
+      "file": "BEER.smplx.json",
+      "label": "BEER",
+      "frameCount": 2240
+    },
+    {
+      "file": "BLACK.smplx.json",
+      "label": "BLACK",
+      "frameCount": 2240
+    },
+    {
+      "file": "BLIND.smplx.json",
+      "label": "BLIND",
+      "frameCount": 2240
+    },
+    {
+      "file": "BLUE.smplx.json",
+      "label": "BLUE",
+      "frameCount": 2240
+    },
+    {
+      "file": "BOY.smplx.json",
+      "label": "BOY",
+      "frameCount": 2352
+    },
+    {
+      "file": "BREAD.smplx.json",
+      "label": "BREAD",
+      "frameCount": 2240
+    },
+    {
+      "file": "BREAK.smplx.json",
+      "label": "BREAK",
+      "frameCount": 37
+    },
+    {
+      "file": "BRING.smplx.json",
+      "label": "BRING",
+      "frameCount": 52
+    },
+    {
+      "file": "BROTHER.smplx.json",
+      "label": "BROTHER",
+      "frameCount": 46
+    },
+    {
+      "file": "BROWN.smplx.json",
+      "label": "BROWN",
+      "frameCount": 2240
+    },
+    {
+      "file": "BUY.smplx.json",
+      "label": "BUY",
+      "frameCount": 43
+    },
+    {
+      "file": "C.smplx.json",
+      "label": "C",
+      "frameCount": 76
+    },
+    {
+      "file": "CALL.smplx.json",
+      "label": "CALL",
+      "frameCount": 28
+    },
+    {
+      "file": "CAN.smplx.json",
+      "label": "CAN",
+      "frameCount": 118
+    },
+    {
+      "file": "CATCH.smplx.json",
+      "label": "CATCH",
+      "frameCount": 31
+    },
+    {
+      "file": "CHANGE.smplx.json",
+      "label": "CHANGE",
+      "frameCount": 40
+    },
+    {
+      "file": "CHEF.smplx.json",
+      "label": "CHEF",
+      "frameCount": 103
+    },
+    {
+      "file": "CHICKEN.smplx.json",
+      "label": "CHICKEN",
+      "frameCount": 2240
+    },
+    {
+      "file": "CHILD.smplx.json",
+      "label": "CHILD",
+      "frameCount": 58
+    },
+    {
+      "file": "CHILDREN.smplx.json",
+      "label": "CHILDREN",
+      "frameCount": 58
+    },
+    {
+      "file": "CHOOSE.smplx.json",
+      "label": "CHOOSE",
+      "frameCount": 34
+    },
+    {
+      "file": "CLEAN.smplx.json",
+      "label": "CLEAN",
+      "frameCount": 34
+    },
+    {
+      "file": "COFFEE.smplx.json",
+      "label": "COFFEE",
+      "frameCount": 2240
+    },
+    {
+      "file": "COLD.smplx.json",
+      "label": "COLD",
+      "frameCount": 2352
+    },
+    {
+      "file": "COME.smplx.json",
+      "label": "COME",
+      "frameCount": 46
+    },
+    {
+      "file": "COME_TO_EAT_TOGETHER.smplx.json",
+      "label": "COME_TO_EAT_TOGETHER",
+      "frameCount": 103
+    },
+    {
+      "file": "CONTINUE.smplx.json",
+      "label": "CONTINUE",
+      "frameCount": 34
+    },
+    {
+      "file": "CONTROL.smplx.json",
+      "label": "CONTROL",
+      "frameCount": 37
+    },
+    {
+      "file": "COOK.smplx.json",
+      "label": "COOK",
+      "frameCount": 37
+    },
+    {
+      "file": "COOL.smplx.json",
+      "label": "COOL",
+      "frameCount": 163
+    },
+    {
+      "file": "COPY.smplx.json",
+      "label": "COPY",
+      "frameCount": 46
+    },
+    {
+      "file": "CORRECT.smplx.json",
+      "label": "CORRECT",
+      "frameCount": 2464
+    },
+    {
+      "file": "COULD.smplx.json",
+      "label": "COULD",
+      "frameCount": 103
+    },
+    {
+      "file": "COUNT.smplx.json",
+      "label": "COUNT",
+      "frameCount": 58
+    },
+    {
+      "file": "COUSIN.smplx.json",
+      "label": "COUSIN",
+      "frameCount": 55
+    },
+    {
+      "file": "CRAB.smplx.json",
+      "label": "CRAB",
+      "frameCount": 2240
+    },
+    {
+      "file": "CRY.smplx.json",
+      "label": "CRY",
+      "frameCount": 37
+    },
+    {
+      "file": "CUTE.smplx.json",
+      "label": "CUTE",
+      "frameCount": 142
+    },
+    {
+      "file": "D.smplx.json",
+      "label": "D",
+      "frameCount": 88
+    },
+    {
+      "file": "DANCE.smplx.json",
+      "label": "DANCE",
+      "frameCount": 169
+    },
+    {
+      "file": "DANCER.smplx.json",
+      "label": "DANCER",
+      "frameCount": 67
+    },
+    {
+      "file": "DARK.smplx.json",
+      "label": "DARK",
+      "frameCount": 2240
+    },
+    {
+      "file": "DAUGHTER.smplx.json",
+      "label": "DAUGHTER",
+      "frameCount": 55
+    },
+    {
+      "file": "DAY.smplx.json",
+      "label": "DAY",
+      "frameCount": 208
+    },
+    {
+      "file": "DEAF.smplx.json",
+      "label": "DEAF",
+      "frameCount": 127
+    },
+    {
+      "file": "DEAF_BLIND.smplx.json",
+      "label": "DEAF_BLIND",
+      "frameCount": 2240
+    },
+    {
+      "file": "DECEMBER.smplx.json",
+      "label": "DECEMBER",
+      "frameCount": 2464
+    },
+    {
+      "file": "DEVELOP.smplx.json",
+      "label": "DEVELOP",
+      "frameCount": 34
+    },
+    {
+      "file": "DID.smplx.json",
+      "label": "DID",
+      "frameCount": 115
+    },
+    {
+      "file": "DISTURB.smplx.json",
+      "label": "DISTURB",
+      "frameCount": 43
+    },
+    {
+      "file": "DO.smplx.json",
+      "label": "DO",
+      "frameCount": 97
+    },
+    {
+      "file": "DOCTOR.smplx.json",
+      "label": "DOCTOR",
+      "frameCount": 52
+    },
+    {
+      "file": "DON_T_KNOW.smplx.json",
+      "label": "DON_T_KNOW",
+      "frameCount": 2240
+    },
+    {
+      "file": "DON_T_UNDERSTAND.smplx.json",
+      "label": "DON_T_UNDERSTAND",
+      "frameCount": 2352
+    },
+    {
+      "file": "DRINK.smplx.json",
+      "label": "DRINK",
+      "frameCount": 40
+    },
+    {
+      "file": "DRIVE.smplx.json",
+      "label": "DRIVE",
+      "frameCount": 34
+    },
+    {
+      "file": "DRUNK.smplx.json",
+      "label": "DRUNK",
+      "frameCount": 34
+    },
+    {
+      "file": "E.smplx.json",
+      "label": "E",
+      "frameCount": 82
+    },
+    {
+      "file": "EAT.smplx.json",
+      "label": "EAT",
+      "frameCount": 28
+    },
+    {
+      "file": "EGG.smplx.json",
+      "label": "EGG",
+      "frameCount": 2240
+    },
+    {
+      "file": "EIGHT.smplx.json",
+      "label": "EIGHT",
+      "frameCount": 139
+    },
+    {
+      "file": "EIGHTEEN.smplx.json",
+      "label": "EIGHTEEN",
+      "frameCount": 160
+    },
+    {
+      "file": "ELEVEN.smplx.json",
+      "label": "ELEVEN",
+      "frameCount": 121
+    },
+    {
+      "file": "EXCHANGE.smplx.json",
+      "label": "EXCHANGE",
+      "frameCount": 46
+    },
+    {
+      "file": "EXCUSE.smplx.json",
+      "label": "EXCUSE",
+      "frameCount": 43
+    },
+    {
+      "file": "F.smplx.json",
+      "label": "F",
+      "frameCount": 76
+    },
+    {
+      "file": "FALL.smplx.json",
+      "label": "FALL",
+      "frameCount": 37
+    },
+    {
+      "file": "FAMILY.smplx.json",
+      "label": "FAMILY",
+      "frameCount": 67
+    },
+    {
+      "file": "FAST.smplx.json",
+      "label": "FAST",
+      "frameCount": 2352
+    },
+    {
+      "file": "FAT.smplx.json",
+      "label": "FAT",
+      "frameCount": 157
+    },
+    {
+      "file": "FATHER.smplx.json",
+      "label": "FATHER",
+      "frameCount": 67
+    },
+    {
+      "file": "FEBRUARY.smplx.json",
+      "label": "FEBRUARY",
+      "frameCount": 2128
+    },
+    {
+      "file": "FEEL.smplx.json",
+      "label": "FEEL",
+      "frameCount": 31
+    },
+    {
+      "file": "FIFTEEN.smplx.json",
+      "label": "FIFTEEN",
+      "frameCount": 127
+    },
+    {
+      "file": "FIGHT.smplx.json",
+      "label": "FIGHT",
+      "frameCount": 52
+    },
+    {
+      "file": "FINALLY__I_MEET_YOU.smplx.json",
+      "label": "FINALLY__I_MEET_YOU",
+      "frameCount": 232
+    },
+    {
+      "file": "FINGERSPELL.smplx.json",
+      "label": "FINGERSPELL",
+      "frameCount": 1996
+    },
+    {
+      "file": "FINISH.smplx.json",
+      "label": "FINISH",
+      "frameCount": 34
+    },
+    {
+      "file": "FISH.smplx.json",
+      "label": "FISH",
+      "frameCount": 2240
+    },
+    {
+      "file": "FIVE.smplx.json",
+      "label": "FIVE",
+      "frameCount": 130
+    },
+    {
+      "file": "FOLLOW.smplx.json",
+      "label": "FOLLOW",
+      "frameCount": 34
+    },
+    {
+      "file": "FOSTERED.smplx.json",
+      "label": "FOSTERED",
+      "frameCount": 79
+    },
+    {
+      "file": "FOUR.smplx.json",
+      "label": "FOUR",
+      "frameCount": 112
+    },
+    {
+      "file": "FOURTEEN.smplx.json",
+      "label": "FOURTEEN",
+      "frameCount": 145
+    },
+    {
+      "file": "FRIDAY.smplx.json",
+      "label": "FRIDAY",
+      "frameCount": 217
+    },
+    {
+      "file": "FROM.smplx.json",
+      "label": "FROM",
+      "frameCount": 166
+    },
+    {
+      "file": "G.smplx.json",
+      "label": "G",
+      "frameCount": 85
+    },
+    {
+      "file": "GET.smplx.json",
+      "label": "GET",
+      "frameCount": 34
+    },
+    {
+      "file": "GIRL.smplx.json",
+      "label": "GIRL",
+      "frameCount": 2240
+    },
+    {
+      "file": "GO.smplx.json",
+      "label": "GO",
+      "frameCount": 37
+    },
+    {
+      "file": "GODFATHER.smplx.json",
+      "label": "GODFATHER",
+      "frameCount": 61
+    },
+    {
+      "file": "GODMOTHER.smplx.json",
+      "label": "GODMOTHER",
+      "frameCount": 73
+    },
+    {
+      "file": "GOOD_AFTERNOON.smplx.json",
+      "label": "GOOD_AFTERNOON",
+      "frameCount": 85
+    },
+    {
+      "file": "GOOD_DAY.smplx.json",
+      "label": "GOOD_DAY",
+      "frameCount": 100
+    },
+    {
+      "file": "GOOD_EVENING.smplx.json",
+      "label": "GOOD_EVENING",
+      "frameCount": 106
+    },
+    {
+      "file": "GOOD_MIDDAY.smplx.json",
+      "label": "GOOD_MIDDAY",
+      "frameCount": 73
+    },
+    {
+      "file": "GOOD_MORNING.smplx.json",
+      "label": "GOOD_MORNING",
+      "frameCount": 97
+    },
+    {
+      "file": "GOOD_NIGHT.smplx.json",
+      "label": "GOOD_NIGHT",
+      "frameCount": 100
+    },
+    {
+      "file": "GOODBYE.smplx.json",
+      "label": "GOODBYE",
+      "frameCount": 1232
+    },
+    {
+      "file": "GRADUATE.smplx.json",
+      "label": "GRADUATE",
+      "frameCount": 43
+    },
+    {
+      "file": "GRANDCHILD.smplx.json",
+      "label": "GRANDCHILD",
+      "frameCount": 112
+    },
+    {
+      "file": "GRANDFATHER.smplx.json",
+      "label": "GRANDFATHER",
+      "frameCount": 2016
+    },
+    {
+      "file": "GRANDMA.smplx.json",
+      "label": "GRANDMA",
+      "frameCount": 61
+    },
+    {
+      "file": "GRANDMOTHER.smplx.json",
+      "label": "GRANDMOTHER",
+      "frameCount": 2240
+    },
+    {
+      "file": "GRANDPA.smplx.json",
+      "label": "GRANDPA",
+      "frameCount": 64
+    },
+    {
+      "file": "GRAY.smplx.json",
+      "label": "GRAY",
+      "frameCount": 2240
+    },
+    {
+      "file": "GREEN.smplx.json",
+      "label": "GREEN",
+      "frameCount": 2352
+    },
+    {
+      "file": "H.smplx.json",
+      "label": "H",
+      "frameCount": 94
+    },
+    {
+      "file": "HANDSOME.smplx.json",
+      "label": "HANDSOME",
+      "frameCount": 109
+    },
+    {
+      "file": "HAPPEN.smplx.json",
+      "label": "HAPPEN",
+      "frameCount": 28
+    },
+    {
+      "file": "HAPPY.smplx.json",
+      "label": "HAPPY",
+      "frameCount": 127
+    },
+    {
+      "file": "HAPPY_BIRTHDAY.smplx.json",
+      "label": "HAPPY_BIRTHDAY",
+      "frameCount": 61
+    },
+    {
+      "file": "HAPPY_FATHERS_DAY.smplx.json",
+      "label": "HAPPY_FATHERS_DAY",
+      "frameCount": 82
+    },
+    {
+      "file": "HAPPY_MOTHERS_DAY.smplx.json",
+      "label": "HAPPY_MOTHERS_DAY",
+      "frameCount": 88
+    },
+    {
+      "file": "HARD_OF_HEARING.smplx.json",
+      "label": "HARD_OF_HEARING",
+      "frameCount": 154
+    },
+    {
+      "file": "HE_SHE.smplx.json",
+      "label": "HE_SHE",
+      "frameCount": 121
+    },
+    {
+      "file": "HE_SHE_IS_MY_CLASSMATE.smplx.json",
+      "label": "HE_SHE_IS_MY_CLASSMATE",
+      "frameCount": 64
+    },
+    {
+      "file": "HE_SHE_IS_MY_SWEETHEART.smplx.json",
+      "label": "HE_SHE_IS_MY_SWEETHEART",
+      "frameCount": 70
+    },
+    {
+      "file": "HEAR.smplx.json",
+      "label": "HEAR",
+      "frameCount": 22
+    },
+    {
+      "file": "HEARING.smplx.json",
+      "label": "HEARING",
+      "frameCount": 112
+    },
+    {
+      "file": "HELLO.smplx.json",
+      "label": "HELLO",
+      "frameCount": 208
+    },
+    {
+      "file": "HELP.smplx.json",
+      "label": "HELP",
+      "frameCount": 37
+    },
+    {
+      "file": "HERE.smplx.json",
+      "label": "HERE",
+      "frameCount": 295
+    },
+    {
+      "file": "HI.smplx.json",
+      "label": "HI",
+      "frameCount": 49
+    },
+    {
+      "file": "HIS_HER.smplx.json",
+      "label": "HIS_HER",
+      "frameCount": 166
+    },
+    {
+      "file": "HOLD.smplx.json",
+      "label": "HOLD",
+      "frameCount": 28
+    },
+    {
+      "file": "HOT.smplx.json",
+      "label": "HOT",
+      "frameCount": 2240
+    },
+    {
+      "file": "HOW.smplx.json",
+      "label": "HOW",
+      "frameCount": 100
+    },
+    {
+      "file": "HOW_ARE_YOU.smplx.json",
+      "label": "HOW_ARE_YOU",
+      "frameCount": 208
+    },
+    {
+      "file": "HOW_ARE_YOU_.smplx.json",
+      "label": "HOW_ARE_YOU_",
+      "frameCount": 157
+    },
+    {
+      "file": "HOW_MUCH.smplx.json",
+      "label": "HOW_MUCH",
+      "frameCount": 142
+    },
+    {
+      "file": "HOW_OLD_ARE_YOU_.smplx.json",
+      "label": "HOW_OLD_ARE_YOU_",
+      "frameCount": 76
+    },
+    {
+      "file": "HURRY.smplx.json",
+      "label": "HURRY",
+      "frameCount": 31
+    },
+    {
+      "file": "HUSBAND.smplx.json",
+      "label": "HUSBAND",
+      "frameCount": 73
+    },
+    {
+      "file": "I.smplx.json",
+      "label": "I",
+      "frameCount": 88
+    },
+    {
+      "file": "I_DONT_KNOW.smplx.json",
+      "label": "I_DONT_KNOW",
+      "frameCount": 151
+    },
+    {
+      "file": "I_DONT_UNDERSTAND.smplx.json",
+      "label": "I_DONT_UNDERSTAND",
+      "frameCount": 244
+    },
+    {
+      "file": "I_KNOW_A_LITTLE_SIGN.smplx.json",
+      "label": "I_KNOW_A_LITTLE_SIGN",
+      "frameCount": 259
+    },
+    {
+      "file": "I_KNOW_HE_SHE_IS_MY_FRIEND.smplx.json",
+      "label": "I_KNOW_HE_SHE_IS_MY_FRIEND",
+      "frameCount": 100
+    },
+    {
+      "file": "I_LOVE_YOU.smplx.json",
+      "label": "I_LOVE_YOU",
+      "frameCount": 1408
+    },
+    {
+      "file": "I_M_FINE.smplx.json",
+      "label": "I_M_FINE",
+      "frameCount": 97
+    },
+    {
+      "file": "I_M_FINE__THANK_YOU.smplx.json",
+      "label": "I_M_FINE__THANK_YOU",
+      "frameCount": 151
+    },
+    {
+      "file": "I_M_GOOD.smplx.json",
+      "label": "I_M_GOOD",
+      "frameCount": 88
+    },
+    {
+      "file": "I_M_NOT_VERY_WELL.smplx.json",
+      "label": "I_M_NOT_VERY_WELL",
+      "frameCount": 223
+    },
+    {
+      "file": "I_M_OKAY.smplx.json",
+      "label": "I_M_OKAY",
+      "frameCount": 145
+    },
+    {
+      "file": "I_M_PRETTY_GOOD.smplx.json",
+      "label": "I_M_PRETTY_GOOD",
+      "frameCount": 121
+    },
+    {
+      "file": "I_M_SICK.smplx.json",
+      "label": "I_M_SICK",
+      "frameCount": 301
+    },
+    {
+      "file": "I_M_WORKING.smplx.json",
+      "label": "I_M_WORKING",
+      "frameCount": 64
+    },
+    {
+      "file": "I_UNDERSTAND.smplx.json",
+      "label": "I_UNDERSTAND",
+      "frameCount": 169
+    },
+    {
+      "file": "I_VE_BEEN_FINE__THANK_YOU.smplx.json",
+      "label": "I_VE_BEEN_FINE__THANK_YOU",
+      "frameCount": 94
+    },
+    {
+      "file": "IM_FINE.smplx.json",
+      "label": "IM_FINE",
+      "frameCount": 3520
+    },
+    {
+      "file": "IM_PLEASED_TO_MEET_YOU.smplx.json",
+      "label": "IM_PLEASED_TO_MEET_YOU",
+      "frameCount": 118
+    },
+    {
+      "file": "IMPROVE.smplx.json",
+      "label": "IMPROVE",
+      "frameCount": 37
+    },
+    {
+      "file": "IN.smplx.json",
+      "label": "IN",
+      "frameCount": 28
+    },
+    {
+      "file": "INTRODUCE.smplx.json",
+      "label": "INTRODUCE",
+      "frameCount": 46
+    },
+    {
+      "file": "INTRODUCTION.smplx.json",
+      "label": "INTRODUCTION",
+      "frameCount": 148
+    },
+    {
+      "file": "INVITE.smplx.json",
+      "label": "INVITE",
+      "frameCount": 43
+    },
+    {
+      "file": "IS.smplx.json",
+      "label": "IS",
+      "frameCount": 109
+    },
+    {
+      "file": "IS_IT_ALRIGHT.smplx.json",
+      "label": "IS_IT_ALRIGHT",
+      "frameCount": 178
+    },
+    {
+      "file": "IT_S_ALRIGHT.smplx.json",
+      "label": "IT_S_ALRIGHT",
+      "frameCount": 124
+    },
+    {
+      "file": "ITS_FINE.smplx.json",
+      "label": "ITS_FINE",
+      "frameCount": 190
+    },
+    {
+      "file": "J.smplx.json",
+      "label": "J",
+      "frameCount": 52
+    },
+    {
+      "file": "JANUARY.smplx.json",
+      "label": "JANUARY",
+      "frameCount": 2240
+    },
+    {
+      "file": "JUICE.smplx.json",
+      "label": "JUICE",
+      "frameCount": 2352
+    },
+    {
+      "file": "JULY.smplx.json",
+      "label": "JULY",
+      "frameCount": 2352
+    },
+    {
+      "file": "JUMP.smplx.json",
+      "label": "JUMP",
+      "frameCount": 160
+    },
+    {
+      "file": "JUNE.smplx.json",
+      "label": "JUNE",
+      "frameCount": 2240
+    },
+    {
+      "file": "K.smplx.json",
+      "label": "K",
+      "frameCount": 79
+    },
+    {
+      "file": "KEEP.smplx.json",
+      "label": "KEEP",
+      "frameCount": 34
+    },
+    {
+      "file": "KILL.smplx.json",
+      "label": "KILL",
+      "frameCount": 37
+    },
+    {
+      "file": "KNOW.smplx.json",
+      "label": "KNOW",
+      "frameCount": 2352
+    },
+    {
+      "file": "L.smplx.json",
+      "label": "L",
+      "frameCount": 73
+    },
+    {
+      "file": "LAUGH.smplx.json",
+      "label": "LAUGH",
+      "frameCount": 127
+    },
+    {
+      "file": "LET.smplx.json",
+      "label": "LET",
+      "frameCount": 28
+    },
+    {
+      "file": "LIGHT.smplx.json",
+      "label": "LIGHT",
+      "frameCount": 2240
+    },
+    {
+      "file": "LINE.smplx.json",
+      "label": "LINE",
+      "frameCount": 37
+    },
+    {
+      "file": "LISTEN.smplx.json",
+      "label": "LISTEN",
+      "frameCount": 28
+    },
+    {
+      "file": "LIVE.smplx.json",
+      "label": "LIVE",
+      "frameCount": 148
+    },
+    {
+      "file": "LONG_TIME_NO_SEE.smplx.json",
+      "label": "LONG_TIME_NO_SEE",
+      "frameCount": 79
+    },
+    {
+      "file": "LONGANISA.smplx.json",
+      "label": "LONGANISA",
+      "frameCount": 2240
+    },
+    {
+      "file": "LOOK.smplx.json",
+      "label": "LOOK",
+      "frameCount": 43
+    },
+    {
+      "file": "M.smplx.json",
+      "label": "M",
+      "frameCount": 91
+    },
+    {
+      "file": "MAKE.smplx.json",
+      "label": "MAKE",
+      "frameCount": 40
+    },
+    {
+      "file": "MAN.smplx.json",
+      "label": "MAN",
+      "frameCount": 2240
+    },
+    {
+      "file": "MARCH.smplx.json",
+      "label": "MARCH",
+      "frameCount": 37
+    },
+    {
+      "file": "MARRIED.smplx.json",
+      "label": "MARRIED",
+      "frameCount": 2240
+    },
+    {
+      "file": "MATCH.smplx.json",
+      "label": "MATCH",
+      "frameCount": 43
+    },
+    {
+      "file": "MAY.smplx.json",
+      "label": "MAY",
+      "frameCount": 2352
+    },
+    {
+      "file": "MAYBE.smplx.json",
+      "label": "MAYBE",
+      "frameCount": 100
+    },
+    {
+      "file": "ME.smplx.json",
+      "label": "ME",
+      "frameCount": 70
+    },
+    {
+      "file": "MEAT.smplx.json",
+      "label": "MEAT",
+      "frameCount": 2240
+    },
+    {
+      "file": "MILK.smplx.json",
+      "label": "MILK",
+      "frameCount": 2240
+    },
+    {
+      "file": "MINE.smplx.json",
+      "label": "MINE",
+      "frameCount": 106
+    },
+    {
+      "file": "MONDAY.smplx.json",
+      "label": "MONDAY",
+      "frameCount": 139
+    },
+    {
+      "file": "MOTHER.smplx.json",
+      "label": "MOTHER",
+      "frameCount": 58
+    },
+    {
+      "file": "MOVE.smplx.json",
+      "label": "MOVE",
+      "frameCount": 43
+    },
+    {
+      "file": "MY_NAME_IS.smplx.json",
+      "label": "MY_NAME_IS",
+      "frameCount": 94
+    },
+    {
+      "file": "N.smplx.json",
+      "label": "N",
+      "frameCount": 82
+    },
+    {
+      "file": "NEPHEW.smplx.json",
+      "label": "NEPHEW",
+      "frameCount": 70
+    },
+    {
+      "file": "NEW.smplx.json",
+      "label": "NEW",
+      "frameCount": 139
+    },
+    {
+      "file": "NG.smplx.json",
+      "label": "NG",
+      "frameCount": 37
+    },
+    {
+      "file": "NICE_TO_MEET_YOU.smplx.json",
+      "label": "NICE_TO_MEET_YOU",
+      "frameCount": 286
+    },
+    {
+      "file": "NIECE.smplx.json",
+      "label": "NIECE",
+      "frameCount": 52
+    },
+    {
+      "file": "NINE.smplx.json",
+      "label": "NINE",
+      "frameCount": 124
+    },
+    {
+      "file": "NINETEEN.smplx.json",
+      "label": "NINETEEN",
+      "frameCount": 307
+    },
+    {
+      "file": "NO.smplx.json",
+      "label": "NO",
+      "frameCount": 112
+    },
+    {
+      "file": "NO__I_AM_NOT_A_STUDENT.smplx.json",
+      "label": "NO__I_AM_NOT_A_STUDENT",
+      "frameCount": 94
+    },
+    {
+      "file": "NO_PROBLEM.smplx.json",
+      "label": "NO_PROBLEM",
+      "frameCount": 172
+    },
+    {
+      "file": "NO_SUGAR.smplx.json",
+      "label": "NO_SUGAR",
+      "frameCount": 2240
+    },
+    {
+      "file": "NOT_BAD.smplx.json",
+      "label": "NOT_BAD",
+      "frameCount": 118
+    },
+    {
+      "file": "NOT_SURE.smplx.json",
+      "label": "NOT_SURE",
+      "frameCount": 235
+    },
+    {
+      "file": "NOVEMBER.smplx.json",
+      "label": "NOVEMBER",
+      "frameCount": 2464
+    },
+    {
+      "file": "NOW.smplx.json",
+      "label": "NOW",
+      "frameCount": 169
+    },
+    {
+      "file": "NOWHERE.smplx.json",
+      "label": "NOWHERE",
+      "frameCount": 127
+    },
+    {
+      "file": "O.smplx.json",
+      "label": "O",
+      "frameCount": 79
+    },
+    {
+      "file": "OCTOBER.smplx.json",
+      "label": "OCTOBER",
+      "frameCount": 2240
+    },
+    {
+      "file": "OFF.smplx.json",
+      "label": "OFF",
+      "frameCount": 34
+    },
+    {
+      "file": "OH_I_SEE.smplx.json",
+      "label": "OH_I_SEE",
+      "frameCount": 121
+    },
+    {
+      "file": "OK.smplx.json",
+      "label": "OK",
+      "frameCount": 124
+    },
+    {
+      "file": "OKAY__I_GUESS.smplx.json",
+      "label": "OKAY__I_GUESS",
+      "frameCount": 151
+    },
+    {
+      "file": "OLD.smplx.json",
+      "label": "OLD",
+      "frameCount": 229
+    },
+    {
+      "file": "ON.smplx.json",
+      "label": "ON",
+      "frameCount": 25
+    },
+    {
+      "file": "ONE.smplx.json",
+      "label": "ONE",
+      "frameCount": 259
+    },
+    {
+      "file": "OO.smplx.json",
+      "label": "OO",
+      "frameCount": 52
+    },
+    {
+      "file": "OPO.smplx.json",
+      "label": "OPO",
+      "frameCount": 67
+    },
+    {
+      "file": "ORANGE.smplx.json",
+      "label": "ORANGE",
+      "frameCount": 2240
+    },
+    {
+      "file": "OUR.smplx.json",
+      "label": "OUR",
+      "frameCount": 151
+    },
+    {
+      "file": "OUT.smplx.json",
+      "label": "OUT",
+      "frameCount": 25
+    },
+    {
+      "file": "OVER_THERE.smplx.json",
+      "label": "OVER_THERE",
+      "frameCount": 91
+    },
+    {
+      "file": "P.smplx.json",
+      "label": "P",
+      "frameCount": 76
+    },
+    {
+      "file": "PARENTS.smplx.json",
+      "label": "PARENTS",
+      "frameCount": 70
+    },
+    {
+      "file": "PAYMENT.smplx.json",
+      "label": "PAYMENT",
+      "frameCount": 34
+    },
+    {
+      "file": "PEOPLE.smplx.json",
+      "label": "PEOPLE",
+      "frameCount": 160
+    },
+    {
+      "file": "PERMIT.smplx.json",
+      "label": "PERMIT",
+      "frameCount": 40
+    },
+    {
+      "file": "PHOTOGRAPHER.smplx.json",
+      "label": "PHOTOGRAPHER",
+      "frameCount": 58
+    },
+    {
+      "file": "PINK.smplx.json",
+      "label": "PINK",
+      "frameCount": 2240
+    },
+    {
+      "file": "PLAN.smplx.json",
+      "label": "PLAN",
+      "frameCount": 34
+    },
+    {
+      "file": "PLAY.smplx.json",
+      "label": "PLAY",
+      "frameCount": 133
+    },
+    {
+      "file": "PLEASE.smplx.json",
+      "label": "PLEASE",
+      "frameCount": 1104
+    },
+    {
+      "file": "PLEASE_SIGN_SLOWLY.smplx.json",
+      "label": "PLEASE_SIGN_SLOWLY",
+      "frameCount": 337
+    },
+    {
+      "file": "PREGNANT.smplx.json",
+      "label": "PREGNANT",
+      "frameCount": 52
+    },
+    {
+      "file": "PREPARE.smplx.json",
+      "label": "PREPARE",
+      "frameCount": 28
+    },
+    {
+      "file": "PROBLEM.smplx.json",
+      "label": "PROBLEM",
+      "frameCount": 157
+    },
+    {
+      "file": "PROFESSOR.smplx.json",
+      "label": "PROFESSOR",
+      "frameCount": 70
+    },
+    {
+      "file": "PUT.smplx.json",
+      "label": "PUT",
+      "frameCount": 37
+    },
+    {
+      "file": "Q.smplx.json",
+      "label": "Q",
+      "frameCount": 79
+    },
+    {
+      "file": "R.smplx.json",
+      "label": "R",
+      "frameCount": 64
+    },
+    {
+      "file": "RED.smplx.json",
+      "label": "RED",
+      "frameCount": 2240
+    },
+    {
+      "file": "RESPONSES.smplx.json",
+      "label": "RESPONSES",
+      "frameCount": 109
+    },
+    {
+      "file": "RICE.smplx.json",
+      "label": "RICE",
+      "frameCount": 2240
+    },
+    {
+      "file": "RUN.smplx.json",
+      "label": "RUN",
+      "frameCount": 136
+    },
+    {
+      "file": "S.smplx.json",
+      "label": "S",
+      "frameCount": 64
+    },
+    {
+      "file": "SAD.smplx.json",
+      "label": "SAD",
+      "frameCount": 298
+    },
+    {
+      "file": "SATURDAY.smplx.json",
+      "label": "SATURDAY",
+      "frameCount": 133
+    },
+    {
+      "file": "SAY.smplx.json",
+      "label": "SAY",
+      "frameCount": 103
+    },
+    {
+      "file": "SEARCH.smplx.json",
+      "label": "SEARCH",
+      "frameCount": 49
+    },
+    {
+      "file": "SEE.smplx.json",
+      "label": "SEE",
+      "frameCount": 37
+    },
+    {
+      "file": "SEE_YOU_TOMORROW.smplx.json",
+      "label": "SEE_YOU_TOMORROW",
+      "frameCount": 2240
+    },
+    {
+      "file": "SEND.smplx.json",
+      "label": "SEND",
+      "frameCount": 40
+    },
+    {
+      "file": "SEPTEMBER.smplx.json",
+      "label": "SEPTEMBER",
+      "frameCount": 2240
+    },
+    {
+      "file": "SERVE.smplx.json",
+      "label": "SERVE",
+      "frameCount": 46
+    },
+    {
+      "file": "SEVEN.smplx.json",
+      "label": "SEVEN",
+      "frameCount": 133
+    },
+    {
+      "file": "SEVENTEEN.smplx.json",
+      "label": "SEVENTEEN",
+      "frameCount": 109
+    },
+    {
+      "file": "SHOULD.smplx.json",
+      "label": "SHOULD",
+      "frameCount": 100
+    },
+    {
+      "file": "SHRIMP.smplx.json",
+      "label": "SHRIMP",
+      "frameCount": 2240
+    },
+    {
+      "file": "SING.smplx.json",
+      "label": "SING",
+      "frameCount": 40
+    },
+    {
+      "file": "SISTER.smplx.json",
+      "label": "SISTER",
+      "frameCount": 40
+    },
+    {
+      "file": "SIT.smplx.json",
+      "label": "SIT",
+      "frameCount": 31
+    },
+    {
+      "file": "SIX.smplx.json",
+      "label": "SIX",
+      "frameCount": 151
+    },
+    {
+      "file": "SIXTEEN.smplx.json",
+      "label": "SIXTEEN",
+      "frameCount": 127
+    },
+    {
+      "file": "SLEEP.smplx.json",
+      "label": "SLEEP",
+      "frameCount": 109
+    },
+    {
+      "file": "SLOW.smplx.json",
+      "label": "SLOW",
+      "frameCount": 2352
+    },
+    {
+      "file": "SMELL.smplx.json",
+      "label": "SMELL",
+      "frameCount": 28
+    },
+    {
+      "file": "SMILE.smplx.json",
+      "label": "SMILE",
+      "frameCount": 124
+    },
+    {
+      "file": "SOMEWHERE.smplx.json",
+      "label": "SOMEWHERE",
+      "frameCount": 133
+    },
+    {
+      "file": "SON.smplx.json",
+      "label": "SON",
+      "frameCount": 61
+    },
+    {
+      "file": "SORRY.smplx.json",
+      "label": "SORRY",
+      "frameCount": 166
+    },
+    {
+      "file": "SPAGHETTI.smplx.json",
+      "label": "SPAGHETTI",
+      "frameCount": 2240
+    },
+    {
+      "file": "STAND.smplx.json",
+      "label": "STAND",
+      "frameCount": 28
+    },
+    {
+      "file": "STEAL.smplx.json",
+      "label": "STEAL",
+      "frameCount": 40
+    },
+    {
+      "file": "STEP_BROTHER.smplx.json",
+      "label": "STEP_BROTHER",
+      "frameCount": 73
+    },
+    {
+      "file": "STEP_SISTER.smplx.json",
+      "label": "STEP_SISTER",
+      "frameCount": 67
+    },
+    {
+      "file": "STOP.smplx.json",
+      "label": "STOP",
+      "frameCount": 37
+    },
+    {
+      "file": "STUDENT.smplx.json",
+      "label": "STUDENT",
+      "frameCount": 55
+    },
+    {
+      "file": "STUDY.smplx.json",
+      "label": "STUDY",
+      "frameCount": 37
+    },
+    {
+      "file": "SUGAR.smplx.json",
+      "label": "SUGAR",
+      "frameCount": 2352
+    },
+    {
+      "file": "SUNDAY.smplx.json",
+      "label": "SUNDAY",
+      "frameCount": 121
+    },
+    {
+      "file": "SUPPORT.smplx.json",
+      "label": "SUPPORT",
+      "frameCount": 28
+    },
+    {
+      "file": "SURE.smplx.json",
+      "label": "SURE",
+      "frameCount": 127
+    },
+    {
+      "file": "SWIM.smplx.json",
+      "label": "SWIM",
+      "frameCount": 40
+    },
+    {
+      "file": "T.smplx.json",
+      "label": "T",
+      "frameCount": 61
+    },
+    {
+      "file": "TAKE.smplx.json",
+      "label": "TAKE",
+      "frameCount": 37
+    },
+    {
+      "file": "TAKE_CARE.smplx.json",
+      "label": "TAKE_CARE",
+      "frameCount": 46
+    },
+    {
+      "file": "TALK.smplx.json",
+      "label": "TALK",
+      "frameCount": 121
+    },
+    {
+      "file": "TEA.smplx.json",
+      "label": "TEA",
+      "frameCount": 2240
+    },
+    {
+      "file": "TEACH.smplx.json",
+      "label": "TEACH",
+      "frameCount": 49
+    },
+    {
+      "file": "TEACHER.smplx.json",
+      "label": "TEACHER",
+      "frameCount": 52
+    },
+    {
+      "file": "TEENAGER.smplx.json",
+      "label": "TEENAGER",
+      "frameCount": 55
+    },
+    {
+      "file": "TEMPT.smplx.json",
+      "label": "TEMPT",
+      "frameCount": 40
+    },
+    {
+      "file": "TEN.smplx.json",
+      "label": "TEN",
+      "frameCount": 133
+    },
+    {
+      "file": "THANK_YOU.smplx.json",
+      "label": "THANK_YOU",
+      "frameCount": 124
+    },
+    {
+      "file": "THEIR.smplx.json",
+      "label": "THEIR",
+      "frameCount": 157
+    },
+    {
+      "file": "THEM.smplx.json",
+      "label": "THEM",
+      "frameCount": 253
+    },
+    {
+      "file": "THINK.smplx.json",
+      "label": "THINK",
+      "frameCount": 28
+    },
+    {
+      "file": "THIRTEEN.smplx.json",
+      "label": "THIRTEEN",
+      "frameCount": 166
+    },
+    {
+      "file": "THREE.smplx.json",
+      "label": "THREE",
+      "frameCount": 100
+    },
+    {
+      "file": "THURSDAY.smplx.json",
+      "label": "THURSDAY",
+      "frameCount": 268
+    },
+    {
+      "file": "TODAY.smplx.json",
+      "label": "TODAY",
+      "frameCount": 2240
+    },
+    {
+      "file": "TOMORROW.smplx.json",
+      "label": "TOMORROW",
+      "frameCount": 2352
+    },
+    {
+      "file": "TOUCH.smplx.json",
+      "label": "TOUCH",
+      "frameCount": 28
+    },
+    {
+      "file": "TRADE.smplx.json",
+      "label": "TRADE",
+      "frameCount": 52
+    },
+    {
+      "file": "TRY.smplx.json",
+      "label": "TRY",
+      "frameCount": 31
+    },
+    {
+      "file": "TUESDAY.smplx.json",
+      "label": "TUESDAY",
+      "frameCount": 118
+    },
+    {
+      "file": "TWELVE.smplx.json",
+      "label": "TWELVE",
+      "frameCount": 139
+    },
+    {
+      "file": "TWENTY.smplx.json",
+      "label": "TWENTY",
+      "frameCount": 124
+    },
+    {
+      "file": "TWO.smplx.json",
+      "label": "TWO",
+      "frameCount": 106
+    },
+    {
+      "file": "U.smplx.json",
+      "label": "U",
+      "frameCount": 49
+    },
+    {
+      "file": "UGLY.smplx.json",
+      "label": "UGLY",
+      "frameCount": 124
+    },
+    {
+      "file": "UNCLE.smplx.json",
+      "label": "UNCLE",
+      "frameCount": 55
+    },
+    {
+      "file": "UNDERSTAND.smplx.json",
+      "label": "UNDERSTAND",
+      "frameCount": 139
+    },
+    {
+      "file": "USE.smplx.json",
+      "label": "USE",
+      "frameCount": 40
+    },
+    {
+      "file": "V.smplx.json",
+      "label": "V",
+      "frameCount": 58
+    },
+    {
+      "file": "VIOLET.smplx.json",
+      "label": "VIOLET",
+      "frameCount": 2240
+    },
+    {
+      "file": "VISIT.smplx.json",
+      "label": "VISIT",
+      "frameCount": 43
+    },
+    {
+      "file": "W.smplx.json",
+      "label": "W",
+      "frameCount": 67
+    },
+    {
+      "file": "WAIT.smplx.json",
+      "label": "WAIT",
+      "frameCount": 154
+    },
+    {
+      "file": "WAKE_UP.smplx.json",
+      "label": "WAKE_UP",
+      "frameCount": 34
+    },
+    {
+      "file": "WALK.smplx.json",
+      "label": "WALK",
+      "frameCount": 154
+    },
+    {
+      "file": "WANT.smplx.json",
+      "label": "WANT",
+      "frameCount": 34
+    },
+    {
+      "file": "WAS.smplx.json",
+      "label": "WAS",
+      "frameCount": 100
+    },
+    {
+      "file": "WASH.smplx.json",
+      "label": "WASH",
+      "frameCount": 52
+    },
+    {
+      "file": "WATCH.smplx.json",
+      "label": "WATCH",
+      "frameCount": 37
+    },
+    {
+      "file": "WE.smplx.json",
+      "label": "WE",
+      "frameCount": 112
+    },
+    {
+      "file": "WEDDING.smplx.json",
+      "label": "WEDDING",
+      "frameCount": 73
+    },
+    {
+      "file": "WEDNESDAY.smplx.json",
+      "label": "WEDNESDAY",
+      "frameCount": 106
+    },
+    {
+      "file": "WEEK.smplx.json",
+      "label": "WEEK",
+      "frameCount": 172
+    },
+    {
+      "file": "WEELCHAIR_PERSON.smplx.json",
+      "label": "WEELCHAIR_PERSON",
+      "frameCount": 2240
+    },
+    {
+      "file": "WELCOME.smplx.json",
+      "label": "WELCOME",
+      "frameCount": 103
+    },
+    {
+      "file": "WERE.smplx.json",
+      "label": "WERE",
+      "frameCount": 127
+    },
+    {
+      "file": "WHAT.smplx.json",
+      "label": "WHAT",
+      "frameCount": 376
+    },
+    {
+      "file": "WHAT_ARE_YOU_STUDYING_.smplx.json",
+      "label": "WHAT_ARE_YOU_STUDYING_",
+      "frameCount": 67
+    },
+    {
+      "file": "WHAT_S_NEW.smplx.json",
+      "label": "WHAT_S_NEW",
+      "frameCount": 241
+    },
+    {
+      "file": "WHAT_S_YOUR_NAME.smplx.json",
+      "label": "WHAT_S_YOUR_NAME",
+      "frameCount": 79
+    },
+    {
+      "file": "WHAT_S_YOUR_NAME_.smplx.json",
+      "label": "WHAT_S_YOUR_NAME_",
+      "frameCount": 79
+    },
+    {
+      "file": "WHAT_WORK_DO_YOU_DO_.smplx.json",
+      "label": "WHAT_WORK_DO_YOU_DO_",
+      "frameCount": 79
+    },
+    {
+      "file": "WHATEVER.smplx.json",
+      "label": "WHATEVER",
+      "frameCount": 85
+    },
+    {
+      "file": "WHATS_YOUR_NAME_.smplx.json",
+      "label": "WHATS_YOUR_NAME_",
+      "frameCount": 250
+    },
+    {
+      "file": "WHEN.smplx.json",
+      "label": "WHEN",
+      "frameCount": 361
+    },
+    {
+      "file": "WHERE.smplx.json",
+      "label": "WHERE",
+      "frameCount": 337
+    },
+    {
+      "file": "WHERE_DO_YOU_LIVE_.smplx.json",
+      "label": "WHERE_DO_YOU_LIVE_",
+      "frameCount": 94
+    },
+    {
+      "file": "WHICH.smplx.json",
+      "label": "WHICH",
+      "frameCount": 415
+    },
+    {
+      "file": "WHICH_UNIVERSITY_ARE_YOU_STUDYING_AT_.smplx.json",
+      "label": "WHICH_UNIVERSITY_ARE_YOU_STUDYING_AT_",
+      "frameCount": 115
+    },
+    {
+      "file": "WHISPER.smplx.json",
+      "label": "WHISPER",
+      "frameCount": 25
+    },
+    {
+      "file": "WHITE.smplx.json",
+      "label": "WHITE",
+      "frameCount": 2240
+    },
+    {
+      "file": "WHO.smplx.json",
+      "label": "WHO",
+      "frameCount": 454
+    },
+    {
+      "file": "WHY.smplx.json",
+      "label": "WHY",
+      "frameCount": 247
+    },
+    {
+      "file": "WIFE.smplx.json",
+      "label": "WIFE",
+      "frameCount": 64
+    },
+    {
+      "file": "WILL.smplx.json",
+      "label": "WILL",
+      "frameCount": 115
+    },
+    {
+      "file": "WINE.smplx.json",
+      "label": "WINE",
+      "frameCount": 2240
+    },
+    {
+      "file": "WOMAN.smplx.json",
+      "label": "WOMAN",
+      "frameCount": 2240
+    },
+    {
+      "file": "WORK.smplx.json",
+      "label": "WORK",
+      "frameCount": 43
+    },
+    {
+      "file": "WOULD.smplx.json",
+      "label": "WOULD",
+      "frameCount": 85
+    },
+    {
+      "file": "WOW.smplx.json",
+      "label": "WOW",
+      "frameCount": 112
+    },
+    {
+      "file": "WRITE.smplx.json",
+      "label": "WRITE",
+      "frameCount": 46
+    },
+    {
+      "file": "WRONG.smplx.json",
+      "label": "WRONG",
+      "frameCount": 2352
+    },
+    {
+      "file": "X.smplx.json",
+      "label": "X",
+      "frameCount": 64
+    },
+    {
+      "file": "Y.smplx.json",
+      "label": "Y",
+      "frameCount": 76
+    },
+    {
+      "file": "YELLOW.smplx.json",
+      "label": "YELLOW",
+      "frameCount": 2240
+    },
+    {
+      "file": "YES.smplx.json",
+      "label": "YES",
+      "frameCount": 115
+    },
+    {
+      "file": "YES__I_AM_A_STUDENT.smplx.json",
+      "label": "YES__I_AM_A_STUDENT",
+      "frameCount": 76
+    },
+    {
+      "file": "YESTERDAY.smplx.json",
+      "label": "YESTERDAY",
+      "frameCount": 2240
+    },
+    {
+      "file": "YOU.smplx.json",
+      "label": "YOU",
+      "frameCount": 103
+    },
+    {
+      "file": "YOU_SIGN_FAST.smplx.json",
+      "label": "YOU_SIGN_FAST",
+      "frameCount": 238
+    },
+    {
+      "file": "YOUNG.smplx.json",
+      "label": "YOUNG",
+      "frameCount": 145
+    },
+    {
+      "file": "YOUR.smplx.json",
+      "label": "YOUR",
+      "frameCount": 97
+    },
+    {
+      "file": "YOURE_WELCOME.smplx.json",
+      "label": "YOURE_WELCOME",
+      "frameCount": 3296
+    },
+    {
+      "file": "Z.smplx.json",
+      "label": "Z",
+      "frameCount": 37
+    }
+  ]
+}

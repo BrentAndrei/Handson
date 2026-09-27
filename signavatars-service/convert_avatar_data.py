@@ -27,7 +27,7 @@ def convert_frame(raw_frame: list[float], fitter: SmplxFitter) -> dict:
     if landmarks.size != TOTAL_FLOATS_PER_FRAME:
         raise ValueError(f"Expected {TOTAL_FLOATS_PER_FRAME} floats, got {landmarks.size}")
 
-    result = fitter.fit_frame(landmarks.reshape(1, -1))
+    result = fitter.fit_frame(landmarks)
 
     return {
         "pose": result.pose,
