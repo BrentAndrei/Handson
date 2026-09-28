@@ -97,7 +97,6 @@ export default function SignAvatar({
   const tmpQuat1 = useRef(new THREE.Quaternion());
   const tmpQuat2 = useRef(new THREE.Quaternion());
   const tmpEuler1 = useRef(new THREE.Euler());
-  const tmpEuler2 = useRef(new THREE.Euler());
   const bindPoseQuats = useRef<Record<string, THREE.Quaternion>>({});
   const parentWorldQuatsRef = useRef<Record<string, THREE.Quaternion>>({});
   const resultQuat = useRef(new THREE.Quaternion());
@@ -602,10 +601,13 @@ export default function SignAvatar({
                   const isZero =
                     Math.abs(p1[0]) < 1e-6 && Math.abs(p1[1]) < 1e-6 && Math.abs(p1[2]) < 1e-6;
                   if (isZero) { bonesSkipped++; continue; }
-                  tmpQuat1.current.setFromEuler(tmpEuler1.current.set(p1[0], p1[1], p1[2]));
-                  tmpQuat2.current.setFromEuler(tmpEuler2.current.set(p2[0], p2[1], p2[2]));
-                  bone.quaternion.slerpQuaternions(tmpQuat1.current, tmpQuat2.current, transitionProgressRef.current);
-                  bone.quaternion.normalize();
+                  // Position bones (root, hips) - interpolate position, not rotation
+                  const t = transitionProgressRef.current;
+                  bone.position.set(
+                    p1[0] + (p2[0] - p1[0]) * t,
+                    p1[1] + (p2[1] - p1[1]) * t,
+                    p1[2] + (p2[2] - p1[2]) * t,
+                  );
                   bonesUpdated++;
                 }
               } else {

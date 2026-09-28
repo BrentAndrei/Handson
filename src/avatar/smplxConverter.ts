@@ -235,11 +235,13 @@ export function smplxPoseToAvatarFrame(
       frame.rightHand = transformQuatByFrame(rhCombined, rhCorrection) as [number, number, number, number];
     }
 
-  // Root position
-  if (smplxPose.transl && smplxPose.transl.length >= 3) {
-    frame.root = [smplxPose.transl[0], smplxPose.transl[1], smplxPose.transl[2]];
-    frame.hips = frame.root;
-  }
+  // Root position: zeroed for consistency with quaternion-based retargeting.
+  // The SmPL-X transl values represent root position in normalized landmark space
+  // (hips ~1.4 shoulder-widths below shoulders). Applying them as bone rotation
+  // via setFromEuler causes massive twisting (curled-up state).
+  // The avatar's root position is fixed in the model's bind pose.
+  frame.root = [0, 0, 0];
+  frame.hips = [0, 0, 0];
 
   return frame;
 }
