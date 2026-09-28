@@ -395,9 +395,25 @@ class CCDIKChain:
         return children
 
 
-# ---------------------------------------------------------------------------
-# Main fitter class
-# ---------------------------------------------------------------------------
+def rotate_vector_by_inverse_quat(v: np.ndarray, q: np.ndarray) -> np.ndarray:
+    """Rotate vector v by the inverse of quaternion q (x, y, z, w format).
+
+    This transforms a world-space vector into the local frame defined by q.
+    Equivalent to: conjugate(q) * [0, v] * q
+    """
+    qx, qy, qz, qw = q
+    vx, vy, vz = v
+    # Build the rotation matrix for the inverse quaternion
+    # (same as forward rotation with -qx, -qy, -qz)
+    rx, ry, rz, rw = -qx, -qy, -qz, qw
+    xx, yy, zz = rx * rx, ry * ry, rz * rz
+    xy, xz, yz = rx * ry, rx * rz, ry * rz
+    xw, yw, zw = rx * rw, ry * rw, rz * rw
+    return np.array([
+        vx * (1 - 2 * (yy + zz)) + vy * (2 * (xy - zw)) + vz * (2 * (xz + yw)),
+        vx * (2 * (xy + zw)) + vy * (1 - 2 * (xx + zz)) + vz * (2 * (yz - xw)),
+        vx * (2 * (xz - yw)) + vy * (2 * (yz + xw)) + vz * (1 - 2 * (xx + yy)),
+    ])
 
 @dataclass
 class FitResult:
@@ -763,8 +779,8 @@ class SmplxFitter:
             "right_upper_arm": "right_elbow",
             "left_forearm": "left_wrist",     # constrain wrist position
             "right_forearm": "right_wrist",
-            "left_hand": "left_wrist",        # constrain hand position to wrist
-            "right_hand": "right_wrist",
+            "left_hand": "left_index_mcp",    # orient hand toward index MCP
+            "right_hand": "right_index_mcp",
         }
 
         targets = {}
@@ -774,6 +790,13 @@ class SmplxFitter:
                 targets[name] = mp_lm[lm_name]
             elif name == "pelvis":
                 targets[name] = hip_center.copy()
+
+        # Fallback for hands: if index_mcp landmark is collapsed (same as wrist),
+        # fall back to wrist target so hand extends from forearm
+        for hand_name, fallback_lm in [("left_hand", "left_wrist"), ("right_hand", "right_wrist")]:
+            if hand_name in targets and fallback_lm in mp_lm:
+                if np.allclose(targets[hand_name], mp_lm[fallback_lm], atol=1e-6):
+                    targets[hand_name] = mp_lm[fallback_lm]
 
         # Run IK
         ik.solve(targets, iterations=15, tolerance=1e-3)
@@ -845,20 +868,35 @@ class SmplxFitter:
                 if pose_idx + 3 <= 72:
                     pose[pose_idx:pose_idx + 3] = aa
 
-        # Hand pose: use hand direction vectors
-        # For simplicity, encode hand orientation from wrist→MCP and MCP→tip
+        # Hand pose: compute as a LOCAL-space rotation relative to the hand joint.
+        # The direction from wrist→index MCP is in world coordinates; we transform it
+        # into the hand's local frame using the hand joint's body rotation, then encode
+        # as axis-angle. This avoids the "curling effect" of applying world-space axes
+        # as local-space rotations.
         left_index_mcp = mp_lm.get("left_index_mcp", None)
         right_index_mcp = mp_lm.get("right_index_mcp", None)
 
         # Hand pose at indices 66-71 (6 values for minimal hand pose)
-        if left_index_mcp is not None and l_wrist is not None:
-            direction = left_index_mcp - l_wrist
-            direction = direction / (np.linalg.norm(direction) + 1e-10)
-            pose[66:69] = direction * 0.1  # scale to small rotation
-        if right_index_mcp is not None and r_wrist is not None:
-            direction = right_index_mcp - r_wrist
-            direction = direction / (np.linalg.norm(direction) + 1e-10)
-            pose[69:72] = direction * 0.1
+        left_hand_idx = name_to_idx.get("left_hand")
+        right_hand_idx = name_to_idx.get("right_hand")
+        if left_index_mcp is not None and l_wrist is not None and left_hand_idx is not None:
+            world_dir = left_index_mcp - l_wrist
+            norm = np.linalg.norm(world_dir)
+            if norm > 1e-6:
+                world_dir = world_dir / norm
+                hand_body_quat = ik.joint_rotations[left_hand_idx]  # [x, y, z, w]
+                # Transform world-space direction to hand's local frame:
+                # local_dir = conjugate(quat) * world_dir * quat
+                local_dir = rotate_vector_by_inverse_quat(world_dir, hand_body_quat)
+                pose[66:69] = local_dir * 0.1
+        if right_index_mcp is not None and r_wrist is not None and right_hand_idx is not None:
+            world_dir = right_index_mcp - r_wrist
+            norm = np.linalg.norm(world_dir)
+            if norm > 1e-6:
+                world_dir = world_dir / norm
+                hand_body_quat = ik.joint_rotations[right_hand_idx]
+                local_dir = rotate_vector_by_inverse_quat(world_dir, hand_body_quat)
+                pose[69:72] = local_dir * 0.1
 
         transl = pelvis_pos.tolist()
         global_orient = pose[0:3].tolist()

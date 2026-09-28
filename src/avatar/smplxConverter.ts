@@ -208,7 +208,8 @@ export function smplxPoseToAvatarFrame(
     frame.rightForearm = [...getBodyJointQuat(19, "rightForearm")] as [number, number, number, number];
 
     // Left hand: SMPL-X joint 20 (left_hand) + hand_pose (pose[66:69])
-    // Combine body_pose hand rotation with hand_pose in SMPL-X frame, THEN apply frame correction.
+    // hand_pose is computed in SMPL-X local frame (see fit_smplx.py:rotate_vector_by_inverse_quat)
+    // Combine body_pose hand rotation with hand_pose in SMPL-X local frame, THEN apply frame correction.
     {
       const offset = 3 + (20 - 1) * 3;
       const lhAA: [number, number, number] = [pose[offset], pose[offset + 1], pose[offset + 2]];

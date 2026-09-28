@@ -45,6 +45,7 @@ def main():
     parser.add_argument("--output-dir", default="public/avatar-data-smplx", help="Output directory for SMPL-X data")
     parser.add_argument("--model-dir", default=None, help="Directory containing SMPL-X model files (optional)")
     parser.add_argument("--gender", default="NEUTRAL", help="SMPL-X gender (NEUTRAL, MALE, FEMALE)")
+    parser.add_argument("--force", action="store_true", help="Overwrite existing SMPL-X files")
     args = parser.parse_args()
 
     input_dir = Path(args.input_dir)
@@ -58,12 +59,16 @@ def main():
     json_files = sorted([f for f in input_dir.glob("*.json") if f.name != "manifest.json"])
     print(f"Found {len(json_files)} avatar data files to convert")
 
+    from time import time
+    total_start = time()
+    converted = 0
+
     for json_file in json_files:
         label = json_file.stem
         output_file = output_dir / f"{label}.smplx.json"
 
-        # Skip if already converted
-        if output_file.exists():
+        # Skip if already converted (unless --force)
+        if output_file.exists() and not args.force:
             print(f"  Skipping {label} (already converted)")
             continue
 
@@ -106,12 +111,15 @@ def main():
             with open(output_file, "w") as f:
                 json.dump(output, f, indent=2)
 
-            print(f"    Done: {n_frames} frames written to {output_file}")
+            converted += 1
+            elapsed = time() - total_start
+            print(f"    Done: {n_frames} frames in {elapsed:.1f}s")
 
         except Exception as e:
             print(f"    ERROR converting {label}: {e}", file=sys.stderr)
 
-    print(f"\nConversion complete. Output in {output_dir}")
+    elapsed = time() - total_start
+    print(f"\nConversion complete: {converted}/{len(json_files)} files in {elapsed:.1f}s ({elapsed/len(json_files):.1f}s/file). Output in {output_dir}")
 
 
 if __name__ == "__main__":
