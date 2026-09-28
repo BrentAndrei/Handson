@@ -64,7 +64,7 @@ SMPL-X body joints (72-dim pose):
 - Indices 66-71: hand_pose (3 per hand, axis-angle)
 
 SMPL-X joint indices → Xbot bone mapping (in `smplxConverter.ts`):
-- 0 (pelvis) → root
+- 1 (left_hip) → root (via pelvis)
 - 9 (spine_3) → torso
 - 12 (neck) → neck
 - 15 (head) → head
@@ -72,10 +72,9 @@ SMPL-X joint indices → Xbot bone mapping (in `smplxConverter.ts`):
 - 14 (right_clavicle) → rightShoulder
 - 16 (left_upper_arm) → leftUpperArm
 - 17 (right_upper_arm) → rightUpperArm
-- 20 (left_forearm) → leftForearm
-- 21 (right_forearm) → rightForearm
-- 22 (left_hand) → leftHand
-- 23 (right_hand) → rightHand
+- 18 (left_forearm) → leftForearm
+- 19 (right_forearm) → rightForearm
+- 21 (right_hand) → rightHand
 
 ## Configuration
 
@@ -97,8 +96,8 @@ setSmplxServiceUrl('http://localhost:8000');
 - **Phase 1 (DONE)**: Python SMPL-X service (app.py, fit_smplx.py)
 - **Phase 2 (DONE)**: TypeScript converter (smplxConverter.ts)
 - **Phase 3 (DONE)**: Data loader integration with fallback
-- **Phase 4 (TODO)**: Batch convert existing avatar data
-- **Phase 5 (TODO)**: Enable SMPL-X as default, keep quaternion as fallback
+- **Phase 4 (DONE)**: Batch convert all 402 labels to SMPL-X (193,152 frames)
+- **Phase 5 (DONE)**: Enable SMPL-X as default, keep quaternion as fallback
 
 ## Testing
 

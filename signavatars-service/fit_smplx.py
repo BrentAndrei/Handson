@@ -355,6 +355,38 @@ class CCDIKChain:
             q = joint_rot.as_quat(scalar_first=False)  # [x, y, z, w]
             self.joint_rotations[i] = np.array([q[0], q[1], q[2], q[3]])
 
+        # Convert world-space rotations to local-space rotations.
+        # The rotation above takes initial_dir (world) to current_dir (world),
+        # which is a WORLD-SPACE rotation. SMPL-X body_pose expects LOCAL rotations
+        # (relative to parent). The correct conversion is:
+        #   local[i] = world[i] * conjugate(world[parent[i]])
+        # We must use the PARENT'S WORLD rotation (not its local), so we snapshot
+        # world rotations before overwriting with local rotations.
+        world_rotations = [q.copy() for q in self.joint_rotations]
+
+        for i in range(len(self.joint_names)):
+            parent_idx = self.joint_parents[i]
+            if parent_idx is None:
+                # Root: local == world (no parent)
+                continue
+            parent_world = world_rotations[parent_idx]
+            parent_inv = np.array([-parent_world[0], -parent_world[1], -parent_world[2], parent_world[3]])
+            world_q = world_rotations[i]
+            # local = world * conjugate(parent_world)
+            self.joint_rotations[i] = self._multiply_quats(world_q, parent_inv)
+
+    @staticmethod
+    def _multiply_quats(a: np.ndarray, b: np.ndarray) -> np.ndarray:
+        """Multiply quaternions a * b (x, y, z, w format). Result = apply b first, then a."""
+        ax, ay, az, aw = a
+        bx, by, bz, bw = b
+        return np.array([
+            aw * bx + ax * bw + ay * bz - az * by,
+            aw * by - ax * bz + ay * bw + az * bx,
+            aw * bz + ax * by - ay * bx + az * bw,
+            aw * bw - ax * bx - ay * by - az * bz,
+        ])
+
     def _get_children(self, idx: int) -> list[int]:
         children = []
         for i, parent in enumerate(self.joint_parents):
@@ -705,13 +737,13 @@ class SmplxFitter:
         # Target positions: actual landmark positions
         # In the IK hierarchy, each joint position = end of that bone (toward child)
         # - left_upper_arm joint position = elbow position → target left_elbow
-        # - left_forearm joint position = wrist position → target left_wrist
-        # - left_hand joint position = hand center → target left_wrist
+        # - left_forearm joint position = wrist position -> target left_wrist
+        # - left_hand joint position = hand center -> target left_wrist
         # Key fixes:
         # - neck targets nose (head_top) to orient forward head tilt
         # - clavicles target shoulder landmarks (constrains shoulder tilt)
         # - head is NOT targeted (follows from neck)
-        # - spine_3 is NOT targeted (follows passively from neck)
+        # - spine_3 is NOT targeted (torso stays upright — natural for signing)
         IK_TO_LANDMARK = {
             "pelvis": None,
             "left_hip": None,
@@ -722,7 +754,7 @@ class SmplxFitter:
             "spine_2": None,
             "left_ankle": None,
             "right_ankle": None,
-            "spine_3": None,  # passive - follows from neck via chain
+            "spine_3": None,  # passive - torso stays upright (natural for signing)
             "neck": "head_top",  # nose position
             "head": None,  # follows from neck
             "left_clavicle": "left_shoulder",  # constrain shoulder position
@@ -795,6 +827,10 @@ class SmplxFitter:
                 continue
             if jname in name_to_idx:
                 quat = ik.joint_rotations[name_to_idx[jname]]
+                # Ensure shortest-path rotation: if w < 0, negate the quaternion
+                # to get an angle in [0, π] instead of [π, 2π]
+                if quat[3] < 0:
+                    quat = -quat
                 # Convert quaternion [x,y,z,w] to axis-angle
                 angle = 2 * np.arccos(np.clip(quat[3], -1, 1))
                 if abs(angle) < 1e-6:

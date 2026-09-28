@@ -29,26 +29,41 @@ export const SMPLX_POSE_LENGTH = 72;
 export const SMPLX_BETA_LENGTH = 10;
 export const SMPLX_JOINT_COUNT = 128;
 
-// Bone frame correction quaternions: transforms SMPL-X local bone rotations
-// to Xbot GLTF local bone rotations.
-// SMPL-X zero pose has arms at sides; Xbot GLTF has arms in T-pose (out to sides).
-// The IK solver already initializes arms in T-pose, so SMPL-X body_pose
-// rotations are already relative to T-pose. No frame correction needed.
-// Torso: SMPL-X spine_3 Y-up matches Xbot torso (no correction).
-// Head/Neck: SMPL-X Z-forward matches Xbot default bone direction.
-// All corrections are identity.
+// Bone frame correction quaternions: transforms SMPL-X body_pose rotations
+// (computed by the IK solver relative to T-pose initial directions) to
+// Xbot GLTF local bone rotations (which start from Xbot bind-pose default
+// bone directions).
+//
+// The correct frame transformation is: result = R * q * R^(-1) (conjugation),
+// where R maps the IK T-pose bone direction to the Xbot bind-pose direction.
+//
+// IK T-pose directions vs Xbot defaults (from retarget.ts DEFAULT_BONE_DIRS):
+//   Bone         | IK initial    | Xbot default   | Correction quat [x,y,z,w]
+//   leftUpperArm | [-1, 0, 0]    |  [1, 0, 0]    | [0, 0, 1, 0]    (180° Z)
+//   rightUpperArm| [1, 0, 0]     | [-1, 0, 0]    | [0, 0, -1, 0]   (180° Z)
+//   leftForearm  | [0, -1, 0]    |  [1, 0, 0]    | [0, 0, √2/2, √2/2]  (+90° Z)
+//   rightForearm | [0, -1, 0]    | [-1, 0, 0]    | [0, 0, -√2/2, √2/2] (-90° Z)
+//   leftHand     | [0, -1, 0]    |  [1, 0, 0]    | [0, 0, √2/2, √2/2]  (+90° Z)
+//   rightHand    | [0, -1, 0]    | [-1, 0, 0]    | [0, 0, -√2/2, √2/2] (-90° Z)
+//   neck         | [0, 1, 0]     |  [0, 0, 1]    | [√2/2, 0, 0, √2/2]  (+90° X)
+//   head         | [0, 1, 0]     |  [0, 0, 1]    | [√2/2, 0, 0, √2/2]  (+90° X)
+//   torso        | [0, 1, 0]     |  [0, 1, 0]    | identity
+//   leftShoulder | dynamic       | varies        | identity
+//   rightShoulder| dynamic       | varies        | identity
+//
+// Frame transformation: result = correction * q * conjugate(correction)
 const BONE_FRAME_CORRECTION: Record<string, [number, number, number, number]> = {
   leftShoulder: [0, 0, 0, 1],
   rightShoulder: [0, 0, 0, 1],
-  leftUpperArm: [0, 0, 0, 1],
-  rightUpperArm: [0, 0, 0, 1],
-  leftForearm: [0, 0, 0, 1],
-  rightForearm: [0, 0, 0, 1],
-  leftHand: [0, 0, 0, 1],
-  rightHand: [0, 0, 0, 1],
+  leftUpperArm: [0, 0, 1, 0],
+  rightUpperArm: [0, 0, -1, 0],
+  leftForearm: [0, 0, 0.707107, 0.707107],
+  rightForearm: [0, 0, -0.707107, 0.707107],
+  leftHand: [0, 0, 0.707107, 0.707107],
+  rightHand: [0, 0, -0.707107, 0.707107],
   torso: [0, 0, 0, 1],
-  neck: [0, 0, 0, 1],
-  head: [0, 0, 0, 1],
+  neck: [0.707107, 0, 0, 0.707107],
+  head: [0.707107, 0, 0, 0.707107],
 };
 
 
@@ -77,6 +92,24 @@ export function multiplyQuats(a: number[], b: number[]): number[] {
     aw * bz + ax * by - ay * bx + az * bw,
     aw * bw - ax * bx - ay * by - az * bz,
   ];
+}
+
+/**
+ * Conjugate of a quaternion [x, y, z, w] -> [-x, -y, -z, w].
+ * For unit quaternions, this is the multiplicative inverse.
+ */
+function conjugateQuat(q: number[]): number[] {
+  return [-q[0], -q[1], -q[2], q[3]];
+}
+
+/**
+ * Transform a rotation from one reference frame to another.
+ * result = R * q * R^(-1), where R is the frame change quaternion.
+ * This preserves the rotation angle while changing the axis orientation.
+ */
+function transformQuatByFrame(q: number[], frame: number[]): number[] {
+  const frameConj = conjugateQuat(frame);
+  return multiplyQuats(frame, multiplyQuats(q, frameConj));
 }
 
 
@@ -131,18 +164,17 @@ export function smplxPoseToAvatarFrame(
   // SMPL-X joint index = body_pose joint index + 1 (because root is at index 0, separate)
   // body_pose index = (smplx_joint_idx - 1) * 3 + 3
 
-  function getBodyJointQuat(smplxJointIdx: number, avatarKey: string): [number, number, number, number] {
-    // body_pose starts at pose[3], each joint is 3 floats
-    // smplxJointIdx 1 → body_pose offset 0
-    // smplxJointIdx 16 → body_pose offset (16-1)*3 = 45, so pose[3+45] = pose[48]
-    const offset = 3 + (smplxJointIdx - 1) * 3;
-    const aa: [number, number, number] = [pose[offset], pose[offset + 1], pose[offset + 2]];
-    const q = axisAngleToQuat(aa);
-    // Apply bone frame correction to map SMPL-X local frame → Xbot GLTF local frame
-    const correction = BONE_FRAME_CORRECTION[avatarKey] || [0, 0, 0, 1];
-    // q_final = q * q_corr (post-multiply: rotation then frame change)
-    return multiplyQuats(q, correction) as [number, number, number, number];
-  }
+   function getBodyJointQuat(smplxJointIdx: number, avatarKey: string): [number, number, number, number] {
+     // body_pose starts at pose[3], each joint is 3 floats
+     // smplxJointIdx 1 → body_pose offset 0
+     // smplxJointIdx 16 → body_pose offset (16-1)*3 = 45, so pose[3+45] = pose[48]
+     const offset = 3 + (smplxJointIdx - 1) * 3;
+     const aa: [number, number, number] = [pose[offset], pose[offset + 1], pose[offset + 2]];
+     const q = axisAngleToQuat(aa);
+     // Apply bone frame correction: result = R * q * R^(-1)
+     const correction = BONE_FRAME_CORRECTION[avatarKey] || [0, 0, 0, 1];
+     return transformQuatByFrame(q, correction) as [number, number, number, number];
+   }
 
   // Map SMPL-X joint rotations to avatar bones
   // Note: SMPL-X rotations are in the SMPL-X local frame; we need to convert
@@ -169,25 +201,38 @@ export function smplxPoseToAvatarFrame(
   // Right upper arm: SMPL-X joint 17
   frame.rightUpperArm = [...getBodyJointQuat(17, "rightUpperArm")] as [number, number, number, number];
 
-   // Left forearm: SMPL-X joint 18 (left_elbow/left_forearm)
-   frame.leftForearm = [...getBodyJointQuat(18, "leftForearm")] as [number, number, number, number];
+    // Left forearm: SMPL-X joint 18 (left_forearm)
+    frame.leftForearm = [...getBodyJointQuat(18, "leftForearm")] as [number, number, number, number];
 
-   // Right forearm: SMPL-X joint 19 (right_elbow/right_forearm)
-   frame.rightForearm = [...getBodyJointQuat(19, "rightForearm")] as [number, number, number, number];
+    // Right forearm: SMPL-X joint 19 (right_forearm)
+    frame.rightForearm = [...getBodyJointQuat(19, "rightForearm")] as [number, number, number, number];
 
-   // Left hand: SMPL-X joint 20 (left_wrist/left_hand) + hand_pose (pose[66:69])
-   const lhBodyQuat = getBodyJointQuat(20, "leftHand");
-   const leftHandAA: [number, number, number] = [pose[66], pose[67], pose[68]];
-   const leftHandPoseQuat = axisAngleToQuat(leftHandAA);
-   // Combine: body pose hand rotation (parent) × hand pose rotation (local)
-   // Hand pose is a local rotation applied on top of the body joint orientation
-   frame.leftHand = multiplyQuats([...lhBodyQuat], leftHandPoseQuat) as [number, number, number, number];
+    // Left hand: SMPL-X joint 20 (left_hand) + hand_pose (pose[66:69])
+    // Combine body_pose hand rotation with hand_pose in SMPL-X frame, THEN apply frame correction.
+    {
+      const offset = 3 + (20 - 1) * 3;
+      const lhAA: [number, number, number] = [pose[offset], pose[offset + 1], pose[offset + 2]];
+      const leftHandAA: [number, number, number] = [pose[66], pose[67], pose[68]];
+      const lhBodyQuat = axisAngleToQuat(lhAA);
+      const leftHandPoseQuat = axisAngleToQuat(leftHandAA);
+      // Combine in SMPL-X local frame: body_quat * hand_pose (apply hand_pose first, then body)
+      const lhCombined = multiplyQuats(lhBodyQuat, leftHandPoseQuat);
+      const lhCorrection = BONE_FRAME_CORRECTION["leftHand"] || [0, 0, 0, 1];
+      // Apply frame correction: R * combined * R^(-1)
+      frame.leftHand = transformQuatByFrame(lhCombined, lhCorrection) as [number, number, number, number];
+    }
 
-   // Right hand: SMPL-X joint 21 (right_wrist/right_hand) + hand_pose (pose[69:72])
-   const rhBodyQuat = getBodyJointQuat(21, "rightHand");
-   const rightHandAA: [number, number, number] = [pose[69], pose[70], pose[71]];
-   const rightHandPoseQuat = axisAngleToQuat(rightHandAA);
-   frame.rightHand = multiplyQuats([...rhBodyQuat], rightHandPoseQuat) as [number, number, number, number];
+    // Right hand: SMPL-X joint 21 (right_hand) + hand_pose (pose[69:72])
+    {
+      const offset = 3 + (21 - 1) * 3;
+      const rhAA: [number, number, number] = [pose[offset], pose[offset + 1], pose[offset + 2]];
+      const rightHandAA: [number, number, number] = [pose[69], pose[70], pose[71]];
+      const rhBodyQuat = axisAngleToQuat(rhAA);
+      const rightHandPoseQuat = axisAngleToQuat(rightHandAA);
+      const rhCombined = multiplyQuats(rhBodyQuat, rightHandPoseQuat);
+      const rhCorrection = BONE_FRAME_CORRECTION["rightHand"] || [0, 0, 0, 1];
+      frame.rightHand = transformQuatByFrame(rhCombined, rhCorrection) as [number, number, number, number];
+    }
 
   // Root position
   if (smplxPose.transl && smplxPose.transl.length >= 3) {
