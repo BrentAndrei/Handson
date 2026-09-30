@@ -240,6 +240,41 @@ def get_landmark_group(landmarks_field):
     return landmarks_field
 
 
+def frame_to_features(frame_bgr, landmarker, timestamp_ms: int):
+    """Runs ONE frame through the exact browser pipeline and returns
+    (feature345, has_pose, has_left_hand, has_right_hand, has_face).
+
+    Single source of truth shared by the video and image modes, so the .bin
+    fixtures Phase 4 validates are produced by identical math to the
+    video-derived training data:
+        detect -> write_landmarks (pack.ts) -> normalize (normalizeLandmarks.ts)
+               -> select_features (featureSelect.ts)
+    """
+    import mediapipe as mp
+
+    frame_rgb = cv2.cvtColor(frame_bgr, cv2.COLOR_BGR2RGB)
+    mp_image = mp.Image(image_format=mp.ImageFormat.SRGB, data=frame_rgb)
+    result = landmarker.detect_for_video(mp_image, timestamp_ms)
+
+    raw = np.zeros(TOTAL_FLOATS, dtype=np.float32)
+
+    has_pose = write_landmarks(
+        raw, POSE_OFFSET, POSE_COUNT, get_landmark_group(result.pose_landmarks),
+    )
+    has_left = write_landmarks(
+        raw, LEFT_HAND_OFFSET, HAND_COUNT, get_landmark_group(result.left_hand_landmarks),
+    )
+    has_right = write_landmarks(
+        raw, RIGHT_HAND_OFFSET, HAND_COUNT, get_landmark_group(result.right_hand_landmarks),
+    )
+    has_face = write_landmarks(
+        raw, FACE_OFFSET, FACE_COUNT, get_landmark_group(result.face_landmarks),
+    )
+
+    normalized = normalize(raw, has_pose)
+    return select_features(normalized), has_pose, has_left, has_right, has_face
+
+
 def extract_clip_features(video_path: str, landmarker) -> list:
     cap = cv2.VideoCapture(video_path)
     native_fps = cap.get(cv2.CAP_PROP_FPS) or TARGET_FPS
@@ -262,32 +297,11 @@ def extract_clip_features(video_path: str, landmarker) -> list:
 
         import mediapipe as mp
 
-        frame_rgb = cv2.cvtColor(frame_bgr, cv2.COLOR_BGR2RGB)
-        mp_image = mp.Image(image_format=mp.ImageFormat.SRGB, data=frame_rgb)
         timestamp_ms = int(i * 1000 / TARGET_FPS)
-        result = landmarker.detect_for_video(mp_image, timestamp_ms)
-
-        raw = np.zeros(TOTAL_FLOATS, dtype=np.float32)
-
-        has_pose = write_landmarks(
-            raw, POSE_OFFSET, POSE_COUNT,
-            get_landmark_group(result.pose_landmarks),
+        features, _pose, _lh, _rh, _fc = frame_to_features(
+            frame_bgr, landmarker, timestamp_ms
         )
-        write_landmarks(
-            raw, LEFT_HAND_OFFSET, HAND_COUNT,
-            get_landmark_group(result.left_hand_landmarks),
-        )
-        write_landmarks(
-            raw, RIGHT_HAND_OFFSET, HAND_COUNT,
-            get_landmark_group(result.right_hand_landmarks),
-        )
-        write_landmarks(
-            raw, FACE_OFFSET, FACE_COUNT,
-            get_landmark_group(result.face_landmarks),
-        )
-
-        normalized = normalize(raw, has_pose)
-        clip_features.append(select_features(normalized))
+        clip_features.append(features)
 
     cap.release()
     return clip_features
@@ -330,10 +344,154 @@ def collect_clip_paths_csv(args):
     return pairs
 
 
+IMAGE_SUFFIXES = {".jpg", ".jpeg", ".png"}
+# MediaPipe's HolisticLandmarker in VIDEO mode is STATEFUL: its
+# SegmentationSmoothingCalculator RET_CHECKs that consecutive frames share the
+# same height/width ("current_mat->rows == previous_mat->rows (640 vs. 722)").
+# Photos all have different resolutions, so every image must be mapped onto one
+# fixed canvas. We letterbox (scale to fit + pad) rather than squash, so body
+# proportions survive -- normalizeLandmarks.ts then anchors at the shoulder
+# midpoint and scales by shoulder width, which cancels the letterbox offset and
+# scale anyway.
+CANVAS_SIZE = 640
+
+
+def letterbox(frame, size: int = CANVAS_SIZE):
+    h, w = frame.shape[:2]
+    scale = size / float(max(h, w))
+    nh, nw = max(1, int(round(h * scale))), max(1, int(round(w * scale)))
+    resized = cv2.resize(frame, (nw, nh), interpolation=cv2.INTER_AREA)
+    canvas = np.zeros((size, size, 3), dtype=np.uint8)
+    top = (size - nh) // 2
+    left = (size - nw) // 2
+    canvas[top : top + nh, left : left + nw] = resized
+    return canvas
+
+
+def collect_image_paths(input_dir: str):
+    root = Path(input_dir)
+    if not root.is_dir():
+        return []
+    return sorted(
+        p for p in root.iterdir()
+        if p.is_file() and p.suffix.lower() in IMAGE_SUFFIXES
+    )
+
+
+def run_image_mode(input_dir: str, output_dir: str, require_pose: bool = True) -> int:
+    """PHASE 4: turn pose photos into 345-float .bin landmark buffers.
+
+    Each .bin is exactly FEATURE_DIM little-endian float32 values produced by
+    the same pack -> normalize -> selectFeatures chain the browser runs, so
+    scripts/verify-retarget.ts can feed them straight into
+    mediapipeToCanonicalPose() (POSE_OFFSET=0 / LEFT_HAND_OFFSET=99 /
+    RIGHT_HAND_OFFSET=162 are identical in both layouts).
+    """
+    paths = collect_image_paths(input_dir)
+    out = Path(output_dir)
+    out.mkdir(parents=True, exist_ok=True)
+
+    print(f"PHASE 4 image extraction: {len(paths)} image(s) in {input_dir}")
+    print(f"featureDim={FEATURE_DIM} floats ({FEATURE_DIM * 4} bytes per .bin)\n")
+
+    landmarker = make_landmarker()
+    entries = []
+    written = 0
+    skipped = 0
+    try:
+        for i, img_path in enumerate(paths):
+            frame = cv2.imread(str(img_path), cv2.IMREAD_COLOR)
+            if frame is None:
+                print(f"  [{i+1}/{len(paths)}] UNREADABLE, skipping: {img_path.name}")
+                skipped += 1
+                continue
+
+            h, w = frame.shape[:2]
+            # fixed canvas -- see CANVAS_SIZE note above (stateful VIDEO graph)
+            frame = letterbox(frame)
+            src_w, src_h = w, h
+
+            # monotonically increasing timestamps, as VIDEO mode requires
+            ts = int(i * 1000 / TARGET_FPS)
+            try:
+                feats, has_pose, has_l, has_r, has_f = frame_to_features(
+                    frame, landmarker, ts
+                )
+            except Exception as e:  # one bad photo must not kill the batch
+                print(f"  [{i+1}/{len(paths)}] {img_path.name}: DETECTION FAILED — {e}")
+                skipped += 1
+                continue
+
+            pose_slice = feats[: POSE_COUNT * 3]
+            live = int(np.count_nonzero(np.abs(pose_slice) > 1e-6))
+            entry = {
+                "image": img_path.name,
+                "sourcePixels": [int(src_w), int(src_h)],
+                "canvasPixels": [CANVAS_SIZE, CANVAS_SIZE],
+                "hasPose": bool(has_pose),
+                "hasLeftHand": bool(has_l),
+                "hasRightHand": bool(has_r),
+                "hasFace": bool(has_f),
+                "poseDimsNonZero": live,
+                "poseDimsTotal": POSE_COUNT * 3,
+                "finite": bool(np.all(np.isfinite(feats))),
+            }
+
+            if require_pose and not has_pose:
+                print(
+                    f"  [{i+1}/{len(paths)}] {img_path.name}: NO POSE DETECTED "
+                    f"(live pose dims {live}/{POSE_COUNT * 3}) -> no .bin written"
+                )
+                entry["bin"] = None
+                entries.append(entry)
+                skipped += 1
+                continue
+
+            bin_path = out / f"{img_path.stem}.bin"
+            feats.astype(np.float32).tofile(bin_path)
+            entry["bin"] = bin_path.name
+            entries.append(entry)
+            written += 1
+            print(
+                f"  [{i+1}/{len(paths)}] {img_path.name} -> {bin_path.name} "
+                f"({FEATURE_DIM} floats, pose {live}/{POSE_COUNT * 3} live, "
+                f"hands L={int(has_l)} R={int(has_r)}, face={int(has_f)})"
+            )
+    finally:
+        try:
+            landmarker.close()
+        except Exception:
+            pass  # a poisoned graph must not mask the real results
+
+    with open(out / "manifest.json", "w") as f:
+        json.dump(
+            {
+                "featureDim": FEATURE_DIM,
+                "normalization": "shoulder-anchor translate + shoulder-width scale (normalizeLandmarks.ts)",
+                "entries": entries,
+            },
+            f,
+            indent=2,
+        )
+
+    nonfinite = [e["image"] for e in entries if not e["finite"]]
+    print(f"\n============ PHASE 4 LANDMARK EXTRACTION SUMMARY ============")
+    print(f"images scanned        : {len(paths)}  (canvas {CANVAS_SIZE}x{CANVAS_SIZE})")
+    print(f".bin files written    : {written}  -> {out}")
+    print(f"skipped (no pose/etc) : {skipped}")
+    print(f"non-finite buffers    : {len(nonfinite)}  {nonfinite if nonfinite else ''}")
+    print(f"bytes per .bin        : {FEATURE_DIM} x 4 = {FEATURE_DIM * 4}")
+    print(f"manifest              : {out / 'manifest.json'}")
+    if written == 0:
+        print("FAIL: no landmark buffers produced")
+        return 1
+    return 0
+
+
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--mode", choices=["folder", "csv"], required=True)
-    parser.add_argument("--root", required=True, help="Video root directory")
+    parser.add_argument("--mode", choices=["folder", "csv", "images"])
+    parser.add_argument("--root", help="Video root directory")
     parser.add_argument("--out", default="video_dataset.json")
     parser.add_argument("--csv", help="CSV listing clip paths + labels (csv mode)")
     parser.add_argument("--path-col", default="path")
@@ -341,7 +499,22 @@ def main():
     parser.add_argument("--labels-csv", help="Optional id->name label lookup CSV")
     parser.add_argument("--labels-id-col", default="id")
     parser.add_argument("--labels-name-col", default="label")
+    parser.add_argument("--input_dir", help="Directory of pose photos (images mode)")
+    parser.add_argument("--output_dir", help="Directory for .bin buffers (images mode)")
     args = parser.parse_args()
+
+    # --- PHASE 4: still-image landmark extraction --------------------------
+    if args.mode == "images" or (args.input_dir and not args.mode):
+        input_dir = args.input_dir
+        output_dir = args.output_dir or "scripts/fixtures/poses/extracted"
+        if not input_dir:
+            parser.error("--input_dir is required for --mode images")
+        raise SystemExit(run_image_mode(input_dir, output_dir))
+
+    if not args.mode:
+        parser.error("--mode is required (folder | csv | images)")
+    if not args.root:
+        parser.error("--root is required")
 
     if args.mode == "folder":
         pairs = collect_clip_paths_folder(args.root)

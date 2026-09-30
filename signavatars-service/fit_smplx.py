@@ -358,10 +358,22 @@ class CCDIKChain:
         # Convert world-space rotations to local-space rotations.
         # The rotation above takes initial_dir (world) to current_dir (world),
         # which is a WORLD-SPACE rotation. SMPL-X body_pose expects LOCAL rotations
-        # (relative to parent). The correct conversion is:
-        #   local[i] = world[i] * conjugate(world[parent[i]])
+        # (relative to parent). The chain relation is
+        #   R(world_child) = R(parent_world) . R(local_child)
+        # so inverting it gives
+        #   R(local_child) = R(parent_world)^-1 . R(world_child)
+        # i.e. local = conjugate(parent_world) * world.
         # We must use the PARENT'S WORLD rotation (not its local), so we snapshot
         # world rotations before overwriting with local rotations.
+        #
+        # E7 FIX (PHASE 6): the operand order was reversed here. It read
+        #   local = _multiply_quats(world_q, parent_inv)   # R(world) . R(parent)^-1
+        # Quaternion products do not commute, so that is NOT the inverse of the
+        # chain relation; it only happens to be right when the parent is
+        # unrotated, which is why the root looked fine and the error grew with
+        # chain depth (measured 0.00deg -> 5.78deg -> 10.80deg over three
+        # joints, i.e. twisted limbs). Proven by
+        # diagnose_e7_composition.py, which round-trips the conversion.
         world_rotations = [q.copy() for q in self.joint_rotations]
 
         for i in range(len(self.joint_names)):
@@ -372,8 +384,8 @@ class CCDIKChain:
             parent_world = world_rotations[parent_idx]
             parent_inv = np.array([-parent_world[0], -parent_world[1], -parent_world[2], parent_world[3]])
             world_q = world_rotations[i]
-            # local = world * conjugate(parent_world)
-            self.joint_rotations[i] = self._multiply_quats(world_q, parent_inv)
+            # local = conjugate(parent_world) * world   (order matters!)
+            self.joint_rotations[i] = self._multiply_quats(parent_inv, world_q)
 
     @staticmethod
     def _multiply_quats(a: np.ndarray, b: np.ndarray) -> np.ndarray:
@@ -633,13 +645,42 @@ class SmplxFitter:
         by solving inverse kinematics for each limb chain.
         """
         # Build joint hierarchy for IK
+        #
+        # PHASE 13 FIX -- INDEX MAPPING BUG.
+        #
+        # `smplx_joints` below is written POSITIONALLY into a 128x3 array and is
+        # read back by src/avatar/smplxAdapter.ts through IK_BODY_IDX. Both sides
+        # must agree on the index of every joint or the wrong joint is read.
+        #
+        # The bug: this list had 20 names but omitted four joints that exist in
+        # the official SMPL-X layout:
+        #     left_foot_side / right_foot_side   (official 10, 11)
+        #     left_elbow / right_elbow           (official 18, 19)
+        # so every index from 10 onward was shifted by 4. The reader resolved
+        # the neck as a foot, the clavicles as neck/head, and -- worst -- read
+        # the WRIST from slot 16, which this list never filled, so the wrist
+        # position was ZERO. Every arm was then aimed from a zero-length vector
+        # and both arms folded into the torso.
+        #
+        # IK_BODY_IDX in smplxAdapter.ts is FROZEN by this phase (no src/avatar
+        # edits allowed), so the writer must emit exactly the order the reader
+        # expects: the 20-entry IK table. The fix is therefore to name the
+        # entries for the POSITION each slot holds -- "left_forearm" is the WRIST
+        # slot, "left_hand" the hand centre -- rather than for the bone that
+        # precedes it, and to make sure every one of the 20 slots is written.
+        #
+        # Note this matches the reader's documented convention: "the joint at
+        # index i represents the END of bone i".
         joint_names_ordered = [
             "pelvis", "left_hip", "right_hip", "spine_1",
             "left_knee", "right_knee", "spine_2",
             "left_ankle", "right_ankle", "spine_3",
             "neck", "left_clavicle", "right_clavicle", "head",
-            "left_upper_arm", "right_upper_arm",
+            # 14,15 = elbow positions (end of the upper-arm bone)
+            "left_elbow", "right_elbow",
+            # 16,17 = WRIST positions (end of the forearm bone)
             "left_forearm", "right_forearm",
+            # 18,19 = hand centres
             "left_hand", "right_hand",
         ]
 
@@ -652,8 +693,8 @@ class SmplxFitter:
             "left_ankle": "left_knee", "right_ankle": "right_knee", "spine_3": "spine_2",
             "neck": "spine_3", "left_clavicle": "spine_3", "right_clavicle": "spine_3",
             "head": "neck",
-            "left_upper_arm": "left_clavicle", "right_upper_arm": "right_clavicle",
-            "left_forearm": "left_upper_arm", "right_forearm": "right_upper_arm",
+            "left_elbow": "left_clavicle", "right_elbow": "right_clavicle",
+            "left_forearm": "left_elbow", "right_forearm": "right_elbow",
             "left_hand": "left_forearm", "right_hand": "right_forearm",
         }
 
@@ -733,20 +774,27 @@ class SmplxFitter:
         ik.joint_positions[name_to_idx["left_clavicle"]] = l_shoulder.copy()
         ik.joint_positions[name_to_idx["right_clavicle"]] = r_shoulder.copy()
 
-        # Upper arms in T-pose (arms out to the sides, matching SMPL-X zero pose)
-        # Upper arm extends from clavicle (shoulder) to elbow, in T-pose pointing sideways
+        # Upper arms in T-pose (arms out to the sides, matching SMPL-X zero pose).
+        # PHASE 13: slot 14/15 is the ELBOW (end of the upper-arm bone) and slot
+        # 16/17 is the WRIST (end of the forearm bone). Both used to be written
+        # under the "upper_arm" name, which meant the wrist slot the reader reads
+        # was never filled and stayed zero.
         l_arm_dir = np.array([-1, 0, 0])
         r_arm_dir = np.array([1, 0, 0])
-        ik.joint_positions[name_to_idx["left_upper_arm"]] = l_shoulder + l_arm_dir * l_upperarm_len
-        ik.joint_positions[name_to_idx["right_upper_arm"]] = r_shoulder + r_arm_dir * r_upperarm_len
+        l_elbow_pos = l_shoulder + l_arm_dir * l_upperarm_len
+        r_elbow_pos = r_shoulder + r_arm_dir * r_upperarm_len
+        ik.joint_positions[name_to_idx["left_elbow"]] = l_elbow_pos
+        ik.joint_positions[name_to_idx["right_elbow"]] = r_elbow_pos
 
-        # Forearms in T-pose: from elbow, hanging down (pointing toward ground)
+        # Forearm (WRIST slot) in T-pose: from the elbow, hanging down.
+        # PHASE 13: the wrist now hangs off "left_elbow" (slot 14) rather than
+        # the removed "left_upper_arm" name, so this slot is actually written.
         l_forearm_dir = np.array([0, -1, 0])
         r_forearm_dir = np.array([0, -1, 0])
-        ik.joint_positions[name_to_idx["left_forearm"]] = ik.joint_positions[name_to_idx["left_upper_arm"]] + l_forearm_dir * l_forearm_len
-        ik.joint_positions[name_to_idx["right_forearm"]] = ik.joint_positions[name_to_idx["right_upper_arm"]] + r_forearm_dir * r_forearm_len
+        ik.joint_positions[name_to_idx["left_forearm"]] = l_elbow_pos + l_forearm_dir * l_forearm_len
+        ik.joint_positions[name_to_idx["right_forearm"]] = r_elbow_pos + r_forearm_dir * r_forearm_len
 
-        # Hands at end of forearm chains (wrist position in T-pose)
+        # Hands at end of forearm chains (hand centre in T-pose)
         ik.joint_positions[name_to_idx["left_hand"]] = ik.joint_positions[name_to_idx["left_forearm"]] + l_forearm_dir * l_forearm_len
         ik.joint_positions[name_to_idx["right_hand"]] = ik.joint_positions[name_to_idx["right_forearm"]] + r_forearm_dir * r_forearm_len
 
@@ -775,8 +823,8 @@ class SmplxFitter:
             "head": None,  # follows from neck
             "left_clavicle": "left_shoulder",  # constrain shoulder position
             "right_clavicle": "right_shoulder",
-            "left_upper_arm": "left_elbow",  # constrain elbow position
-            "right_upper_arm": "right_elbow",
+            "left_elbow": "left_elbow",  # constrain elbow position (end of upper arm)
+            "right_elbow": "right_elbow",
             "left_forearm": "left_wrist",     # constrain wrist position
             "right_forearm": "right_wrist",
             "left_hand": "left_index_mcp",    # orient hand toward index MCP

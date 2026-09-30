@@ -1,0 +1,500 @@
+{
+  "featureDim": 345,
+  "normalization": "shoulder-anchor translate + shoulder-width scale (normalizeLandmarks.ts)",
+  "entries": [
+    {
+      "image": "arm_left_raised_0.jpg",
+      "sourcePixels": [
+        960,
+        722
+      ],
+      "canvasPixels": [
+        640,
+        640
+      ],
+      "hasPose": true,
+      "hasLeftHand": true,
+      "hasRightHand": false,
+      "hasFace": true,
+      "poseDimsNonZero": 99,
+      "poseDimsTotal": 99,
+      "finite": true,
+      "bin": "arm_left_raised_0.bin"
+    },
+    {
+      "image": "arm_left_raised_1.jpg",
+      "sourcePixels": [
+        960,
+        640
+      ],
+      "canvasPixels": [
+        640,
+        640
+      ],
+      "hasPose": true,
+      "hasLeftHand": true,
+      "hasRightHand": false,
+      "hasFace": false,
+      "poseDimsNonZero": 99,
+      "poseDimsTotal": 99,
+      "finite": true,
+      "bin": "arm_left_raised_1.bin"
+    },
+    {
+      "image": "arm_left_raised_2.jpg",
+      "sourcePixels": [
+        792,
+        1153
+      ],
+      "canvasPixels": [
+        640,
+        640
+      ],
+      "hasPose": true,
+      "hasLeftHand": false,
+      "hasRightHand": false,
+      "hasFace": false,
+      "poseDimsNonZero": 99,
+      "poseDimsTotal": 99,
+      "finite": true,
+      "bin": "arm_left_raised_2.bin"
+    },
+    {
+      "image": "arm_right_raised_0.jpg",
+      "sourcePixels": [
+        960,
+        540
+      ],
+      "canvasPixels": [
+        640,
+        640
+      ],
+      "hasPose": true,
+      "hasLeftHand": false,
+      "hasRightHand": false,
+      "hasFace": false,
+      "poseDimsNonZero": 99,
+      "poseDimsTotal": 99,
+      "finite": true,
+      "bin": "arm_right_raised_0.bin"
+    },
+    {
+      "image": "arm_right_raised_1.jpg",
+      "sourcePixels": [
+        960,
+        540
+      ],
+      "canvasPixels": [
+        640,
+        640
+      ],
+      "hasPose": true,
+      "hasLeftHand": false,
+      "hasRightHand": false,
+      "hasFace": false,
+      "poseDimsNonZero": 99,
+      "poseDimsTotal": 99,
+      "finite": true,
+      "bin": "arm_right_raised_1.bin"
+    },
+    {
+      "image": "arm_right_raised_2.jpg",
+      "sourcePixels": [
+        960,
+        1280
+      ],
+      "canvasPixels": [
+        640,
+        640
+      ],
+      "hasPose": false,
+      "hasLeftHand": false,
+      "hasRightHand": false,
+      "hasFace": false,
+      "poseDimsNonZero": 0,
+      "poseDimsTotal": 99,
+      "finite": true,
+      "bin": null
+    },
+    {
+      "image": "arms_both_0.jpg",
+      "sourcePixels": [
+        960,
+        725
+      ],
+      "canvasPixels": [
+        640,
+        640
+      ],
+      "hasPose": true,
+      "hasLeftHand": false,
+      "hasRightHand": false,
+      "hasFace": false,
+      "poseDimsNonZero": 99,
+      "poseDimsTotal": 99,
+      "finite": true,
+      "bin": "arms_both_0.bin"
+    },
+    {
+      "image": "arms_both_1.jpg",
+      "sourcePixels": [
+        960,
+        640
+      ],
+      "canvasPixels": [
+        640,
+        640
+      ],
+      "hasPose": true,
+      "hasLeftHand": true,
+      "hasRightHand": true,
+      "hasFace": false,
+      "poseDimsNonZero": 99,
+      "poseDimsTotal": 99,
+      "finite": true,
+      "bin": "arms_both_1.bin"
+    },
+    {
+      "image": "arms_both_2.jpg",
+      "sourcePixels": [
+        960,
+        638
+      ],
+      "canvasPixels": [
+        640,
+        640
+      ],
+      "hasPose": true,
+      "hasLeftHand": false,
+      "hasRightHand": false,
+      "hasFace": false,
+      "poseDimsNonZero": 99,
+      "poseDimsTotal": 99,
+      "finite": true,
+      "bin": "arms_both_2.bin"
+    },
+    {
+      "image": "asymmetric_0.jpg",
+      "sourcePixels": [
+        960,
+        644
+      ],
+      "canvasPixels": [
+        640,
+        640
+      ],
+      "hasPose": true,
+      "hasLeftHand": false,
+      "hasRightHand": false,
+      "hasFace": true,
+      "poseDimsNonZero": 99,
+      "poseDimsTotal": 99,
+      "finite": true,
+      "bin": "asymmetric_0.bin"
+    },
+    {
+      "image": "asymmetric_1.jpg",
+      "sourcePixels": [
+        384,
+        800
+      ],
+      "canvasPixels": [
+        640,
+        640
+      ],
+      "hasPose": false,
+      "hasLeftHand": false,
+      "hasRightHand": false,
+      "hasFace": false,
+      "poseDimsNonZero": 0,
+      "poseDimsTotal": 99,
+      "finite": true,
+      "bin": null
+    },
+    {
+      "image": "asymmetric_2.jpg",
+      "sourcePixels": [
+        960,
+        775
+      ],
+      "canvasPixels": [
+        640,
+        640
+      ],
+      "hasPose": false,
+      "hasLeftHand": false,
+      "hasRightHand": false,
+      "hasFace": false,
+      "poseDimsNonZero": 0,
+      "poseDimsTotal": 99,
+      "finite": true,
+      "bin": null
+    },
+    {
+      "image": "elbow_bent_left_0.jpg",
+      "sourcePixels": [
+        960,
+        640
+      ],
+      "canvasPixels": [
+        640,
+        640
+      ],
+      "hasPose": true,
+      "hasLeftHand": true,
+      "hasRightHand": false,
+      "hasFace": true,
+      "poseDimsNonZero": 99,
+      "poseDimsTotal": 99,
+      "finite": true,
+      "bin": "elbow_bent_left_0.bin"
+    },
+    {
+      "image": "elbow_bent_left_1.jpg",
+      "sourcePixels": [
+        960,
+        640
+      ],
+      "canvasPixels": [
+        640,
+        640
+      ],
+      "hasPose": true,
+      "hasLeftHand": true,
+      "hasRightHand": true,
+      "hasFace": true,
+      "poseDimsNonZero": 99,
+      "poseDimsTotal": 99,
+      "finite": true,
+      "bin": "elbow_bent_left_1.bin"
+    },
+    {
+      "image": "elbow_bent_left_2.jpg",
+      "sourcePixels": [
+        960,
+        640
+      ],
+      "canvasPixels": [
+        640,
+        640
+      ],
+      "hasPose": true,
+      "hasLeftHand": true,
+      "hasRightHand": false,
+      "hasFace": false,
+      "poseDimsNonZero": 99,
+      "poseDimsTotal": 99,
+      "finite": true,
+      "bin": "elbow_bent_left_2.bin"
+    },
+    {
+      "image": "elbow_bent_right_0.jpg",
+      "sourcePixels": [
+        960,
+        640
+      ],
+      "canvasPixels": [
+        640,
+        640
+      ],
+      "hasPose": true,
+      "hasLeftHand": false,
+      "hasRightHand": true,
+      "hasFace": false,
+      "poseDimsNonZero": 99,
+      "poseDimsTotal": 99,
+      "finite": true,
+      "bin": "elbow_bent_right_0.bin"
+    },
+    {
+      "image": "elbow_bent_right_1.jpg",
+      "sourcePixels": [
+        960,
+        639
+      ],
+      "canvasPixels": [
+        640,
+        640
+      ],
+      "hasPose": true,
+      "hasLeftHand": false,
+      "hasRightHand": false,
+      "hasFace": false,
+      "poseDimsNonZero": 99,
+      "poseDimsTotal": 99,
+      "finite": true,
+      "bin": "elbow_bent_right_1.bin"
+    },
+    {
+      "image": "neutral_0.jpg",
+      "sourcePixels": [
+        960,
+        640
+      ],
+      "canvasPixels": [
+        640,
+        640
+      ],
+      "hasPose": true,
+      "hasLeftHand": false,
+      "hasRightHand": false,
+      "hasFace": false,
+      "poseDimsNonZero": 99,
+      "poseDimsTotal": 99,
+      "finite": true,
+      "bin": "neutral_0.bin"
+    },
+    {
+      "image": "neutral_1.jpg",
+      "sourcePixels": [
+        960,
+        1707
+      ],
+      "canvasPixels": [
+        640,
+        640
+      ],
+      "hasPose": true,
+      "hasLeftHand": true,
+      "hasRightHand": true,
+      "hasFace": false,
+      "poseDimsNonZero": 99,
+      "poseDimsTotal": 99,
+      "finite": true,
+      "bin": "neutral_1.bin"
+    },
+    {
+      "image": "neutral_2.jpg",
+      "sourcePixels": [
+        960,
+        1707
+      ],
+      "canvasPixels": [
+        640,
+        640
+      ],
+      "hasPose": true,
+      "hasLeftHand": true,
+      "hasRightHand": true,
+      "hasFace": false,
+      "poseDimsNonZero": 99,
+      "poseDimsTotal": 99,
+      "finite": true,
+      "bin": "neutral_2.bin"
+    },
+    {
+      "image": "torso_lean_0.jpg",
+      "sourcePixels": [
+        581,
+        478
+      ],
+      "canvasPixels": [
+        640,
+        640
+      ],
+      "hasPose": true,
+      "hasLeftHand": false,
+      "hasRightHand": false,
+      "hasFace": true,
+      "poseDimsNonZero": 99,
+      "poseDimsTotal": 99,
+      "finite": true,
+      "bin": "torso_lean_0.bin"
+    },
+    {
+      "image": "torso_lean_1.jpg",
+      "sourcePixels": [
+        960,
+        735
+      ],
+      "canvasPixels": [
+        640,
+        640
+      ],
+      "hasPose": false,
+      "hasLeftHand": false,
+      "hasRightHand": false,
+      "hasFace": false,
+      "poseDimsNonZero": 0,
+      "poseDimsTotal": 99,
+      "finite": true,
+      "bin": null
+    },
+    {
+      "image": "torso_lean_2.jpg",
+      "sourcePixels": [
+        960,
+        1244
+      ],
+      "canvasPixels": [
+        640,
+        640
+      ],
+      "hasPose": false,
+      "hasLeftHand": false,
+      "hasRightHand": false,
+      "hasFace": false,
+      "poseDimsNonZero": 0,
+      "poseDimsTotal": 99,
+      "finite": true,
+      "bin": null
+    },
+    {
+      "image": "tpose_0.jpg",
+      "sourcePixels": [
+        960,
+        639
+      ],
+      "canvasPixels": [
+        640,
+        640
+      ],
+      "hasPose": true,
+      "hasLeftHand": false,
+      "hasRightHand": false,
+      "hasFace": true,
+      "poseDimsNonZero": 99,
+      "poseDimsTotal": 99,
+      "finite": true,
+      "bin": "tpose_0.bin"
+    },
+    {
+      "image": "tpose_1.jpg",
+      "sourcePixels": [
+        960,
+        607
+      ],
+      "canvasPixels": [
+        640,
+        640
+      ],
+      "hasPose": true,
+      "hasLeftHand": false,
+      "hasRightHand": false,
+      "hasFace": true,
+      "poseDimsNonZero": 99,
+      "poseDimsTotal": 99,
+      "finite": true,
+      "bin": "tpose_1.bin"
+    },
+    {
+      "image": "tpose_2.jpg",
+      "sourcePixels": [
+        960,
+        505
+      ],
+      "canvasPixels": [
+        640,
+        640
+      ],
+      "hasPose": false,
+      "hasLeftHand": false,
+      "hasRightHand": false,
+      "hasFace": false,
+      "poseDimsNonZero": 0,
+      "poseDimsTotal": 99,
+      "finite": true,
+      "bin": null
+    }
+  ]
+}

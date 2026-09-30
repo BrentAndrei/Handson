@@ -2,6 +2,112 @@
 @tailwind components;
 @tailwind utilities;
 
+/* ============================================================================
+   HANDSON DESIGN TOKENS — Neo-brutalist system
+   ----------------------------------------------------------------------------
+   Every value below is a TOKEN. Components must reference these, never raw hex.
+   Adding a new surface means adding a role here, not inventing a colour inline.
+
+   Palette rationale (tied to the existing HandSon identity):
+   - The shipped brand is sky #38bdf8. Rather than keep the dark glassmorphic
+     shell, that cyan family is re-cast as a flat TEAL on warm paper, so the app
+     reads as printed/tactile rather than as a dashboard.
+   - Warm paper (not white) keeps contrast high without clinical glare, and the
+     slight warmth is what makes black borders look inked rather than digital.
+   ========================================================================== */
+
+:root {
+  /* --- surfaces & ink ------------------------------------------------- */
+  --paper: #f4efe5;           /* page: warm newsprint                           */
+  --paper-raised: #fffdf7;     /* cards sitting ON paper                          */
+  --paper-sunken: #e6dfce;     /* wells, inset areas, print underlays            */
+  --ink: #111111;              /* primary text AND the border colour             */
+  --ink-soft: #3a322b;         /* secondary text  (11:1 on paper)                */
+  --ink-mute: #5a5046;         /* tertiary/meta  (6.9:1 on paper)                */
+
+  /* --- brand + semantic ------------------------------------------------
+     COLOUR ROLES. These are saturated display colours, not UI accents, and
+     they are NOT interchangeable. Each one has exactly one approved text
+     colour, chosen so every pairing clears WCAG AA (4.5:1):
+
+        ink   on teal / coral / lime / yellow / pink   6.2:1 – 16:1
+        white on ink / purple-deep                    8.3:1 – 16.5:1
+
+     NEVER put white on teal (1.9:1) or ink on purple (4.4:1) — both fail.
+     `--purple` is therefore a DECORATIVE fill only; text-bearing purple
+     surfaces use `--purple-deep`.                                       */
+  --teal: #18d5c5;            /* primary action + the "live" family             */
+  --teal-deep: #0b7a72;       /* teal for text on light fills                   */
+  --coral: #ff5c5c;           /* translator / energy                             */
+  --lime: #c8ff3d;            /* highlight, "ready"                              */
+  --sun: #ffd900;             /* caution, marquee                               */
+  --purple: #7c5cff;          /* avatar — decorative fill only                  */
+  --purple-deep: #4a2fc7;     /* avatar — carries white text                    */
+  --pink: #ff70c8;            /* pop / secondary stickers                       */
+  --danger: #c8102e;          /* errors (white text, 5.9:1)                     */
+
+  /* --- structural ------------------------------------------------------
+     ONE radius, deliberately small. Sharp corners are what make a thick
+     border read as INK rather than as a rounded card. */
+  --border-w: 3px;             /* the default weight                              */
+  --border-w-thin: 2px;        /* dense interior elements                         */
+  --border-w-thick: 5px;       /* hero slabs and the nav                          */
+  --radius: 4px;               /* cards, buttons, inputs                          */
+  --radius-sm: 2px;            /* chips, labels, stickers                         */
+  --radius-pill: 999px;        /* ONLY the live status dot                        */
+
+  /* Hard offset shadows — the "physical object" cue.
+     Zero blur, always. Real depth is cast down-right like an inked print. */
+  --shadow-sm: 3px 3px 0 var(--ink);
+  --shadow: 5px 5px 0 var(--ink);
+  --shadow-lg: 8px 8px 0 var(--ink);
+  --shadow-xl: 12px 12px 0 var(--ink);
+  --shadow-2xl: 16px 16px 0 var(--ink);
+  --shadow-pressed: 1px 1px 0 var(--ink);
+  --shadow-none: 0 0 0 var(--ink);
+  /* Light "lift" used on hover so buttons rise toward the viewer. */
+  --shadow-lift: 7px 7px 0 var(--ink);
+
+  /* --- type ------------------------------------------------------------
+     Three faces, three jobs:
+       mega    — Anton. Ultra-condensed, for the giant editorial hero only.
+       display — Archivo Black. Squared-off poster weight, for headings + UI.
+       body    — Inter. Everything that has to be read at length.          */
+  --font-mega: "Anton", "Archivo Black", "Arial Narrow", Impact, sans-serif;
+  --font-display: "Archivo Black", "Arial Black", system-ui, sans-serif;
+  --font-body: "Inter", system-ui, -apple-system, "Segoe UI", sans-serif;
+
+  /* --- motion ---------------------------------------------------------- */
+  --press-ms: 90ms;
+  --ease-snap: cubic-bezier(0.2, 0, 0, 1);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --press-ms: 0ms;
+  }
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* Base element styling lives in the legacy @layer base block further down this
+   file. Keeping one definition avoids two competing `body` rules, where the
+   later one silently wins. */
+
+/* ---------------------------------------------------------------------------
+   LEGACY DARK-GLASS TOKENS — retained only so the still-shipped camera / avatar
+   surfaces keep rendering during the Phase 1 transition.
+
+   ⚠ This block must NOT redefine --radius or --radius-sm: the brutalist token
+   system owns those, and a second declaration here silently wins (1rem corners
+   are exactly what the redesign is removing).
+   ------------------------------------------------------------------------- */
 :root {
   --bg: #020617;
   --bg-2: #0c1222;
@@ -14,28 +120,51 @@
   --glass-bg: rgba(30, 41, 59, 0.35);
   --glass-border: rgba(148, 163, 184, 0.25);
   --glass-glow: rgba(56, 189, 248, 0.15);
-  --radius: 1rem;
-  --radius-sm: 0.625rem;
+}
+
+/* ---------------------------------------------------------------------------
+   Root canvas override.
+   daisyUI emits a bare `:root { background-color: <dark oklch> }` rule. A
+   `html {}` selector has the SAME specificity and comes earlier in the
+   cascade, so daisyUI wins and the page canvas stays navy while <body> is
+   paper — producing a hard vertical seam on desktop widths.
+
+   `:root:root` doubles the specificity, so this reliably beats it without
+   needing `!important`. Phase 1 does not use daisyUI components at all.
+   ------------------------------------------------------------------------- */
+:root:root {
+  background-color: var(--paper);
+  color-scheme: light;
 }
 
 @layer base {
-  html, body {
+  html,
+  body {
     margin: 0;
     min-width: 320px;
     min-height: 100vh;
-    font-family: "Inter", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    font-family: var(--font-body);
     -webkit-font-smoothing: antialiased;
     text-rendering: optimizeLegibility;
+    /* daisyUI sets an `oklch` background on :root. Without this the <html>
+       canvas stays dark navy while <body> is paper, which shows as a hard
+       vertical seam on wide viewports. Backgrounds must be set on BOTH. */
+    background-color: var(--paper);
+  }
+
+  /* Belt-and-braces against horizontal scroll from a wide child (e.g. a
+     tooltip near the right edge). The page must never pan sideways on mobile. */
+  html,
+  body {
+    overflow-x: hidden;
   }
 
   body {
-    color: var(--text);
-    background: var(--bg);
-    background-image:
-      radial-gradient(900px 600px at 8% 92%, rgba(56, 189, 248, 0.06), transparent 60%),
-      radial-gradient(700px 500px at 92% 8%, rgba(56, 189, 248, 0.05), transparent 55%),
-      radial-gradient(600px 400px at 50% 50%, rgba(14, 165, 233, 0.03), transparent 60%);
-    background-attachment: fixed;
+    /* PHASE 1: warm paper, not the old navy. Colour and background must be
+       declared together — inheriting a near-white `--text` on a light surface
+       is what made card headings disappear. */
+    color: var(--ink);
+    background-color: var(--paper);
     line-height: 1.6;
     letter-spacing: 0.01em;
   }
@@ -43,14 +172,214 @@
   button, input { font: inherit; }
 
   :focus-visible {
-    outline: none;
-    box-shadow: 0 0 0 4px var(--accent-ring);
+    /* Never a soft glow. A hard ink ring reads on paper AND on the dark
+       camera surfaces, so focus stays visible on every background. */
+    outline: var(--border-w) solid var(--ink);
+    outline-offset: 2px;
   }
 
   ::selection {
-    background: rgba(56, 189, 248, 0.25);
-    color: #fff;
+    background: var(--lime);
+    color: var(--ink);
   }
+}
+
+/* ============================================================================
+   PAPER + PRINT GROUND
+   ----------------------------------------------------------------------------
+   The page is printed stock, not a screen. Two very low-contrast layers give
+   it texture WITHOUT competing with content:
+     1. a fine 32px engineering grid, near the threshold of visibility
+     2. a coarser 160px block grid
+   Both are fixed, pointer-events:none, and sit UNDER the content. No blur, no
+   gradients, no glass. The grid fades out where the fold of the page would be.
+   ========================================================================== */
+
+.hs-ground {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  background-color: var(--paper);
+  background-image:
+    /* fine grid — 1px ink at 6% */
+    linear-gradient(to right, rgba(17, 17, 17, 0.06) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(17, 17, 17, 0.06) 1px, transparent 1px),
+    /* coarse block grid */
+    linear-gradient(to right, rgba(17, 17, 17, 0.05) 2px, transparent 2px),
+    linear-gradient(to bottom, rgba(17, 17, 17, 0.05) 2px, transparent 2px);
+  background-size:
+    32px 32px,
+    32px 32px,
+    160px 160px,
+    160px 160px;
+  /* Fade toward the edges so the grid reads as stock, not as a table.
+     The ellipse is deliberately large and soft (140% x 95%): an earlier, tighter
+     `ellipse 120% 80% at 50% 30%` clipped its own edge inside the viewport, so
+     on a phone-width screen the mask boundary read as a stray light rectangle
+     floating beside the headline. The fade must complete off-screen. */
+  -webkit-mask-image: radial-gradient(ellipse 140% 95% at 50% 30%, #000 55%, transparent 100%);
+  mask-image: radial-gradient(ellipse 140% 95% at 50% 30%, #000 55%, transparent 100%);
+}
+
+/* ----------------------------------------------------------------------------
+   ROTATION
+   Controlled visual tension. Applied only to stickers, badges, decorative
+   numbers and mascots — never to body copy, buttons, nav or the page itself.
+   `transform` is used rather than `rotate` so it composes with translate.
+   -------------------------------------------------------------------------- */
+.hs-rot-neg2 { transform: rotate(-2deg); }
+.hs-rot-neg1 { transform: rotate(-1deg); }
+.hs-rot-1 { transform: rotate(1deg); }
+.hs-rot-2 { transform: rotate(2deg); }
+.hs-rot-3 { transform: rotate(3deg); }
+.hs-rot-4 { transform: rotate(4deg); }
+.hs-rot-neg3 { transform: rotate(-3deg); }
+
+/* ----------------------------------------------------------------------------
+   PRINT MARKS
+   Registration crosses, corner ticks and dotted rules. Pure decoration; always
+   paired with aria-hidden so they never reach a screen reader.
+   -------------------------------------------------------------------------- */
+.hs-mark-cross {
+  position: absolute;
+  width: 14px;
+  height: 14px;
+  pointer-events: none;
+}
+.hs-mark-cross::before,
+.hs-mark-cross::after {
+  content: "";
+  position: absolute;
+  background: var(--ink);
+}
+.hs-mark-cross::before { left: 50%; top: 0; width: 2px; height: 100%; transform: translateX(-50%); }
+.hs-mark-cross::after { top: 50%; left: 0; height: 2px; width: 100%; transform: translateY(-50%); }
+
+.hs-dots {
+  background-image: radial-gradient(circle, var(--ink) 1.5px, transparent 1.5px);
+  background-size: 10px 10px;
+}
+
+/* Diagonal caution stripes — an editorial device borrowed from print. */
+.hs-stripes {
+  background-image: repeating-linear-gradient(
+    -45deg,
+    var(--ink) 0 6px,
+    transparent 6px 12px
+  );
+}
+
+/* ----------------------------------------------------------------------------
+   STICKERS
+   A sticker is a small printed label that overlaps its neighbours. It carries
+   a hard shadow in the OPPOSITE direction to its rotation, so the label looks
+   like it is peeling UP off the page while its neighbour presses down.
+   -------------------------------------------------------------------------- */
+.hs-sticker {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  border: var(--border-w) solid var(--ink);
+  border-radius: var(--radius-sm);
+  padding: 0.3rem 0.6rem;
+  font-family: var(--font-display);
+  font-size: 0.6875rem;
+  font-weight: 400;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  line-height: 1;
+  white-space: nowrap;
+  box-shadow: var(--shadow-sm);
+}
+
+/* ----------------------------------------------------------------------------
+   OVERSIZE DISPLAY TYPE
+   Anton is very condensed, so it needs tighter tracking and a leading that
+   lets the glyphs nearly touch — that tightness IS the editorial effect.
+   -------------------------------------------------------------------------- */
+.hs-mega {
+  font-family: var(--font-mega);
+  text-transform: uppercase;
+  /* 0.82 was set as a naive "tight editorial" value, but Anton has tall caps
+     and a deep baseline box: at 0.82 the lines physically OVERLAP, so
+     "MAKE / SIGNS / VISIBLE." reads as one smeared block. 0.88 is the tightest
+     leading that keeps consecutive lines of caps optically separate while
+     still reading as a display setting. */
+  line-height: 0.88;
+  letter-spacing: -0.015em;
+  font-weight: 400;
+  /* Anton ships with generous side bearings; the negative tracking keeps the
+     words tight without letting glyphs touch. */
+  text-wrap: balance;
+}
+
+/* An oversized outlined number, used as a watermark behind a card. */
+.hs-numeral {
+  font-family: var(--font-mega);
+  line-height: 0.72;
+  letter-spacing: -0.04em;
+  color: transparent;
+  -webkit-text-stroke: 2px var(--ink);
+  user-select: none;
+  pointer-events: none;
+}
+
+/* ----------------------------------------------------------------------------
+   HARD DEPTH UTILITIES
+   `box-shadow` with several stacked offsets fakes a multi-layer print: a tight
+   contact shadow plus a longer cast shadow.
+   -------------------------------------------------------------------------- */
+.hs-lift-lg {
+  box-shadow: var(--shadow-lg), var(--shadow-sm);
+}
+.hs-lift-xl {
+  box-shadow: var(--shadow-xl), var(--shadow);
+}
+
+/* ----------------------------------------------------------------------------
+   MASCOT INTENT
+   ----------------------------------------------------------------------------
+   The pointer/scroll intent written by usePointerIntent, REGISTERED as `0`.
+
+   This declaration is load-bearing. An unregistered custom property that is
+   still unset makes every `calc(var(--mx) * 14px)` in a descendant invalid at
+   computed-value time, and the browser drops the whole `transform` with no
+   error. The mascots then render stacked and unpositioned — which is exactly
+   how both hands collapsed into one blob before this rule existed. Registering
+   the properties here means the resting state is always valid CSS, even on the
+   very first paint, before any effect has run, and under reduced motion where
+   no loop is ever started.
+
+   Values are UNITLESS numbers so they can be used in both px and deg maths.
+   -------------------------------------------------------------------------- */
+[data-mascot] {
+  --mx: 0;
+  --my: 0;
+  --mx-soft: 0;
+  --my-soft: 0;
+}
+
+/* ----------------------------------------------------------------------------
+   NAV INDEX
+   The printed 01-04 on each nav item is injected through `content` so it is
+   pure decoration: it never enters textContent, so the button's accessible
+   name and the UI gate both still read exactly "Home", "Translate", etc.
+   -------------------------------------------------------------------------- */
+.hs-nav-index {
+  position: absolute;
+  left: 0.4rem;
+  top: 0.3rem;
+  font-family: var(--font-mega);
+  font-size: 11px;
+  line-height: 1;
+  letter-spacing: 0;
+  opacity: 0.62;
+  color: var(--ink-soft);
+  pointer-events: none;
+}
+.hs-nav-index::before {
+  content: attr(data-index);
 }
 
 @keyframes skeleton-shimmer {
@@ -58,12 +387,11 @@
   100% { background-position: 200% 0; }
 }
 .skeleton {
-  background: linear-gradient(90deg, rgba(148,163,184,0.18), rgba(148,163,184,0.34), rgba(148,163,184,0.18));
+  background: var(--paper-sunken);
   background-size: 200% 100%;
-  animation: skeleton-shimmer 1.4s ease-in-out infinite;
-  border-radius: 0.5rem;
+  border: var(--border-w-thin) solid var(--ink);
 }
-.skeleton-line { height: 0.75rem; border-radius: 0.375rem; }
+.skeleton-line { height: 0.75rem; }
 
 .tooltip-group { position: relative; display: inline-flex; }
 .tooltip-icon {
@@ -73,18 +401,35 @@
   cursor: help; border: 1px solid var(--glass-border);
   margin-left: 0.375rem; vertical-align: middle;
 }
+/**
+ * NOTE ON HIDING: the hidden state is `display: none`, NOT `visibility: hidden`
+ * plus `opacity: 0`. A visibility-hidden box still participates in layout, and
+ * because this popover is absolutely positioned at 16rem wide it pushed the
+ * document to 479px on a 414px viewport — i.e. a permanently sideways-scrollable
+ * page, from a tooltip nobody could even see. `display: none` removes it from
+ * the box tree entirely.
+ */
 .tooltip-pop {
+  display: none;
   position: absolute; z-index: 50; bottom: 130%; left: 50%; transform: translateX(-50%);
   width: 16rem; max-width: 85vw; padding: 0.625rem 0.75rem;
-  background: rgba(10, 14, 24, 0.92); color: var(--text); font-size: 0.8rem; font-weight: 400;
-  border: 1px solid var(--glass-border);
-  border-radius: 0.625rem; box-shadow: 0 0 24px var(--glass-glow), 0 20px 45px -15px rgba(0, 0, 0, 0.7);
-  text-align: left; line-height: 1.4;
-  backdrop-filter: blur(12px);
+  background: var(--ink); color: var(--paper); font-size: 0.8rem; font-weight: 600;
+  border: var(--border-w) solid var(--ink);
+  border-radius: var(--radius); box-shadow: var(--shadow);
+  text-align: left; line-height: 1.45;
 }
-.tooltip-pop::after {
+.tooltip-group:hover .tooltip-pop,
+.tooltip-group:focus-within .tooltip-pop { display: block; }
+/* Placement. The arrow is an ink triangle on the same hard-shadow language. */
+.tooltip-above { bottom: 130%; }
+.tooltip-above::after {
   content: ""; position: absolute; top: 100%; left: 50%; transform: translateX(-50%);
-  border: 6px solid transparent; border-top-color: rgba(10, 14, 24, 0.92);
+  border: 6px solid transparent; border-top-color: var(--ink);
+}
+.tooltip-below { bottom: auto; top: 130%; }
+.tooltip-below::after {
+  content: ""; position: absolute; bottom: 100%; left: 50%; transform: translateX(-50%);
+  border: 6px solid transparent; border-bottom-color: var(--ink);
 }
 
 @keyframes soft-in {
@@ -95,137 +440,119 @@
 
 .pill { @apply inline-flex items-center gap-2 rounded-full px-3 py-1.5 text-xs font-semibold; }
 
-/* ============================================================
-   GLASS PANEL SYSTEM
-   ============================================================ */
+/* ============================================================================
+   PANEL SYSTEM (flat, printed)
+   ----------------------------------------------------------------------------
+   These class names survive from the old glassmorphic era because the camera
+   and avatar views still reference them. Their RENDERING has been replaced:
+   every rule below is flat paper + hard ink border + hard offset shadow.
+
+   No backdrop-filter. No blur. No soft/ambient shadow. No radial sheen. A
+   `--hairline` token keeps the dense camera chrome visually lighter than the
+   marketing surfaces without introducing a second border weight.
+   ========================================================================== */
 
 .glass {
   position: relative;
-  background: var(--glass-bg);
-  backdrop-filter: blur(24px) saturate(140%);
-  -webkit-backdrop-filter: blur(24px) saturate(140%);
-  border: 1px solid var(--glass-border);
-  box-shadow: 0 0 24px var(--glass-glow), inset 0 1px 0 rgba(255, 255, 255, 0.06);
+  background: var(--paper-raised);
+  border: var(--border-w-thin) solid var(--ink);
   border-radius: var(--radius);
-}
-
-.glass::before {
-  content: "";
-  position: absolute;
-  inset: 0;
-  border-radius: inherit;
-  background: radial-gradient(
-    220px 130px at 18% -8%,
-    rgba(255, 255, 255, 0.10),
-    rgba(125, 211, 252, 0.05) 35%,
-    transparent 60%
-  );
-  pointer-events: none;
+  box-shadow: var(--shadow-sm);
 }
 
 .glass-sm {
   border-radius: var(--radius-sm);
-  background: var(--glass-bg);
-  backdrop-filter: blur(24px) saturate(140%);
-  -webkit-backdrop-filter: blur(24px) saturate(140%);
-  border: 1px solid var(--glass-border);
-  box-shadow: 0 0 18px var(--glass-glow), inset 0 1px 0 rgba(255, 255, 255, 0.05);
-}
-
-.glass-sm::before {
-  content: ""; position: absolute; inset: 0; border-radius: inherit;
-  background: radial-gradient(160px 100px at 18% -8%, rgba(255,255,255,0.08), transparent 55%);
-  pointer-events: none;
+  background: var(--paper-sunken);
+  border: var(--border-w-thin) solid var(--ink);
+  box-shadow: var(--shadow-sm);
 }
 
 .glass-card { @apply p-5 glass; }
 
 .card-title {
-  @apply m-0 text-sm font-bold uppercase tracking-[0.16em] text-slate-400;
+  @apply m-0 text-sm font-extrabold uppercase tracking-[0.16em] text-[var(--ink-soft)];
 }
 
+/* Interactive panels press IN rather than floating up — the tactile rule. */
 .glass-card-interactive {
   @apply glass-card;
-  transition: transform 0.3s ease, box-shadow 0.3s ease, border-color 0.3s ease;
+  transition: transform var(--press-ms) var(--ease-snap),
+              box-shadow var(--press-ms) var(--ease-snap);
 }
 .glass-card-interactive:hover {
-  transform: translateY(-4px);
-  box-shadow: 0 0 40px rgba(6, 182, 212, 0.12), 0 25px 50px -12px rgba(0, 0, 0, 0.5);
-  border-color: rgba(6, 182, 212, 0.4);
+  transform: translate(-2px, -2px);
+  box-shadow: var(--shadow);
 }
-.glass-card-interactive::after {
-  content: "";
-  position: absolute;
-  inset: 0;
-  border-radius: inherit;
-  background: radial-gradient(
-    400px 200px at var(--mouse-x, 50%) var(--mouse-y, 50%),
-    rgba(6, 182, 212, 0.08),
-    transparent 70%
-  );
-  opacity: 0;
-  transition: opacity 0.3s ease;
-  pointer-events: none;
-}
-.glass-card-interactive:hover::after {
-  opacity: 1;
+.glass-card-interactive:active {
+  transform: translate(2px, 2px);
+  box-shadow: var(--shadow-pressed);
 }
 
+/* The video viewport stays dark: it is the one place a black field is correct,
+   because a camera image is being displayed inside it. */
 .camera-frame {
   position: relative;
   border-radius: var(--radius);
   overflow: hidden;
-  background: rgba(2, 6, 10, 0.6);
+  background: #0b0b0d;
   aspect-ratio: 16 / 9;
-  border: 1px solid var(--glass-border);
-  box-shadow: 0 0 32px var(--glass-glow), inset 0 1px 0 rgba(255, 255, 255, 0.05);
-}
-.camera-frame::before {
-  content: ""; position: absolute; inset: 0; border-radius: inherit;
-  background: radial-gradient(200px 120px at 18% -8%, rgba(255,255,255,0.07), transparent 55%);
-  pointer-events: none;
+  border: var(--border-w) solid var(--ink);
+  box-shadow: var(--shadow-lg);
 }
 .skeleton-camera { background: transparent; }
 
+/* ---------------------------------------------------------------------------
+   PHASE 1 overrides.
+   The camera/model views still render their live surfaces, so their status
+   chrome is restyled onto tokens rather than left on the old dark-glass
+   palette (which would read as broken on the warm paper background).
+   No blur, no backdrop-filter, no soft shadows.
+   ------------------------------------------------------------------------- */
+
 .topbar {
-  position: sticky; top: 0; z-index: 30;
-  backdrop-filter: blur(12px) saturate(140%);
-  -webkit-backdrop-filter: blur(12px) saturate(140%);
-  background: rgba(10, 14, 24, 0.55);
-  border-bottom: 1px solid var(--glass-border);
+  position: sticky;
+  top: 0;
+  z-index: 30;
+  background: var(--paper-raised);
+  border-bottom: var(--border-w) solid var(--ink);
 }
 
 .glass-pill {
   display: inline-flex;
   align-items: center;
   gap: 0.5rem;
-  border-radius: 9999px;
-  padding: 0.375rem 0.75rem;
+  border-radius: var(--radius-sm);
+  padding: 0.3rem 0.6rem;
   font-size: 0.75rem;
-  font-weight: 600;
-  background: rgba(30, 41, 59, 0.4);
-  backdrop-filter: blur(16px) saturate(140%);
-  -webkit-backdrop-filter: blur(16px) saturate(140%);
-  border: 1px solid rgba(148, 163, 184, 0.2);
-  box-shadow: 0 0 12px rgba(56, 189, 248, 0.06), inset 0 1px 0 rgba(255, 255, 255, 0.06);
-  transition: border-color 0.3s ease, box-shadow 0.3s ease;
+  font-weight: 700;
+  background: var(--paper-sunken);
+  border: var(--border-w-thin) solid var(--ink);
+  color: var(--ink);
+  box-shadow: var(--shadow-sm);
+  transition: transform var(--press-ms) var(--ease-snap);
 }
 .glass-pill:hover {
-  border-color: rgba(56, 189, 248, 0.3);
-  box-shadow: 0 0 16px rgba(56, 189, 248, 0.1), inset 0 1px 0 rgba(255, 255, 255, 0.06);
+  transform: translate(1px, 1px);
+  box-shadow: var(--shadow-pressed);
 }
 
 .offline-banner {
-  background: rgba(245, 158, 11, 0.16); color: #fcd34d;
-  font-size: 0.75rem; font-weight: 600;
-  text-align: center; padding: 0.375rem 1rem;
-  border-bottom: 1px solid rgba(245, 158, 11, 0.2);
+  background: var(--sun);
+  color: var(--ink);
+  font-size: 0.75rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  text-align: center;
+  padding: 0.5rem 1rem;
+  border-bottom: var(--border-w) solid var(--ink);
 }
 
 .ring-track { stroke: rgba(148, 163, 184, 0.22); }
 .ring-fill { stroke: var(--accent); transition: stroke-dashoffset 0.4s ease; }
 
-.focus-ring { @apply focus:outline-none focus:ring-4 focus:ring-cyan-400/30; }
+/* Focus is a hard ink ring defined in the base layer; kept as a hook. */
+.focus-ring { @apply focus:outline-none; }
 
 [data-text-size="sm"] { font-size: 0.875rem; line-height: 1.4; }
 [data-text-size="sm"] .hero-text { font-size: 1.75rem; }
@@ -234,61 +561,36 @@
 [data-text-size="lg"] .hero-text { font-size: 3.5rem; }
 [data-text-size="lg"] .hero-text-xl { font-size: 2rem; }
 
+/* ============================================================================
+   HIGH CONTRAST
+   ----------------------------------------------------------------------------
+   On the light paper system, high contrast means the OPPOSITE of the old
+   dark-glass behaviour: pure black ink on pure white, maximum border weight,
+   and every decorative layer switched off. Rotation, the grid ground and the
+   mascot idle motion are all disabled, because a user who enables this wants
+   maximum legibility with nothing competing for attention.
+
+   This overrides TOKENS rather than component classes, so it applies to the
+   whole app without editing a single component.
+   ========================================================================== */
 [data-hc="true"] {
-  --glass-bg: rgba(0, 0, 0, 0.78);
-  --glass-border: rgba(255, 255, 255, 0.5);
-  color: #ffffff;
+  --paper: #ffffff;
+  --paper-raised: #ffffff;
+  --paper-sunken: #f0f0f0;
+  --ink: #000000;
+  --ink-soft: #1a1a1a;
+  --ink-mute: #2e2e2e;
+  --border-w: 4px;
+  --border-w-thin: 3px;
+  color: #000000;
 }
-[data-hc="true"] .glass {
-  background: var(--glass-bg);
-  border: 1px solid var(--glass-border);
-}
+[data-hc="true"] .hs-ground,
+[data-hc="true"] .hs-dots,
+[data-hc="true"] .hs-stripes { display: none; }
+/* Kill decorative rotation: it shrinks the usable box around a label. */
+[data-hc="true"] [class*="hs-rot-"] { transform: none !important; }
+[data-hc="true"] .glass { background: #ffffff; border: var(--border-w) solid #000; }
 [data-hc="true"] .text-slate-400,
 [data-hc="true"] .text-slate-500,
-[data-hc="true"] .text-slate-600 { color: #cbd5e1; }
-[data-hc="true"] .text-slate-300 { color: #e2e8f0; }
-
-.grid-pattern {
-  position: fixed;
-  inset: 0;
-  pointer-events: none;
-  z-index: 0;
-  background-image:
-    radial-gradient(circle, rgba(148, 163, 184, 0.12) 1px, transparent 1px);
-  background-size: 32px 32px;
-  mask-image: radial-gradient(ellipse at 50% 35%, rgba(0,0,0,1) 25%, transparent 70%);
-  -webkit-mask-image: radial-gradient(ellipse at 50% 35%, rgba(0,0,0,1) 25%, transparent 70%);
-}
-
-.ambient-glow {
-  position: absolute;
-  top: 5%;
-  left: 50%;
-  transform: translateX(-50%);
-  width: 700px;
-  height: 500px;
-  background: radial-gradient(ellipse at center, rgba(6, 182, 212, 0.12) 0%, rgba(14, 165, 233, 0.04) 40%, transparent 70%);
-  pointer-events: none;
-  z-index: 0;
-  filter: blur(80px);
-  animation: mesh-pulse 8s ease-in-out infinite;
-}
-
-.gradient-text-brand {
-  background: linear-gradient(135deg, #ffffff 0%, #7dd3fc 40%, #38bdf8 70%, #22d3ee 100%);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
-  filter: drop-shadow(0 0 35px rgba(6, 182, 212, 0.3));
-}
-
-.noise-overlay {
-  position: fixed;
-  inset: 0;
-  pointer-events: none;
-  z-index: 1;
-  opacity: 0.03;
-  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E");
-  background-repeat: repeat;
-  background-size: 256px 256px;
-}
+[data-hc="true"] .text-slate-600 { color: #2e2e2e; }
+[data-hc="true"] .text-slate-300 { color: #1a1a1a; }

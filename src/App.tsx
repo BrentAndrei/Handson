@@ -18,6 +18,10 @@ import { englishToGloss } from "./features/englishToGloss";
 import { LandmarkSmoother } from "./utils/landmarkSmoother";
 import type { LandmarksResult } from "./mediapipe/types";
 import { RIGHT_HAND_OFFSET, LEFT_HAND_OFFSET, HAND_COUNT } from "./mediapipe/types";
+import { HomeScreen } from "./screens/HomeScreen";
+import { LoginScreen } from "./screens/LoginScreen";
+import { AccountScreen } from "./screens/AccountScreen";
+import { BrutalNav, type AppView } from "./components/ui/BrutalNav";
 
 const pageVariants = {
   initial: { opacity: 0, y: 12 },
@@ -26,16 +30,6 @@ const pageVariants = {
 };
 const pageTransition = { duration: 0.35, ease: "easeOut" as const };
 
-const landingContainer = {
-  initial: { opacity: 1 },
-  animate: { transition: { staggerChildren: 0.1, delayChildren: 0.08 } },
-  exit: { opacity: 0, transition: { duration: 0.15 } },
-};
-const landingItem = {
-  initial: { opacity: 0, y: 16, scale: 0.98 },
-  animate: { opacity: 1, y: 0, scale: 1 },
-  exit: { opacity: 0, y: -8 },
-};
 
 const sectionVariants = {
   initial: { opacity: 0, y: 16 },
@@ -45,9 +39,9 @@ const sectionVariants = {
 
 const sectionTransition = (delay: number) => ({ duration: 0.25, delay, ease: "easeOut" as const });
 
-const LANDING_KEY = "landing";
 const PREDICT_KEY = "predict";
 const TEXT_KEY = "text";
+const HOME_KEY = "home";
 
 const INFERENCE_LABELS: string[] = [
   "ADOPT",
@@ -352,10 +346,14 @@ const INFERENCE_LABELS: string[] = [
   "YOU SIGN FAST",
   "YOUNG",
   "YOUR",
-  "Ñ",
+  "Ã‘",
 ];
-const DEBUG_FEATURES = true;
+
+/** Developer feature-vector dump. Off by default; flip to true to trace
+ *  `selectFeatures` output once per second in the console. */
+const DEBUG_FEATURES = false;
 const FEATURE_DEBUG_INTERVAL_MS = 1000;
+
 
 interface ResolutionTier {
   width: number;
@@ -384,13 +382,31 @@ function readDownscaleFlag(): boolean {
 export default function App() {
   const latestFrameRef = useRef<NormalizedFrame | null>(null);
   const featureDebugLastRef = useRef<number>(0);
-  const [view, setView] = useState<"landing" | "predict" | "text">("landing");
+
+  // PHASE 10: the exact Float32Array handed to the avatar, plus a monotonic
+  // counter. The counter is what lets the render loop retarget at most once per
+  // inference result instead of once per animation frame.
+  const avatarLiveFrameRef = useRef<{ vector: Float32Array; seq: number } | null>(null);
+  const liveSeqCounterRef = useRef(0);
+  /**
+   * PHASE 1 UI: the old `landing | predict | text` triple is now the four-item
+   * app shell (home / translate / avatar / account). `predict` and `text` are
+   * the TRANSLATE and AVATAR views respectively â€” the existing pipelines below
+   * are untouched, only the names of the screens changed.
+   */
+  const [view, setView] = useState<AppView>("home");
+  /** Sign-in / sign-up is a sub-screen of the account tab, not a nav item. */
+  const [showAuthForm, setShowAuthForm] = useState(false);
   const [showEnglish, setShowEnglish] = useState(true);
   const [textSize, setTextSize] = useState<"sm" | "base" | "lg">("base");
   const [highContrast, setHighContrast] = useState(false);
   const [showAvatar, setShowAvatar] = useState(true);
   const avatarLandmarksRef = useRef<Float32Array | null>(null);
-  const landmarkSmootherRef = useRef(new LandmarkSmoother(3));
+  // PHASE 31: hands included, matching the recorded path in dataLoader.ts. Live
+// capture is the noisiest source of hand landmarks (webcam tracking), and the
+// window-3 average removes 67% of the hand stream's high-frequency content at
+// 0-1 frames of group delay. Lower limbs stay filtered as in Phase 24.
+const landmarkSmootherRef = useRef(new LandmarkSmoother(3, true, true));
   const [offline, setOffline] = useState<boolean>(
     typeof navigator !== "undefined" ? !navigator.onLine : false
   );
@@ -398,30 +414,6 @@ export default function App() {
   const [glossResult, setGlossResult] = useState<ReturnType<typeof englishToGloss> | null>(null);
   const [textStatus, setTextStatus] = useState<"idle" | "loading" | "ready" | "error">("idle");
 
-  function GlassCard({ children, onClick }: { children: React.ReactNode; onClick: () => void }) {
-    const cardRef = useRef<HTMLDivElement>(null);
-    const handleMouseMove = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
-      if (!cardRef.current) return;
-      const rect = cardRef.current.getBoundingClientRect();
-      const x = ((e.clientX - rect.left) / rect.width) * 100;
-      const y = ((e.clientY - rect.top) / rect.height) * 100;
-      cardRef.current.style.setProperty('--mouse-x', `${x}%`);
-      cardRef.current.style.setProperty('--mouse-y', `${y}%`);
-    }, []);
-    return (
-      <div
-        ref={cardRef}
-        onMouseMove={handleMouseMove}
-        onClick={onClick}
-        className="glass-card-interactive cursor-pointer"
-        role="button"
-        tabIndex={0}
-        onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onClick(); } }}
-      >
-        {children}
-      </div>
-    );
-  }
   useEffect(() => {
     enableSmplxService(true);
     const onOffline = () => setOffline(true);
@@ -446,6 +438,11 @@ export default function App() {
     const smoothedBuf = landmarkSmootherRef.current.smooth(new Float32Array(msg.buffer));
     const smoothedMsg = { ...msg, buffer: smoothedBuf.buffer as ArrayBuffer };
     const normalized = normalizeLandmarks(smoothedMsg); latestFrameRef.current = normalized;
+    // PHASE 10: hand the SAME normalized vector to the avatar. Published into a
+    // ref (not state) deliberately -- a state update here would re-render the
+    // whole App 30x/second. The seq lets the avatar's render loop detect that
+    // this is a new inference result.
+    avatarLiveFrameRef.current = { vector: normalized.vector, seq: liveSeqCounterRef.current++ };
     const features = selectFeatures(normalized.vector);
     if (msg.hasRightHand) {
       const view = new Float32Array(msg.buffer);
@@ -463,9 +460,22 @@ export default function App() {
         console.log("[debug-features] ts=" + msg.timestamp.toFixed(0) + " vector=" + Array.from(features).map(v => v.toFixed(4)).join(","));
       }
     }
+
     inferencePushRef.current(features); sentenceOnActivityRef.current(msg.hasLeftHand || msg.hasRightHand, performance.now());
   }, []);
   const { ready, error, fps, attachVideo, attachCanvas, setInferenceSize } = useHolisticPipeline(handleLandmarks);
+
+  // PHASE 10 â€” live vs recorded source for the avatar.
+  //
+  // The avatar is driven by the webcam whenever the camera is live AND the user
+  // is on a view that actually shows the camera. On the text-only view there is
+  // no camera in context, so recorded gloss playback continues -- which is the
+  // behaviour that was already there and must not regress.
+  //
+  // Auto-derived rather than adding a new UI control: the spec forbids UI
+  // redesigns, and this makes the switch happen exactly when the camera starts
+  // or stops, with no new affordance for the user to discover.
+  const avatarLiveEnabled = ready && !error && view === "translate";
 
   const [tierIndex, setTierIndex] = useState<number>(0);
   const lowFpsCountRef = useRef<number>(0);
@@ -505,76 +515,46 @@ export default function App() {
       data-text-size={textSize}
       data-hc={highContrast ? "true" : "false"}
     >
+      {/* The printed ground: a fine + coarse ink grid on warm paper, fixed
+          behind everything and masked toward the centre so it reads as stock
+          rather than as a table. aria-hidden because it carries no meaning.
+          This is what replaced the ambient-glow/glassmorphism treatment. */}
+      <div className="hs-ground" aria-hidden="true" />
+
       <StatusBar
         items={[
           { label: "Camera", ready, error },
           { label: "Model", ready: inference.ready, error: inference.error },
-          { label: `Tier ${tierIndex + 1}/${RESOLUTION_TIERS.length}`, ready: true, tooltip: `Resolution tier ${tierIndex + 1} of ${RESOLUTION_TIERS.length}. Auto-downgrades when fps stays below ${FPS_DOWNGRADE_THRESHOLD} for ${LOW_FPS_CONSECUTIVE_SAMPLES}s.${tierInferenceSize ? " Inference downscale " + tierInferenceSize.width + "x" + tierInferenceSize.height + " (UNVALIDATED — ?downscale=0 to disable)" : " No inference downscale."}` },
+          { label: `Tier ${tierIndex + 1}/${RESOLUTION_TIERS.length}`, ready: true, tooltip: `Resolution tier ${tierIndex + 1} of ${RESOLUTION_TIERS.length}. Auto-downgrades when fps stays below ${FPS_DOWNGRADE_THRESHOLD} for ${LOW_FPS_CONSECUTIVE_SAMPLES}s.${tierInferenceSize ? " Inference downscale " + tierInferenceSize.width + "x" + tierInferenceSize.height + " (UNVALIDATED â€” ?downscale=0 to disable)" : " No inference downscale."}` },
         ]}
         fps={fps}
         offline={offline}
       />
 
-      <main className="relative mx-auto max-w-6xl px-4 pt-12 pb-20 sm:px-6 sm:py-12">
-        <div className="grid-pattern" aria-hidden="true" />
-        <div className="ambient-glow" aria-hidden="true" />
-        <div className="noise-overlay" aria-hidden="true" />
+      {/* pb-28 reserves room so the fixed bottom nav never covers content. */}
+      <main className="relative mx-auto max-w-6xl px-3 pb-28 pt-4 sm:px-6">
         <AnimatePresence mode="wait">
-        {view === "landing" && (
+        {view === "home" && (
           <motion.div
-            key={LANDING_KEY}
-            className="relative z-10 flex flex-col items-center gap-8 pt-8"
-            variants={landingContainer}
+            key={HOME_KEY}
+            data-view="home"
+            variants={pageVariants}
             initial="initial"
             animate="animate"
             exit="exit"
-            transition={{ duration: 0.25 }}
+            transition={pageTransition}
           >
-            <motion.p variants={landingItem} className="m-0 text-sm font-bold uppercase tracking-[0.18em] text-cyan-400">Filipino Sign Language</motion.p>
-            <motion.h1
-              variants={landingItem}
-              className="mt-2 text-5xl font-black tracking-tight sm:text-6xl gradient-text-brand"
-              style={{ filter: "drop-shadow(0 0 40px rgba(6,182,212,0.35)) drop-shadow(0 0 80px rgba(6,182,212,0.15))" }}
-            >
-              HandSon
-            </motion.h1>
-            <motion.p variants={landingItem} className="mt-4 text-lg leading-7 text-slate-300 max-w-xl text-center">
-              Choose how you want to practice Filipino Sign Language.
-            </motion.p>
-            <motion.div variants={landingItem} className="grid gap-4 sm:grid-cols-2 mt-4 w-full max-w-2xl">
-              {inference.ready ? (
-                <motion.div variants={landingItem}>
-                  <GlassCard onClick={() => setView("predict")}>
-                    <p className="text-2xl font-black text-cyan-300">Predict Mode</p>
-                    <p className="mt-2 text-sm text-slate-400">Live camera sign recognition — sign and see the prediction in real time</p>
-                  </GlassCard>
-                </motion.div>
-              ) : (
-                <motion.div
-                  variants={landingItem}
-                  className="rounded-xl border border-cyan-400/15 bg-cyan-400/[0.02] p-8 text-center opacity-70"
-                >
-                  <p className="text-2xl font-black text-cyan-300/60">Predict Mode</p>
-                  {inference.error ? (
-                    <p className="mt-2 text-sm text-red-400">Model failed to load — check console for details</p>
-                  ) : (
-                    <div className="mt-2 flex flex-col items-center gap-2">
-                      <div className="flex size-8 items-center justify-center rounded-full border-2 border-white/10 border-t-cyan-400/60 animate-spin" aria-hidden="true" />
-                      <p className="mt-1 text-sm text-slate-500">Loading FSL model — Predict Mode unavailable until ready</p>
-                    </div>
-                  )}
-                </motion.div>
-              )}
-              <motion.div variants={landingItem}>
-                <GlassCard onClick={() => setView("text")}>
-                  <p className="text-2xl font-black text-white">Text & Avatar</p>
-                  <p className="mt-2 text-sm text-slate-400">Type English and watch the 3D avatar translate it into sign</p>
-                </GlassCard>
-              </motion.div>
-            </motion.div>
+            <HomeScreen
+              modelReady={inference.ready}
+              modelError={Boolean(inference.error)}
+              onNavigate={(v) => {
+                if (v === "account") setShowAuthForm(false);
+                setView(v);
+              }}
+            />
           </motion.div>
         )}
-        {view === "predict" && (
+        {view === "translate" && (
           <motion.div
             key={PREDICT_KEY}
             className={`grid gap-6 ${inference.ready ? "lg:grid-cols-[minmax(0,1.45fr)_minmax(19rem,0.8fr)]" : "grid-cols-1"} lg:items-start`}
@@ -593,10 +573,10 @@ export default function App() {
             >
               <div className="flex items-center gap-3">
                 <button
-                  onClick={() => setView("landing")}
+                  onClick={() => setView("home")}
                   className="rounded-lg px-3 py-1.5 text-sm font-bold text-slate-300 hover:bg-white/10 hover:text-white transition-all duration-200 active:scale-[0.98] focus:outline-none focus:ring-2 focus:ring-cyan-400/40"
                 >
-                  ← Back
+                  â† Back
                 </button>
                 <p className="text-sm font-bold text-cyan-400">Predict Mode</p>
               </div>
@@ -623,7 +603,7 @@ export default function App() {
             </motion.aside>
           </motion.div>
         )}
-        {view === "text" && (
+        {view === "avatar" && (
           <motion.div
             key={TEXT_KEY}
             className="grid gap-6 lg:grid-cols-[minmax(0,1.45fr)_minmax(19rem,0.8fr)] lg:items-start animate-soft-in"
@@ -642,14 +622,20 @@ export default function App() {
             >
               <div className="flex items-center gap-3">
                 <button
-                  onClick={() => setView("landing")}
+                  onClick={() => setView("home")}
                   className="rounded-lg px-3 py-1.5 text-sm font-bold text-slate-300 hover:bg-white/10 hover:text-white transition-all duration-200 active:scale-[0.98] focus:outline-none focus:ring-2 focus:ring-cyan-400/40"
                 >
-                  ← Back
+                  â† Back
                 </button>
                 <p className="text-sm font-bold text-cyan-400">Text & Avatar</p>
               </div>
-              {showAvatar && <SignAvatar signSequence={glossResult?.glosses.map(g => g.gloss)} />}
+              {showAvatar && (
+                <SignAvatar
+                  signSequence={glossResult?.glosses.map(g => g.gloss)}
+                  liveFrameRef={avatarLiveFrameRef}
+                  liveActive={avatarLiveEnabled}
+                />
+              )}
             </motion.section>
             <motion.aside
               className="space-y-4"
@@ -682,7 +668,7 @@ export default function App() {
                     "bg-cyan-400"
                   }`} />
                   <p className="m-0 text-sm font-bold text-slate-200">
-                    {textStatus === "ready" ? "Avatar ready — signing your text" :
+                    {textStatus === "ready" ? "Avatar ready â€” signing your text" :
                      textStatus === "loading" ? "Loading avatar data..." :
                      textStatus === "error" ? "Error loading avatar" :
                      "Type English below and press Enter to sign it"}
@@ -714,7 +700,29 @@ export default function App() {
             onHighContrast={setHighContrast}
           />
         </div>
+
+        {view === "account" &&
+          (showAuthForm ? (
+            <LoginScreen
+              onNavigate={(v) => {
+                setShowAuthForm(false);
+                setView(v);
+              }}
+            />
+          ) : (
+            <AccountScreen
+              onNavigate={setView}
+              onSignInRequested={() => setShowAuthForm(true)}
+            />
+          ))}
         </AnimatePresence>
+        <BrutalNav
+          active={view}
+          onNavigate={(v) => {
+            setShowAuthForm(false);
+            setView(v);
+          }}
+        />
       </main>
     </div>
   );

@@ -1,0 +1,25 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "noEmit": true,
+    "types": ["node", "vite/client"]
+  },
+  "include": ["scripts/**/*.ts"],
+  "//": [
+    "PHASE 7: the root tsconfig only includes src/, so nothing under scripts/ was",
+    "ever type-checked -- a stray brace in verify-root-translation.ts reached the",
+    "runtime before tsc saw it. This config closes that gap for the maintained",
+    "verification suite.",
+    "",
+    "Excluded below are four ad-hoc debug scripts carried over from Phases 1-2",
+    "(unused locals, implicit anys, a stale GLTFLoader call signature). They are",
+    "not part of the gate suite and are kept only for reference; they are listed",
+    "here explicitly rather than silently dropped."
+  ],
+  "exclude": [
+    "scripts/debug-skeleton.ts",
+    "scripts/inspect-xbot.ts",
+    "scripts/inspect-xbot-skeleton.ts",
+    "scripts/test-tpose.ts"
+  ]
+}

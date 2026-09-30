@@ -43,8 +43,8 @@ export function StatusBar({ items, fps, offline }: Props) {
             transition={{ duration: 0.3, delay: 0.05 }}
           >
             <span className="size-2.5 rounded-full bg-emerald-400 shadow-[0_0_10px_rgba(52,211,153,0.6)]" aria-hidden="true" />
-            <span className="text-sm font-bold tracking-tight text-white">HandSon</span>
-            <span className="hidden text-xs font-medium text-slate-400 sm:inline">· Filipino Sign Language</span>
+            <span className="text-sm font-bold tracking-tight text-[var(--ink)]">HandSon</span>
+            <span className="hidden text-xs font-medium text-[var(--ink-soft)] sm:inline">· Filipino Sign Language</span>
           </motion.div>
           <motion.div
             className="flex items-center gap-2"
@@ -84,7 +84,7 @@ export function StatusBar({ items, fps, offline }: Props) {
                 )}
               </motion.span>
             ))}
-            {fps ? <motion.span className="glass-pill text-slate-300" initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.3, delay: 0.2 }}>{fps} fps</motion.span> : null}
+            {fps ? <motion.span className="glass-pill text-[var(--ink)]" initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.3, delay: 0.2 }}>{fps} fps</motion.span> : null}
           </motion.div>
         </div>
       </motion.div>

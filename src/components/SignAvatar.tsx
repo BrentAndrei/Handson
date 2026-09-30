@@ -8,10 +8,42 @@ import { UnrealBloomPass } from "three/examples/jsm/postprocessing/UnrealBloomPa
 import { OutputPass } from "three/examples/jsm/postprocessing/OutputPass.js";
 import { RoomEnvironment } from "three/examples/jsm/environments/RoomEnvironment.js";
 import type { AvatarFrame, ParentWorldQuats } from "../avatar/retarget";
-import { loadLabelData, loadAvatarData, hasLabelData, resetAvatarData } from "../avatar/dataLoader";
+import { loadLabelData, loadAvatarData, hasLabelData, resetAvatarData, loadLabelDataCanonical, loadLabelDataMediaPipe } from "../avatar/dataLoader";
+import { resolveSkeleton } from "../avatar/boneResolver";
+import type { ResolvedSkeleton } from "../avatar/boneResolver";
+import { retarget, applyBoneRotations } from "../avatar/retargeter";
+import type { RetargetedPose } from "../avatar/retargeter";
+import type { CanonicalPose } from "../avatar/canonicalPose";
+import { RootTranslationSolver } from "../avatar/rootTranslation";
+import { solveFooting } from "../avatar/footingSolver";
+
+import { mediapipeToCanonicalPose } from "../avatar/mediapipeAdapter";
+
+/** PHASE 9: Xbot's bind-pose floor. Measured from the real GLB — its lowest
+ *  bone (mixamorigLeftToe_End) sits at y = -0.0029 m at bind, so the floor is
+ *  that value, NOT y = 0. */
+const FOOTING_FLOOR_Y = -0.0029;
 
 interface SignAvatarProps {
   signSequence?: string[];
+  /**
+   * PHASE 10 — live webcam drive.
+   *
+   * When this ref holds a frame, the avatar is driven by the live MediaPipe
+   * Holistic feed instead of a recorded clip. The value is a
+   * `{ vector, seq }` pair: `seq` increments per inference result so the render
+   * loop can tell a NEW frame from a re-render of the same one and retarget at
+   * most once per inference.
+   *
+   * The frame goes through the exact same verified path as recorded data
+   * (`mediapipeToCanonicalPose` -> `retarget`), so the live pose is subject to
+   * the identical body/hand mapping, the identical root solver and the
+   * identical footing solver. Nothing about the retargeting maths changes
+   * between the two sources.
+   */
+  liveFrameRef?: React.MutableRefObject<{ vector: Float32Array; seq: number } | null>;
+  /** True while the live source should be preferred over recorded playback. */
+  liveActive?: boolean;
   playbackSpeed?: number;
   isPlaying?: boolean;
   currentFrameIndex?: number;
@@ -54,6 +86,38 @@ const QUAT_BONE_KEYS = new Set([
 const SMOOTHING = 0.25;
 const MAX_BONE_ANGLE = Math.PI * 0.9;  // 162 degrees - allows full signing arm movements
 
+/**
+ * PHASE 10 — reusable scratch for the render loop.
+ *
+ * Module-scoped rather than a `useRef` so it is allocated once per module load
+ * instead of once per component instance, and so the animation loop closure
+ * (installed once, lives for the component's lifetime) does not depend on
+ * component state. Safe to share: the loop is single-threaded and each buffer
+ * is fully consumed before the next line needs it.
+ */
+const boneNameScratch = new Set<string>();
+
+/**
+ * Root translation handling (PHASE 7).
+ *
+ * `RetargetedPose.hipsWorldPos` is the source pose's pelvis position, and it
+ * lives in SHOULDER-WIDTH units around a shoulder-anchored origin -- not metres
+ * around a world origin, despite the canonical doc comment. Measured on the real
+ * fixtures: the shoulder midpoint is EXACTLY [0,0,0] in every normalized buffer
+ * (normalizeLandmarks subtracts it), so absolute position is unrecoverable, and
+ * the raw pelvis value is noisy enough that copying it straight onto
+ * `model.position` threw the avatar ~1.6 units below the frame and made it drift
+ * frame-to-frame. That is why this stayed locked through Phases 1-6.
+ *
+ * It is now re-enabled, but only as a DELTA through RootTranslationSolver:
+ *   offset = (hips_now - hips_baseline) * metresPerShoulderWidth
+ * with the baseline captured from the first frame of a sequence, a per-axis
+ * human movement envelope, a per-frame slew limit, and a floor clamp derived
+ * from the avatar's own bind-pose foot height. See avatar/rootTranslation.ts for
+ * the measurements behind each limit.
+ */
+const APPLY_ROOT_TRANSLATION = true;
+
 function easeInOutCubic(t: number): number {
   return t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
 }
@@ -64,6 +128,8 @@ function clamp(val: number, min: number, max: number): number {
 
 export default function SignAvatar({
   signSequence,
+  liveFrameRef,
+  liveActive = false,
   playbackSpeed: externalSpeed = 0.25,
   isPlaying: externalPlaying = true,
   currentFrameIndex: externalFrameIndex,
@@ -85,9 +151,14 @@ export default function SignAvatar({
     bones: Record<string, THREE.Bone>;
   } | null>(null);
   const currentFramesRef = useRef<AvatarFrame[]>([]);
+  const resolvedSkeletonRef = useRef<ResolvedSkeleton | null>(null);
+  const currentRetargetedRef = useRef<RetargetedPose[]>([]);
   const transitionProgressRef = useRef<number>(0);
   const prevFrameRef = useRef<AvatarFrame | null>(null);
   const targetFrameRef2 = useRef<AvatarFrame | null>(null);
+  const prevRetargetedRef = useRef<RetargetedPose | null>(null);
+  const targetRetargetedRef = useRef<RetargetedPose | null>(null);
+  const usedCanonicalRef = useRef(false);
   const transitionStartTimeRef = useRef(0);
   const transitionDuration = 0.4;
   const isAnimatingRef = useRef(false);
@@ -100,7 +171,25 @@ export default function SignAvatar({
   const bindPoseQuats = useRef<Record<string, THREE.Quaternion>>({});
   const parentWorldQuatsRef = useRef<Record<string, THREE.Quaternion>>({});
   const resultQuat = useRef(new THREE.Quaternion());
-  const idleAxis = useRef(new THREE.Vector3(1, 0, 0));
+   const idleAxis = useRef(new THREE.Vector3(1, 0, 0));
+  const tmpVec1 = useRef(new THREE.Vector3());
+  const tmpVec2 = useRef(new THREE.Vector3());
+  // PHASE 7: delta-based root translation (see avatar/rootTranslation.ts).
+  const rootSolverRef = useRef(new RootTranslationSolver());
+  const tmpRootOffset = useRef(new THREE.Vector3());
+  // PHASE 10 — live-source bookkeeping. `liveSeqRef` records the last live frame
+  // consumed so a re-render with the same frame does not retarget twice;
+  // `livePrevPoseRef` holds the previously applied live pose so consecutive
+  // live frames interpolate against each other (a live feed has no "next
+  // keyframe", so prev === target would otherwise freeze the avatar).
+  const liveSeqRef = useRef(-1);
+  const livePrevPoseRef = useRef<RetargetedPose | null>(null);
+  const liveWasActiveRef = useRef(false);
+  // Mirror of the `liveActive` prop. The animation loop and the auto-advance
+  // interval are both installed once, so they would otherwise capture a stale
+  // `false` forever and the live toggle would appear to do nothing.
+  const liveActiveRef = useRef(liveActive);
+  liveActiveRef.current = liveActive;
 
   const [playbackSpeed, setPlaybackSpeed] = useState(externalSpeed);
   const [isPlaying, setIsPlaying] = useState(externalPlaying);
@@ -283,7 +372,16 @@ export default function SignAvatar({
               parentWorldQuatsRef.current = capturedParentWorld;
 
               scene.add(model);
-            resolve({ model, bones });
+
+              // Resolve skeleton using boneResolver for the new retargeting pipeline
+              try {
+                resolvedSkeletonRef.current = resolveSkeleton(model);
+                console.log("[avatar] skeleton resolved:", resolvedSkeletonRef.current.boneOrder);
+              } catch (e) {
+                console.warn("[avatar] skeleton resolution failed:", e);
+              }
+
+              resolve({ model, bones });
           } catch (err) {
             reject(err);
           }
@@ -313,10 +411,109 @@ export default function SignAvatar({
       return;
     }
 
-    console.log(`[avatar] loadSignData: ${label} OK`);
+     console.log(`[avatar] loadSignData: ${label} OK`);
 
-    const dataset = await loadLabelData(label, parentWorldQuats);
-    if (!dataset || dataset.frames.length === 0) {
+      // Try new CanonicalPose pipeline first (SMPL-X adapter)
+      const skeleton = resolvedSkeletonRef.current;
+      let usedCanonical = false;
+      usedCanonicalRef.current = false;
+
+     if (skeleton) {
+      // PHASE 14: prefer the RAW MediaPipe recordings in /avatar-data/.
+      //
+      // The SMPL-X derivatives in /avatar-data-smplx/ are still corrupt: the
+      // exporter that produced them omitted the elbow joint, so every arm was
+      // stored ~4x too long and the retargeter folded them into the torso. The
+      // Python exporter is fixed, but the 402 files cannot be regenerated in
+      // this environment, so we play the original recordings instead. They feed
+      // the SAME mediapipeToCanonicalPose() the live webcam uses -- the path
+      // covered by all 37 verify:retarget tests and the bit-for-bit golden
+      // snapshot -- so this is a data-source swap, not a change to any maths.
+      //
+      // SMPL-X stays as a fallback, so a clip with no raw MediaPipe file does
+      // not become "unavailable" purely because of this swap.
+      const canonicalDataset =
+        (await loadLabelDataMediaPipe(label)) ?? (await loadLabelDataCanonical(label));
+       if (canonicalDataset && canonicalDataset.frames.length > 0) {
+         const step = Math.max(1, Math.floor(canonicalDataset.frames.length / 16));
+         const sampled: (CanonicalPose | null)[] = [];
+         for (let i = 0; i < canonicalDataset.frames.length; i += step) {
+           sampled.push(canonicalDataset.frames[i]);
+         }
+         if (sampled.length > 0 && sampled[sampled.length - 1] !== canonicalDataset.frames[canonicalDataset.frames.length - 1]) {
+           sampled.push(canonicalDataset.frames[canonicalDataset.frames.length - 1]);
+         }
+         if (sampled.length < 2) {
+           sampled.push(canonicalDataset.frames[0]);
+         }
+
+         // Retarget each canonical pose to avatar bone rotations
+         const retargeted: RetargetedPose[] = [];
+         for (const pose of sampled) {
+           if (pose) {
+             const r = retarget(skeleton, pose);
+             retargeted.push(r);
+           } else {
+             retargeted.push(retarget(skeleton, {
+               body: {
+                 hipsPos: [0, 0, 0],
+                 shoulderHeight: 0,
+                 spineDir: [0, 1, 0],
+                 shoulderAxis: [0, 0, 1],
+                 leftShoulder: [0, 0, 0], leftElbow: [0, 0, 0], leftWrist: [0, 0, 0],
+                 rightShoulder: [0, 0, 0], rightElbow: [0, 0, 0], rightWrist: [0, 0, 0],
+                 neckPos: [0, 0, 0], headPos: [0, 0, 0], headDir: [0, 1, 0],
+                 leftHip: [0, 0, 0], leftKnee: [0, 0, 0], leftAnkle: [0, 0, 0],
+                 rightHip: [0, 0, 0], rightKnee: [0, 0, 0], rightAnkle: [0, 0, 0],
+               } as any,
+               leftHand: { wristPos: [0, 0, 0], palmNormal: [0, 0, 1], palmDir: [0, 0, 1], fingers: {} } as any,
+               rightHand: { wristPos: [0, 0, 0], palmNormal: [0, 0, 1], palmDir: [0, 0, 1], fingers: {} } as any,
+               timestamp: 0,
+             } as CanonicalPose));
+           }
+         }
+
+          currentRetargetedRef.current = retargeted;
+          currentFramesRef.current = [];
+          prevFrameRef.current = null;
+          targetFrameRef2.current = null;
+          prevRetargetedRef.current = retargeted[0];
+          targetRetargetedRef.current = retargeted[Math.min(1, retargeted.length - 1)];
+          setFrameIndex(0);
+          setTotalFrames(retargeted.length);
+          transitionProgressRef.current = 0;
+          transitionStartTimeRef.current = timeRef.current;
+          isAnimatingRef.current = true;
+          usedCanonical = true;
+          usedCanonicalRef.current = true;
+
+          // Apply initial pose immediately
+          const av = avatarRef.current;
+          if (skeleton && retargeted[0] && av) {
+            applyBoneRotations(retargeted[0].boneRotations, skeleton);
+            if (av.model) {
+              if (APPLY_ROOT_TRANSLATION) {
+                // PHASE 7: new sequence -> the first frame becomes the baseline,
+                // so the root starts at the origin and only MOVES relative to it.
+                rootSolverRef.current.reset();
+                rootSolverRef.current.solve(retargeted[0].hipsWorldPos, tmpRootOffset.current);
+                av.model.position.copy(tmpRootOffset.current);
+              } else {
+                av.model.position.set(0, 0, 0);
+              }
+            }
+          }
+
+          console.log(`[avatar] loadSignData: canonical path loaded ${retargeted.length} retargeted frames`);
+        }
+        onFrameChange?.(0, currentRetargetedRef.current.length);
+        onSignChange?.(label);
+      }
+
+     // Fallback: traditional quaternion-based path
+     if (!usedCanonical) {
+     const dataset = await loadLabelData(label, parentWorldQuats);
+     if (!dataset || dataset.frames.length === 0) {
       console.warn(`[avatar] loadSignData: ${label} has no frames`);
       return;
     }
@@ -362,6 +559,7 @@ export default function SignAvatar({
 
     onFrameChange?.(0, sampled.length);
     onSignChange?.(label);
+      } // end if (!usedCanonical)
   }, [onFrameChange, onSignChange]);
 
   useEffect(() => {
@@ -451,16 +649,25 @@ export default function SignAvatar({
     backLight.position.set(0, 1.5, -3);
     scene.add(backLight);
 
-    const glowHandL = new THREE.PointLight(0x00ffcc, 0.3, 2);
+    // PHASE 25 — hand/shoulder accent lights dimmed and de-saturated.
+    //
+    // These four coloured point lights sat at fixed world positions near the
+    // hands and shoulders with intensity 0.3 / 0.2. They are the dominant
+    // coloured light on the hands: a saturated green (0x00ffcc) pool directly
+    // on the signing hands, which both raised the hands above the bloom
+    // threshold and destroyed the skin-tone contrast that makes a handshape
+    // readable. Halved to 0.15 / 0.1 and pulled back toward neutral so the
+    // hands read as skin, not as emissive props.
+    const glowHandL = new THREE.PointLight(0x00ffcc, 0.15, 2);
     glowHandL.position.set(0.6, -1.2, 0.3);
     scene.add(glowHandL);
-    const glowHandR = new THREE.PointLight(0x00ffcc, 0.3, 2);
+    const glowHandR = new THREE.PointLight(0x00ffcc, 0.15, 2);
     glowHandR.position.set(-0.6, -1.2, 0.3);
     scene.add(glowHandR);
-    const glowShoulderL = new THREE.PointLight(0xff44aa, 0.2, 2);
+    const glowShoulderL = new THREE.PointLight(0xff44aa, 0.1, 2);
     glowShoulderL.position.set(0.3, 0.3, 0.2);
     scene.add(glowShoulderL);
-    const glowShoulderR = new THREE.PointLight(0xff44aa, 0.2, 2);
+    const glowShoulderR = new THREE.PointLight(0xff44aa, 0.1, 2);
     glowShoulderR.position.set(-0.3, 0.3, 0.2);
     scene.add(glowShoulderR);
 
@@ -498,6 +705,15 @@ export default function SignAvatar({
         const parentWorldQuatsForRetarget = toParentWorldQuats();
 
         const checkInterval = setInterval(async () => {
+          // PHASE 10: never swap in a new recorded clip while the live webcam
+          // is driving the avatar, or the two sources would alternate and the
+          // pose would visibly stutter between them.
+          //
+          // Read through a ref, NOT the `liveActive` prop: adding it to this
+          // effect's dependency array would tear down and rebuild the entire
+          // WebGLRenderer + GLTF scene on every live toggle, which is precisely
+          // the leak this phase is meant to close. A ref keeps the toggle free.
+          if (liveActiveRef.current) return;
           if (signSequenceState && signSequenceState.length > 0) {
             const now = Date.now();
             if (now - lastSignTimeRef.current > 12000) {
@@ -522,19 +738,16 @@ export default function SignAvatar({
     };
 
     let isRunning = true;
-    let frameCount = 0;
 
     const animate = () => {
       if (!isRunning) return;
       animationIdRef.current = requestAnimationFrame(animate);
       timeRef.current += 0.016;
 
-      if (frameCount < 500) {
-        frameCount++;
-        if (frameCount % 20 === 0) {
-          console.log(`[av] f${frameCount} t=${timeRef.current.toFixed(2)} anim=${isAnimatingRef.current} play=${isPlayingRef.current} run=${isRunning} idx=${effectiveFrameIndex} ready=${modelReadyRef.current}`);
-        }
-      }
+    // PHASE 10: per-frame console logging removed. `console.log` on the render
+    // path costs real time at 60fps (each call formats and pushes to the devtools
+    // buffer) and was the single largest source of jank in the live pipeline.
+    // These blocks were unconditional for the first 500 frames.
 
       const av = avatarRef.current;
       if (!av) return;
@@ -543,25 +756,141 @@ export default function SignAvatar({
       breathPhaseRef.current = t * 1.2;
       idleWeightRef.current = Math.sin(t * 0.7) * 0.5 + 0.5;
 
-      if (frameCount <= 500 && frameCount % 60 === 0) {
-        const dbg = (window as any).__avatarDebug;
-        if (dbg) {
-          console.log(`[av] debug: bonesMapped=${dbg.bonesMapped} bonesBound=${dbg.bonesBound} missing=${JSON.stringify(dbg.missingBones)} isAnim=${dbg.isAnimating} isPlay=${dbg.isPlaying} hasAvatar=${dbg.hasAvatar} frames=${dbg.currentFramesCount}`);
+      // PHASE 10 — LIVE SOURCE. Consume a new webcam frame, if one is pending.
+      //
+      // Placement is deliberate: this runs BEFORE the recorded-playback gate and
+      // takes priority over it, so the two sources can never fight over the same
+      // bones in one frame. The live pose is pushed through the SAME
+      // prev/target retargeted refs the recorded path uses, so everything
+      // downstream (interpolation, root solver, footing, rendering) is shared
+      // and unchanged. That is what makes the toggle seamless: switching source
+      // changes only which pose lands in the refs, never the code that consumes
+      // it, and the existing SMOOTHING slerp below interpolates across the
+      // switch instead of snapping.
+      const liveFrame = liveFrameRef?.current ?? null;
+      if (liveActiveRef.current && liveFrame && liveFrame.seq !== liveSeqRef.current) {
+        const skel = resolvedSkeletonRef.current;
+        if (skel) {
+          liveSeqRef.current = liveFrame.seq;
+          // Same adapter the recorded SMPL-X path and verify:browser use.
+          const livePose = mediapipeToCanonicalPose(liveFrame.vector, 0);
+          if (livePose) {
+            const liveRet = retarget(skel, livePose);
+            // Reset the root baseline on the first live frame, otherwise the
+            // delta solver would jump the model by the difference between a
+            // recorded clip's hips and the live hips.
+            if (!liveWasActiveRef.current) {
+              liveWasActiveRef.current = true;
+              livePrevPoseRef.current = null;
+              if (APPLY_ROOT_TRANSLATION) rootSolverRef.current.reset();
+            }
+            // Interpolate from the previous live frame; on the very first frame
+            // there is no previous, so use the pose itself (a no-op slerp) and
+            // let SMOOTHING ease the bones in from wherever they currently are.
+            prevRetargetedRef.current = livePrevPoseRef.current ?? liveRet;
+            livePrevPoseRef.current = liveRet;
+            targetRetargetedRef.current = liveRet;
+            usedCanonicalRef.current = true;
+            isAnimatingRef.current = true;
+            transitionProgressRef.current = 1;
+          }
         }
       }
+      if (!liveActiveRef.current && liveWasActiveRef.current) {
+        // Camera disabled: hand control back to recorded playback and drop the
+        // live baseline so re-enabling starts a fresh root baseline.
+        liveWasActiveRef.current = false;
+        livePrevPoseRef.current = null;
+        liveSeqRef.current = -1;
+      }
 
-      if (isAnimatingRef.current && targetFrameRef2.current && isPlayingRef.current) {
+      // PHASE 10 BUGFIX: this gate used to require `targetFrameRef2.current`,
+      // but the CANONICAL loader (loadSignData) sets `targetFrameRef2.current =
+      // null` and drives playback through `targetRetargetedRef` instead. So for
+      // every canonical clip - i.e. all of them, since SMPL-X data is the only
+      // source - the condition was false and the whole interpolation block was
+      // skipped. The avatar sat at the frame-0 pose applied by
+      // applyBoneRotations() and never animated. The test suite missed it
+      // because verify:browser drives a standalone harness that re-implements
+      // this maths rather than mounting the component.
+      // Fix: gate on whichever target ref the ACTIVE source uses.
+      const gateTarget = usedCanonicalRef.current
+        ? targetRetargetedRef.current
+        : targetFrameRef2.current;
+      if (isAnimatingRef.current && gateTarget && isPlayingRef.current) {
         const elapsed = t - transitionStartTimeRef.current;
         const duration = transitionDuration / playbackSpeedRef.current;
         const rawT = clamp(elapsed / duration, 0, 1);
         transitionProgressRef.current = easeInOutCubic(rawT);
 
-        if (frameCount <= 500 && frameCount % 20 === 0) {
-          console.log(`[av] transition rawT=${rawT.toFixed(3)} elapsed=${elapsed.toFixed(2)} dur=${duration.toFixed(2)} isAnim=${isAnimatingRef.current}`);
-        }
+        if (usedCanonicalRef.current) {
+          // Canonical path: interpolate RetargetedPose using applyBoneRotations + slerp on quaternions
+          const curRet = prevRetargetedRef.current;
+          const tgtRet = targetRetargetedRef.current;
+          const progress = transitionProgressRef.current;
 
-        const cur = prevFrameRef.current;
-        const tgt = targetFrameRef2.current;
+          if (curRet && tgtRet) {
+            const av = avatarRef.current;
+            const skeleton = resolvedSkeletonRef.current;
+             if (av && skeleton) {
+              // Interpolate root position
+              tmpVec1.current.copy(curRet.hipsWorldPos);
+              tmpVec2.current.copy(tgtRet.hipsWorldPos);
+              tmpVec1.current.lerp(tmpVec2.current, progress);
+              if (av.model) {
+                if (APPLY_ROOT_TRANSLATION) {
+                  // PHASE 7: feed the INTERPOLATED hips through the delta
+                  // solver, so the envelope/slew/floor clamps apply every frame
+                  // instead of once per keyframe.
+                  rootSolverRef.current.solve(tmpVec1.current, tmpRootOffset.current);
+                  av.model.position.copy(tmpRootOffset.current);
+                } else {
+                  av.model.position.set(0, 0, 0);
+                }
+              }
+
+              // Interpolate all bone rotations by slerping quaternions.
+              // PHASE 10: this used to build `new Set<string>()` and two
+              // closures every frame just to union the two bone-name maps.
+              // Both maps are keyed by the SAME bone set (retarget() emits an
+              // identical key set for every pose), so iterating `curRet` alone
+              // is equivalent -- and the reusable module-level Set below keeps
+              // it correct even if a key were ever missing from one side.
+              const allBoneNames = boneNameScratch;
+              allBoneNames.clear();
+              curRet.boneRotations.forEach((_, name) => allBoneNames.add(name));
+              tgtRet.boneRotations.forEach((_, name) => allBoneNames.add(name));
+
+              for (const boneName of allBoneNames) {
+                const curRot = curRet.boneRotations.get(boneName);
+                const tgtRot = tgtRet.boneRotations.get(boneName);
+                const bone = skeleton.bones.get(boneName)?.bone;
+                if (curRot && tgtRot && bone) {
+                  resultQuat.current.slerpQuaternions(curRot, tgtRot, progress);
+                  bone.quaternion.slerp(resultQuat.current, SMOOTHING);
+                  bone.quaternion.normalize();
+                }
+              }
+
+              // PHASE 9: additive ground contact, applied AFTER the interpolated
+              // retargeted pose (not after applyBoneRotations — this path slerps
+              // between keyframes rather than re-applying the bone map). The
+              // solver reads the current world state and rewrites ONLY the four
+              // leg bones' local quaternions; the ankle keeps its bind rotation
+              // and the root offset above is untouched, so this cannot cheat by
+              // lifting the model. Bounded to a corrective pass and clamped so a
+              // fully extended leg can never produce NaN.
+              if (av.model) {
+                av.model.updateMatrixWorld(true);
+                solveFooting(skeleton, { floorY: FOOTING_FLOOR_Y });
+                av.model.updateMatrixWorld(true);
+              }
+            }
+          }
+        } else {
+          // Traditional path: interpolate AvatarFrame arrays
+          const cur = prevFrameRef.current;
+          const tgt = targetFrameRef2.current;
 
         if (cur && tgt) {
           let bonesUpdated = 0;
@@ -614,41 +943,67 @@ export default function SignAvatar({
                 bonesSkipped++;
               }
             }
-          if (frameCount <= 500 && frameCount % 40 === 0) {
-            console.log(`[av] bonesUpdated=${bonesUpdated} bonesSkipped=${bonesSkipped} missing=${JSON.stringify({ cur: !!cur, tgt: !!tgt })}`);
-          }
         }
+        } // end else (traditional path)
 
-        if (rawT >= 1) {
+         if (rawT >= 1) {
           isAnimatingRef.current = false;
-          prevFrameRef.current = targetFrameRef2.current;
-          const frames = currentFramesRef.current;
-          const curIdx = frames.findIndex((f) => f === prevFrameRef.current);
-          const nextIdx = curIdx >= 0 ? curIdx + 1 : 1;
+          if (usedCanonicalRef.current) {
+            prevRetargetedRef.current = targetRetargetedRef.current;
+            const retargeted = currentRetargetedRef.current;
+            const curIdx = retargeted.findIndex((f) => f === prevRetargetedRef.current);
+            const nextIdx = curIdx >= 0 ? curIdx + 1 : 1;
 
-          if (nextIdx < frames.length) {
-            targetFrameRef2.current = frames[nextIdx];
-            transitionProgressRef.current = 0;
-            transitionStartTimeRef.current = t;
-            isAnimatingRef.current = true;
-            setFrameIndex(curIdx);
-            onFrameChange?.(curIdx, frames.length);
+            if (nextIdx < retargeted.length) {
+              targetRetargetedRef.current = retargeted[nextIdx];
+              transitionProgressRef.current = 0;
+              transitionStartTimeRef.current = t;
+              isAnimatingRef.current = true;
+              setFrameIndex(curIdx);
+              onFrameChange?.(curIdx, retargeted.length);
+            } else {
+              prevRetargetedRef.current = retargeted[0];
+              targetRetargetedRef.current = retargeted[Math.min(1, retargeted.length - 1)];
+              transitionProgressRef.current = 0;
+              transitionStartTimeRef.current = t;
+              isAnimatingRef.current = true;
+              setFrameIndex(0);
+              onFrameChange?.(0, retargeted.length);
+            }
           } else {
-            prevFrameRef.current = frames[0];
-            targetFrameRef2.current = frames[Math.min(1, frames.length - 1)];
-            transitionProgressRef.current = 0;
-            transitionStartTimeRef.current = t;
-            isAnimatingRef.current = true;
-            setFrameIndex(0);
-            onFrameChange?.(0, frames.length);
+            prevFrameRef.current = targetFrameRef2.current;
+            const frames = currentFramesRef.current;
+            const curIdx = frames.findIndex((f) => f === prevFrameRef.current);
+            const nextIdx = curIdx >= 0 ? curIdx + 1 : 1;
+
+            if (nextIdx < frames.length) {
+              targetFrameRef2.current = frames[nextIdx];
+              transitionProgressRef.current = 0;
+              transitionStartTimeRef.current = t;
+              isAnimatingRef.current = true;
+              setFrameIndex(curIdx);
+              onFrameChange?.(curIdx, frames.length);
+            } else {
+              prevFrameRef.current = frames[0];
+              targetFrameRef2.current = frames[Math.min(1, frames.length - 1)];
+              transitionProgressRef.current = 0;
+              transitionStartTimeRef.current = t;
+              isAnimatingRef.current = true;
+              setFrameIndex(0);
+              onFrameChange?.(0, frames.length);
+            }
           }
-          console.log(`[avatar] frame ${curIdx+1}/${frames.length} isAnimating=${isAnimatingRef.current} isPlaying=${isPlayingRef.current} isRunning=${isRunning}`);
         }
-      } else if (isPlayingRef.current) {
-        if (frameCount <= 500 && frameCount % 60 === 0) {
-          const dbg = (window as any).__avatarDebug;
-          console.log(`[av] idle: isAnim=${isAnimatingRef.current} isPlay=${isPlayingRef.current} bonesMapped=${dbg?.bonesMapped ?? 0} bonesBound=${dbg?.bonesBound ?? 0}`);
-        }
+      } else if (isPlayingRef.current && !isAnimatingRef.current) {
+        // PHASE 8: `!isAnimatingRef.current` is REQUIRED here, not cosmetic.
+        // The retarget branch above only runs when isAnimating AND
+        // targetFrameRef2 are both set, so a frame where sign data is loaded
+        // (isAnimating true) but targetFrameRef2 is momentarily null -- e.g.
+        // right after a seek or on the first frame of a load -- previously fell
+        // through to this branch and OVERWROTE head, neck, torso and BOTH arms
+        // and BOTH hands with idle rotations. That is exactly the "destructive
+        // override" the idle layer must never do: with the guard, such a frame
+        // simply holds the last retargeted pose, which is safe and correct.
         const sway = idleWeightRef.current;
         if (av.bones.head) {
           const bp = bindPoseQuats.current["head"];
@@ -789,9 +1144,24 @@ export default function SignAvatar({
     const composer = new EffectComposer(renderer);
     composer.addPass(new RenderPass(scene, camera));
 
+    // PHASE 25 — bloom reduced for sign-language readability.
+    //
+    // Was (strength, radius, threshold) = (0.25, 0.3, 0.85). The threshold was
+    // low enough that the lit skin of the hands and forearms crossed it, so the
+    // bloom pass bloomed the SUBJECT rather than the background rim, wrapping
+    // the hands in a halo exactly when they cross the torso and readability
+    // matters most.
+    //
+    // New values are chosen so bloom only touches genuine highlights (the rim
+    // and the accent lights) and leaves lit skin below threshold:
+    //   strength   0.25 -> 0.10  (halo was flooding the silhouette edges)
+    //   radius     0.30 -> 0.20  (tighter, so glow stays local to highlights)
+    //   threshold  0.85 -> 0.92  (only near-white pixels bloom now)
+    // ACESFilmic tone mapping is kept: it compresses highlights gracefully and
+    // is what lets the key light read without clipping.
     const bloomPass = new UnrealBloomPass(
       new THREE.Vector2(width, height),
-      0.25, 0.3, 0.85
+      0.10, 0.2, 0.92
     );
     composer.addPass(bloomPass);
 
@@ -840,13 +1210,37 @@ export default function SignAvatar({
           if (m.isMesh) {
             m.geometry?.dispose();
             const mat = m.material;
-            if (Array.isArray(mat)) { mat.forEach(mm => mm.dispose()); }
-            else { mat?.dispose(); }
+            const mats = Array.isArray(mat) ? mat : [mat];
+            for (let i = 0; i < mats.length; i++) {
+              const mm = mats[i];
+              if (!mm) continue;
+              // PHASE 10: material.dispose() does NOT release the textures the
+              // material references -- the GL texture stays resident on the GPU
+              // until it is disposed explicitly. Xbot's skin/baseColor/normal
+              // maps were leaking for the lifetime of the context.
+              for (const key in mm) {
+                const value = (mm as unknown as Record<string, unknown>)[key];
+                if (value && (value as THREE.Texture).isTexture) {
+                  (value as THREE.Texture).dispose();
+                }
+              }
+              mm.dispose();
+            }
           }
         });
         scene.remove(avatarRef.current.model);
         avatarRef.current = null;
       }
+      // PHASE 10: the particle system is scene-owned, not avatar-owned, so the
+      // traverse above never reached it. It was leaking a geometry + material
+      // (and their GPU buffers) on every unmount.
+      particleGeo.dispose();
+      particleMat.dispose();
+      scene.remove(particles);
+      // Post-processing passes own render targets; dispose them with the
+      // composer or their framebuffers leak.
+      bloomPass.dispose();
+      composer.dispose();
       controls.dispose();
       renderer.dispose();
       if (container.contains(renderer.domElement)) {
@@ -856,31 +1250,59 @@ export default function SignAvatar({
   }, [signSequenceState, loadSignData]);
 
   const handleStepForward = useCallback(() => {
-    const frames = currentFramesRef.current;
-    if (frames.length === 0) return;
-    const next = (effectiveFrameIndex + 1) % frames.length;
-    prevFrameRef.current = frames[effectiveFrameIndex];
-    targetFrameRef2.current = frames[next];
-    transitionProgressRef.current = 0;
-    transitionStartTimeRef.current = timeRef.current;
-    isAnimatingRef.current = true;
-    setFrameIndex(next);
-    onFrameChange?.(next, frames.length);
-    onStepForward?.();
+    if (usedCanonicalRef.current) {
+      const retargeted = currentRetargetedRef.current;
+      if (retargeted.length === 0) return;
+      const next = (effectiveFrameIndex + 1) % retargeted.length;
+      prevRetargetedRef.current = retargeted[effectiveFrameIndex];
+      targetRetargetedRef.current = retargeted[next];
+      transitionProgressRef.current = 0;
+      transitionStartTimeRef.current = timeRef.current;
+      isAnimatingRef.current = true;
+      setFrameIndex(next);
+      onFrameChange?.(next, retargeted.length);
+      onStepForward?.();
+    } else {
+      const frames = currentFramesRef.current;
+      if (frames.length === 0) return;
+      const next = (effectiveFrameIndex + 1) % frames.length;
+      prevFrameRef.current = frames[effectiveFrameIndex];
+      targetFrameRef2.current = frames[next];
+      transitionProgressRef.current = 0;
+      transitionStartTimeRef.current = timeRef.current;
+      isAnimatingRef.current = true;
+      setFrameIndex(next);
+      onFrameChange?.(next, frames.length);
+      onStepForward?.();
+    }
   }, [effectiveFrameIndex, onFrameChange, onStepForward]);
 
   const handleStepBack = useCallback(() => {
-    const frames = currentFramesRef.current;
-    if (frames.length === 0) return;
-    const prev = (effectiveFrameIndex - 1 + frames.length) % frames.length;
-    prevFrameRef.current = frames[prev];
-    targetFrameRef2.current = frames[effectiveFrameIndex];
-    transitionProgressRef.current = 0;
-    transitionStartTimeRef.current = timeRef.current;
-    isAnimatingRef.current = true;
-    setFrameIndex(prev);
-    onFrameChange?.(prev, frames.length);
-    onStepBack?.();
+    if (usedCanonicalRef.current) {
+      const retargeted = currentRetargetedRef.current;
+      if (retargeted.length === 0) return;
+      const prev = (effectiveFrameIndex - 1 + retargeted.length) % retargeted.length;
+      prevRetargetedRef.current = retargeted[prev];
+      targetRetargetedRef.current = retargeted[effectiveFrameIndex];
+      transitionProgressRef.current = 0;
+      transitionStartTimeRef.current = timeRef.current;
+      isAnimatingRef.current = true;
+      setFrameIndex(prev);
+      onFrameChange?.(prev, retargeted.length);
+      onStepBack?.();
+    } else {
+      const frames = currentFramesRef.current;
+      if (frames.length === 0) return;
+      const prev = (effectiveFrameIndex - 1 + frames.length) % frames.length;
+      prevFrameRef.current = frames[prev];
+      targetFrameRef2.current = frames[effectiveFrameIndex];
+      transitionProgressRef.current = 0;
+      transitionStartTimeRef.current = timeRef.current;
+      isAnimatingRef.current = true;
+      setFrameIndex(prev);
+      onFrameChange?.(prev, frames.length);
+      onStepBack?.();
+    }
   }, [effectiveFrameIndex, onFrameChange, onStepBack]);
 
   const handleSpeedChange = useCallback((speed: number) => {

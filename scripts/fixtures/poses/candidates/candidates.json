@@ -1,0 +1,301 @@
+{
+  "generatedBy": "download-pose-fixtures.mjs",
+  "allowedMime": [
+    "image/jpeg",
+    "image/png"
+  ],
+  "accepted": [
+    {
+      "poseClass": "tpose",
+      "file": "tpose_0.jpg",
+      "query": "person standing T-pose exercise photo",
+      "title": "File:U.S. Coast Guard Operations Specialist 2nd Class Samantha Hayes poses for a photo while standing radio and radar watch aboard the national security cutter USCGC Bertholf (WMSL 750) in the Arctic Ocean Sept 120914-G-VS714-388.jpg",
+      "apiMime": "image/jpeg",
+      "sniffedMime": "image/jpeg",
+      "descriptionurl": "https://commons.wikimedia.org/wiki/File:U.S._Coast_Guard_Operations_Specialist_2nd_Class_Samantha_Hayes_poses_for_a_photo_while_standing_radio_and_radar_watch_aboard_the_national_security_cutter_USCGC_Bertholf_(WMSL_750)_in_the_Arctic_Ocean_Sept_120914-G-VS714-388.jpg",
+      "bytes": 88257
+    },
+    {
+      "poseClass": "tpose",
+      "file": "tpose_1.jpg",
+      "query": "person standing T-pose exercise photo",
+      "title": "File:Leading Aircraft Woman Patricia Entwistle RAAF.jpg",
+      "apiMime": "image/jpeg",
+      "sniffedMime": "image/jpeg",
+      "descriptionurl": "https://commons.wikimedia.org/wiki/File:Leading_Aircraft_Woman_Patricia_Entwistle_RAAF.jpg",
+      "bytes": 103765
+    },
+    {
+      "poseClass": "tpose",
+      "file": "tpose_2.jpg",
+      "query": "person standing T-pose exercise photo",
+      "title": "File:Breeder and sportsman (1911) (20417510361).jpg",
+      "apiMime": "image/jpeg",
+      "sniffedMime": "image/jpeg",
+      "descriptionurl": "https://commons.wikimedia.org/wiki/File:Breeder_and_sportsman_(1911)_(20417510361).jpg",
+      "bytes": 173574
+    },
+    {
+      "poseClass": "neutral",
+      "file": "neutral_0.jpg",
+      "query": "standing person front view full length photo",
+      "title": "File:President Barack Obama with full cabinet 09-10-09.jpg",
+      "apiMime": "image/jpeg",
+      "sniffedMime": "image/jpeg",
+      "descriptionurl": "https://commons.wikimedia.org/wiki/File:President_Barack_Obama_with_full_cabinet_09-10-09.jpg",
+      "bytes": 186681
+    },
+    {
+      "poseClass": "neutral",
+      "file": "neutral_1.jpg",
+      "query": "standing person front view full length photo",
+      "title": "File:Shiori Kohana as Douki-chan standing on one leg at Expo Dome court yard (52869410217).jpg",
+      "apiMime": "image/jpeg",
+      "sniffedMime": "image/jpeg",
+      "descriptionurl": "https://commons.wikimedia.org/wiki/File:Shiori_Kohana_as_Douki-chan_standing_on_one_leg_at_Expo_Dome_court_yard_(52869410217).jpg",
+      "bytes": 527853
+    },
+    {
+      "poseClass": "neutral",
+      "file": "neutral_2.jpg",
+      "query": "standing person front view full length photo",
+      "title": "File:Shiori Kohana as Douki-chan standing on one leg at Expo Dome court yard (52870707541).jpg",
+      "apiMime": "image/jpeg",
+      "sniffedMime": "image/jpeg",
+      "descriptionurl": "https://commons.wikimedia.org/wiki/File:Shiori_Kohana_as_Douki-chan_standing_on_one_leg_at_Expo_Dome_court_yard_(52870707541).jpg",
+      "bytes": 523065
+    },
+    {
+      "poseClass": "arms_both",
+      "file": "arms_both_0.jpg",
+      "query": "jumping jacks exercise fitness photo",
+      "title": "File:USMC-060910-M-4379K-.jpg",
+      "apiMime": "image/jpeg",
+      "sniffedMime": "image/jpeg",
+      "descriptionurl": "https://commons.wikimedia.org/wiki/File:USMC-060910-M-4379K-.jpg",
+      "bytes": 274022
+    },
+    {
+      "poseClass": "arms_both",
+      "file": "arms_both_1.jpg",
+      "query": "jumping jack exercise photograph",
+      "title": "File:Elementary school students conduct jumping jacks to warm up USMC-120214-M-MA421-288.jpg",
+      "apiMime": "image/jpeg",
+      "sniffedMime": "image/jpeg",
+      "descriptionurl": "https://commons.wikimedia.org/wiki/File:Elementary_school_students_conduct_jumping_jacks_to_warm_up_USMC-120214-M-MA421-288.jpg",
+      "bytes": 133749
+    },
+    {
+      "poseClass": "arms_both",
+      "file": "arms_both_2.jpg",
+      "query": "jumping jack exercise photograph",
+      "title": "File:US Navy 101112-N-9132C-184 Sailors from the engineering repair division perform jumping jacks during group physical training in the hangar bay of t.jpg",
+      "apiMime": "image/jpeg",
+      "sniffedMime": "image/jpeg",
+      "descriptionurl": "https://commons.wikimedia.org/wiki/File:US_Navy_101112-N-9132C-184_Sailors_from_the_engineering_repair_division_perform_jumping_jacks_during_group_physical_training_in_the_hangar_bay_of_t.jpg",
+      "bytes": 71716
+    },
+    {
+      "poseClass": "arm_left_raised",
+      "file": "arm_left_raised_0.jpg",
+      "query": "person raising left arm photo",
+      "title": "File:20220813 ECM22 Rowing 7705.jpg",
+      "apiMime": "image/jpeg",
+      "sniffedMime": "image/jpeg",
+      "descriptionurl": "https://commons.wikimedia.org/wiki/File:20220813_ECM22_Rowing_7705.jpg",
+      "bytes": 143697
+    },
+    {
+      "poseClass": "arm_left_raised",
+      "file": "arm_left_raised_1.jpg",
+      "query": "person raising left arm photo",
+      "title": "File:Sgt Justin Overton raises his hands in victory.JPG",
+      "apiMime": "image/jpeg",
+      "sniffedMime": "image/jpeg",
+      "descriptionurl": "https://commons.wikimedia.org/wiki/File:Sgt_Justin_Overton_raises_his_hands_in_victory.JPG",
+      "bytes": 235758
+    },
+    {
+      "poseClass": "arm_left_raised",
+      "file": "arm_left_raised_2.jpg",
+      "query": "person raising left arm photo",
+      "title": "File:Eccleston Park war memorial Prescot. Photo 6 by Phillip Medhurst 1992.jpg",
+      "apiMime": "image/jpeg",
+      "sniffedMime": "image/jpeg",
+      "descriptionurl": "https://commons.wikimedia.org/wiki/File:Eccleston_Park_war_memorial_Prescot._Photo_6_by_Phillip_Medhurst_1992.jpg",
+      "bytes": 903850
+    },
+    {
+      "poseClass": "arm_right_raised",
+      "file": "arm_right_raised_0.jpg",
+      "query": "person waving right hand photo",
+      "title": "File:São Martinho (Madeira, Portugal), Complexo Balnear da Ponta Gorda -- 2025 -- 0817 (cinematic).jpg",
+      "apiMime": "image/jpeg",
+      "sniffedMime": "image/jpeg",
+      "descriptionurl": "https://commons.wikimedia.org/wiki/File:S%C3%A3o_Martinho_(Madeira,_Portugal),_Complexo_Balnear_da_Ponta_Gorda_--_2025_--_0817_(cinematic).jpg",
+      "bytes": 239498
+    },
+    {
+      "poseClass": "arm_right_raised",
+      "file": "arm_right_raised_1.jpg",
+      "query": "person waving right hand photo",
+      "title": "File:Norderney, Tonnenleger \"Norden\" -- 2025 -- 9137.jpg",
+      "apiMime": "image/jpeg",
+      "sniffedMime": "image/jpeg",
+      "descriptionurl": "https://commons.wikimedia.org/wiki/File:Norderney,_Tonnenleger_%22Norden%22_--_2025_--_9137.jpg",
+      "bytes": 125524
+    },
+    {
+      "poseClass": "arm_right_raised",
+      "file": "arm_right_raised_2.jpg",
+      "query": "person waving right hand photo",
+      "title": "File:Ribeira da Janela (Madeira, Portugal), Ilheus da Rib -- 2025 -- 1582.jpg",
+      "apiMime": "image/jpeg",
+      "sniffedMime": "image/jpeg",
+      "descriptionurl": "https://commons.wikimedia.org/wiki/File:Ribeira_da_Janela_(Madeira,_Portugal),_Ilheus_da_Rib_--_2025_--_1582.jpg",
+      "bytes": 253459
+    },
+    {
+      "poseClass": "elbow_bent_left",
+      "file": "elbow_bent_left_0.jpg",
+      "query": "dumbbell bicep curl exercise photo",
+      "title": "File:Girl doing double dumbbell bicep curl.jpg",
+      "apiMime": "image/jpeg",
+      "sniffedMime": "image/jpeg",
+      "descriptionurl": "https://commons.wikimedia.org/wiki/File:Girl_doing_double_dumbbell_bicep_curl.jpg",
+      "bytes": 77218
+    },
+    {
+      "poseClass": "elbow_bent_left",
+      "file": "elbow_bent_left_1.jpg",
+      "query": "dumbbell bicep curl exercise photo",
+      "title": "File:Gril doing dumbbell curls outdoors.jpg",
+      "apiMime": "image/jpeg",
+      "sniffedMime": "image/jpeg",
+      "descriptionurl": "https://commons.wikimedia.org/wiki/File:Gril_doing_dumbbell_curls_outdoors.jpg",
+      "bytes": 152208
+    },
+    {
+      "poseClass": "elbow_bent_left",
+      "file": "elbow_bent_left_2.jpg",
+      "query": "dumbbell bicep curl exercise photo",
+      "title": "File:Girl doing stability ball squats and dumbbell curls.jpg",
+      "apiMime": "image/jpeg",
+      "sniffedMime": "image/jpeg",
+      "descriptionurl": "https://commons.wikimedia.org/wiki/File:Girl_doing_stability_ball_squats_and_dumbbell_curls.jpg",
+      "bytes": 171533
+    },
+    {
+      "poseClass": "elbow_bent_right",
+      "file": "elbow_bent_right_0.jpg",
+      "query": "bicep curl dumbbell exercise photo",
+      "title": "File:Shoulder and bicep workout.jpg",
+      "apiMime": "image/jpeg",
+      "sniffedMime": "image/jpeg",
+      "descriptionurl": "https://commons.wikimedia.org/wiki/File:Shoulder_and_bicep_workout.jpg",
+      "bytes": 157286
+    },
+    {
+      "poseClass": "elbow_bent_right",
+      "file": "elbow_bent_right_1.jpg",
+      "query": "bicep curl dumbbell exercise photo",
+      "title": "File:DSC 6393 Bald man working out with a 15 lb dumbbell looking off to the side in a bright gym.jpg",
+      "apiMime": "image/jpeg",
+      "sniffedMime": "image/jpeg",
+      "descriptionurl": "https://commons.wikimedia.org/wiki/File:DSC_6393_Bald_man_working_out_with_a_15_lb_dumbbell_looking_off_to_the_side_in_a_bright_gym.jpg",
+      "bytes": 86148
+    },
+    {
+      "poseClass": "torso_lean",
+      "file": "torso_lean_0.jpg",
+      "query": "person side stretch exercise photo",
+      "title": "File:Pendulum exercise (passive exercise).jpg",
+      "apiMime": "image/jpeg",
+      "sniffedMime": "image/jpeg",
+      "descriptionurl": "https://commons.wikimedia.org/wiki/File:Pendulum_exercise_(passive_exercise).jpg",
+      "bytes": 33555
+    },
+    {
+      "poseClass": "torso_lean",
+      "file": "torso_lean_1.jpg",
+      "query": "person side stretch exercise photo",
+      "title": "File:Stories of persons and places in Europe (1887) (14781432694).jpg",
+      "apiMime": "image/jpeg",
+      "sniffedMime": "image/jpeg",
+      "descriptionurl": "https://commons.wikimedia.org/wiki/File:Stories_of_persons_and_places_in_Europe_(1887)_(14781432694).jpg",
+      "bytes": 483245
+    },
+    {
+      "poseClass": "torso_lean",
+      "file": "torso_lean_2.jpg",
+      "query": "person side stretch exercise photo",
+      "title": "File:Stories of persons and places in Europe (1887) (14780705931).jpg",
+      "apiMime": "image/jpeg",
+      "sniffedMime": "image/jpeg",
+      "descriptionurl": "https://commons.wikimedia.org/wiki/File:Stories_of_persons_and_places_in_Europe_(1887)_(14780705931).jpg",
+      "bytes": 680413
+    },
+    {
+      "poseClass": "asymmetric",
+      "file": "asymmetric_0.jpg",
+      "query": "standing athlete portrait photo",
+      "title": "File:141100 - Swimming 4 x 100m freestyle 34pts Alex Harris Cameron De Burgh Ben Austin Scott Brockenshire silver medals - 3b - 2000 Sydney medal photo.jpg",
+      "apiMime": "image/jpeg",
+      "sniffedMime": "image/jpeg",
+      "descriptionurl": "https://commons.wikimedia.org/wiki/File:141100_-_Swimming_4_x_100m_freestyle_34pts_Alex_Harris_Cameron_De_Burgh_Ben_Austin_Scott_Brockenshire_silver_medals_-_3b_-_2000_Sydney_medal_photo.jpg",
+      "bytes": 160101
+    },
+    {
+      "poseClass": "asymmetric",
+      "file": "asymmetric_1.jpg",
+      "query": "standing athlete portrait photo",
+      "title": "File:Jesse Marunde.jpg",
+      "apiMime": "image/jpeg",
+      "sniffedMime": "image/jpeg",
+      "descriptionurl": "https://commons.wikimedia.org/wiki/File:Jesse_Marunde.jpg",
+      "bytes": 24517
+    },
+    {
+      "poseClass": "asymmetric",
+      "file": "asymmetric_2.jpg",
+      "query": "standing athlete portrait photo",
+      "title": "File:African American baseball players from Morris Brown College, with boy and another man standing at door, Atlanta, Georgia LOC 3971751108.jpg",
+      "apiMime": "image/jpeg",
+      "sniffedMime": "image/jpeg",
+      "descriptionurl": "https://commons.wikimedia.org/wiki/File:African_American_baseball_players_from_Morris_Brown_College,_with_boy_and_another_man_standing_at_door,_Atlanta,_Georgia_LOC_3971751108.jpg",
+      "bytes": 153203
+    }
+  ],
+  "rejected": [
+    {
+      "poseClass": "elbow_bent_right",
+      "title": "File:Girl doing double dumbbell bicep curl.jpg",
+      "apiMime": "image/jpeg",
+      "reason": "already used by another pose class"
+    },
+    {
+      "poseClass": "elbow_bent_right",
+      "title": "File:Gril doing dumbbell curls outdoors.jpg",
+      "apiMime": "image/jpeg",
+      "reason": "already used by another pose class"
+    },
+    {
+      "poseClass": "elbow_bent_right",
+      "title": "File:Girl doing stability ball squats and dumbbell curls.jpg",
+      "apiMime": "image/jpeg",
+      "reason": "already used by another pose class"
+    },
+    {
+      "poseClass": "asymmetric",
+      "title": "File:Mildred \"Babe\" Didrickson Zaharias, full-length portrait, standing, facing right, holding basketball3c13277 150px.jpg",
+      "apiMime": "image/jpeg",
+      "reason": "thumbnail stub (4282B)"
+    },
+    {
+      "poseClass": "asymmetric",
+      "title": "File:Mildred \"Babe\" Didrickson Zaharias, full-length portrait, standing, facing right, winding up for javelin toss-3c13280 150px.jpg",
+      "apiMime": "image/jpeg",
+      "reason": "thumbnail stub (5019B)"
+    }
+  ]
+}

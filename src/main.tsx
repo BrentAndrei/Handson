@@ -1,6 +1,7 @@
 import React from "react";
 import ReactDOM from "react-dom/client";
 import App from "./App";
+import { AuthProvider } from "./auth/AuthProvider";
 import "./index.css";
 
 /**
@@ -44,6 +45,13 @@ window.addEventListener("offline", () => {
 registerServiceWorker();
 ReactDOM.createRoot(document.getElementById("root") as HTMLElement).render(
   <React.StrictMode>
-    <App />
+    {/*
+      AuthProvider owns user state for the whole tree. It currently defaults to
+      LocalAuthService; passing a real AuthService here is the single seam where
+      a backend gets connected, and no screen needs to change.
+    */}
+    <AuthProvider>
+      <App />
+    </AuthProvider>
   </React.StrictMode>
 );

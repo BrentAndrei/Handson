@@ -21,10 +21,9 @@ export function Tooltip({ text, children, side = "bottom" }: Props) {
         aria-label={text}
         tabIndex={0}
       >i</span>
-      <span
-        role="tooltip"
-        className={`tooltip-pop invisible opacity-0 transition-opacity duration-150 hover:visible hover:opacity-100 focus-within:visible focus-within:opacity-100 ${side === "top" ? "bottom-[calc(100%+0.5rem)]" : ""}`}
-      >
+      {/* `side` is applied as a modifier class. The popover's own position
+          defaults to above the trigger; `tooltip-below` flips it. */}
+      <span role="tooltip" className={`tooltip-pop ${side === "top" ? "tooltip-above" : "tooltip-below"}`}>
         {text}
       </span>
     </span>
