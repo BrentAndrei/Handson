@@ -363,6 +363,60 @@
 }
 
 /* ----------------------------------------------------------------------------
+     MASCOT WAVE
+     The guide's greeting arm. A slow rotate about the shoulder
+     (origin set in the component). CSS for the same
+     reduced-motion guarantee as the marquee and the bob.
+     -------------------------------------------------------------------------- */
+@keyframes hs-wave {
+  0%, 100% { transform: rotate(6deg); }
+  50% { transform: rotate(-16deg); }
+}
+
+/* ----------------------------------------------------------------------------
+     TOUR SPOTLIGHT
+     The tutorial cutout. The element itself is a sun-bordered
+     window over the interface element being taught; its
+     box-shadow — 9999px in every direction — IS the dim.
+     Position transitions slide the cutout from target to
+     target as the tour advances. The ::after ring pulses to
+     say "this one, here".
+     -------------------------------------------------------------------------- */
+.hs-spotlight {
+  position: absolute;
+  border: 3px solid var(--sun);
+  border-radius: 10px;
+  box-shadow: 0 0 0 9999px rgba(17, 17, 17, 0.62);
+  transition:
+    top 0.45s var(--ease-snap),
+    left 0.45s var(--ease-snap),
+    width 0.45s var(--ease-snap),
+    height 0.45s var(--ease-snap),
+    opacity 0.3s ease;
+}
+.hs-spotlight::after {
+  content: "";
+  position: absolute;
+  inset: -3px;
+  border: 3px solid var(--sun);
+  border-radius: 10px;
+  animation: hs-spot-pulse 2s ease-out infinite;
+  pointer-events: none;
+}
+@keyframes hs-spot-pulse {
+  0% { opacity: 0.9; transform: scale(1); }
+  70%, 100% { opacity: 0; transform: scale(1.12); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .hs-spotlight {
+    transition: opacity 0.2s ease;
+  }
+  .hs-spotlight::after {
+    animation: none;
+  }
+}
+
+/* ----------------------------------------------------------------------------
     MASCOT INTENT
    ----------------------------------------------------------------------------
    The pointer/scroll intent written by usePointerIntent, REGISTERED as `0`.

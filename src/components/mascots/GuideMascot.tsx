@@ -3,7 +3,7 @@ import { usePointerIntent, prefersReducedMotion } from "../../lib/usePointerInte
 
 interface GuideMascotProps {
   className?: string;
-  /** Rouses the mascot: it straightens up and the spark flares. */
+  /** Rouses the mascot: eyebrows rise, the spark flares. */
   roused?: boolean;
 }
 
@@ -17,10 +17,10 @@ interface GuideMascotProps {
  * Construction notes
  * ------------------
  * A blob body (like the eye's, deliberately lopsided so it reads as
- * drawn rather than traced), ONE oversized teal eye, a four-point
- * sun-coloured spark on an antenna, and two coral feet. The feet are
- * separate blocks on purpose: a mascot that stands on something has
- * weight, which is the whole printed-object illusion.
+ * drawn rather than traced), ONE oversized teal eye that tracks the
+ * pointer, ink eyebrows that rise when it is roused, an open smile,
+ * coral feet, a sun four-point spark on an antenna — and a waving
+ * arm, because a character that greets you is a character.
  *
  * `data-mascot="guide"` is a DELIBERATE value. The UI gate's global
  * mascot scan queries [data-mascot="eye"] and [data-mascot="hands"],
@@ -72,9 +72,9 @@ export function GuideMascot({ className, roused = false }: GuideMascotProps) {
       className={className}
       role="img"
       data-mascot="guide"
-      aria-label="A small printed character with one large eye and a spark on its antenna. It introduces the tour."
+      aria-label="A small printed character with one large eye, a waving arm and a spark on its antenna. It introduces the tour."
     >
-      <svg viewBox="0 0 200 190" className="h-full w-full" aria-hidden focusable="false">
+      <svg viewBox="0 0 220 200" className="h-full w-full" aria-hidden focusable="false">
         {/* Pointer intent: a few px of drift and a couple of degrees of
             lean. --mx/--my are unitless (see usePointerIntent), so the
             calc() below mixes px and deg legally. */}
@@ -92,29 +92,42 @@ export function GuideMascot({ className, roused = false }: GuideMascotProps) {
               animation: still ? undefined : "hs-bob 2.6s ease-in-out infinite alternate",
             }}
           >
+            {/* Waving arm, drawn FIRST so the shoulder tucks behind
+                the body. The wave is a slow rotate about the
+                shoulder — a greeting, not a seizure. */}
+            <g
+              style={{
+                transformOrigin: "166px 94px",
+                animation: still ? undefined : "hs-wave 1.7s ease-in-out infinite",
+              }}
+            >
+              <rect x={158} y={87} width={36} height={14} rx={7} fill="var(--lime)" stroke="var(--ink)" strokeWidth={4.5} />
+              <circle cx={197} cy={94} r={12} fill="var(--lime)" stroke="var(--ink)" strokeWidth={4.5} />
+            </g>
+
             {/* Contact shadow: the character sits ON the surface. */}
-            <ellipse cx={100} cy={172} rx={52} ry={9} fill="var(--ink)" />
+            <ellipse cx={110} cy={182} rx={58} ry={9} fill="var(--ink)" />
 
             {/* Feet — coral blocks, not part of the body outline. */}
-            <rect x={66} y={152} width={26} height={17} rx={8} fill="var(--coral)" stroke="var(--ink)" strokeWidth={5} />
-            <rect x={108} y={152} width={26} height={17} rx={8} fill="var(--coral)" stroke="var(--ink)" strokeWidth={5} />
+            <rect x={74} y={160} width={27} height={18} rx={8} fill="var(--coral)" stroke="var(--ink)" strokeWidth={5} />
+            <rect x={119} y={160} width={27} height={18} rx={8} fill="var(--coral)" stroke="var(--ink)" strokeWidth={5} />
 
             {/* Body: an irregular blob. Asymmetry is the point — a
                 perfectly round body reads as a stock icon. */}
             <path
-              d="M100 30 C 57 30 32 60 33 100 C 34 141 65 166 102 164 C 141 162 168 136 167 97 C 166 57 143 30 100 30 Z"
+              d="M110 36 C 64 36 38 68 39 108 C 40 150 72 174 111 172 C 152 170 182 142 181 102 C 180 60 156 36 110 36 Z"
               fill="var(--ink)"
               transform="translate(6, 7)"
             />
             <path
-              d="M100 30 C 57 30 32 60 33 100 C 34 141 65 166 102 164 C 141 162 168 136 167 97 C 166 57 143 30 100 30 Z"
+              d="M110 36 C 64 36 38 68 39 108 C 40 150 72 174 111 172 C 152 170 182 142 181 102 C 180 60 156 36 110 36 Z"
               fill="var(--paper-raised)"
               stroke="var(--ink)"
               strokeWidth={7}
             />
 
             {/* Antenna: a stem and a four-point spark, sun-coloured. */}
-            <path d="M100 30 C 99 22 99 16 100 10" fill="none" stroke="var(--ink)" strokeWidth={5} strokeLinecap="round" />
+            <path d="M110 36 C 109 28 109 22 110 18" fill="none" stroke="var(--ink)" strokeWidth={5} strokeLinecap="round" />
             <g
               style={{
                 transform: roused && !still ? "translate(0px, -3px)" : undefined,
@@ -122,12 +135,23 @@ export function GuideMascot({ className, roused = false }: GuideMascotProps) {
               }}
             >
               <path
-                d="M100 -2 L105 5 L112 10 L105 15 L100 22 L95 15 L88 10 L95 5 Z"
+                d="M110 0 L115 7 L122 12 L115 17 L110 24 L105 17 L98 12 L105 7 Z"
                 fill="var(--sun)"
                 stroke="var(--ink)"
                 strokeWidth={4}
                 strokeLinejoin="round"
               />
+            </g>
+
+            {/* Eyebrows — the expression. They rise when roused. */}
+            <g
+              style={{
+                transform: roused && !still ? "translate(0px, -4px)" : undefined,
+                transition: still ? undefined : "transform 180ms var(--ease-snap, cubic-bezier(0.2,0,0,1))",
+              }}
+            >
+              <rect x={76} y={50} width={27} height={7} rx={3.5} fill="var(--ink)" />
+              <rect x={117} y={50} width={27} height={7} rx={3.5} fill="var(--ink)" />
             </g>
 
             {/* The eye — the largest element, and the character. */}
@@ -137,9 +161,10 @@ export function GuideMascot({ className, roused = false }: GuideMascotProps) {
                 transition: still ? undefined : "transform 60ms linear",
               }}
             >
-              <circle cx={100} cy={90} r={31} fill="var(--teal)" stroke="var(--ink)" strokeWidth={6} />
-              <circle cx={100} cy={90} r={14} fill="var(--ink)" />
-              <circle cx={91} cy={81} r={6} fill="var(--paper-raised)" />
+              <circle cx={110} cy={98} r={34} fill="var(--teal)" stroke="var(--ink)" strokeWidth={6} />
+              <circle cx={110} cy={98} r={15} fill="var(--ink)" />
+              <circle cx={99} cy={87} r={6.5} fill="var(--paper-raised)" />
+              <circle cx={121} cy={108} r={4} fill="var(--paper-raised)" />
             </g>
 
             {/* Blink lid: sweeps down over the eye. Drawn AFTER the eye
@@ -148,25 +173,19 @@ export function GuideMascot({ className, roused = false }: GuideMascotProps) {
             <g
               style={{
                 transform: `scaleY(${lidScale})`,
-                transformOrigin: "100px 50px",
+                transformOrigin: "110px 60px",
                 transition: still ? undefined : "transform 90ms cubic-bezier(0.2,0,0,1)",
               }}
             >
-              <rect x={40} y={50} width={120} height={74} fill="var(--paper-raised)" stroke="var(--ink)" strokeWidth={4} />
+              <rect x={64} y={60} width={92} height={76} fill="var(--paper-raised)" stroke="var(--ink)" strokeWidth={4} />
             </g>
 
-            {/* Mouth: a small ink smile, off-centre like the blob. */}
-            <path
-              d="M86 132 Q 99 142 114 130"
-              fill="none"
-              stroke="var(--ink)"
-              strokeWidth={5}
-              strokeLinecap="round"
-            />
+            {/* Open smile — a half-disc, the friendliest geometry. */}
+            <path d="M88 128 A22 17 0 0 1 132 128 Z" fill="var(--ink)" />
 
             {/* Cheeks — the only decorative colour on the body. */}
-            <circle cx={66} cy={116} r={7} fill="var(--pink)" opacity={0.85} />
-            <circle cx={134} cy={116} r={7} fill="var(--pink)" opacity={0.85} />
+            <circle cx={70} cy={122} r={7} fill="var(--pink)" opacity={0.85} />
+            <circle cx={150} cy={122} r={7} fill="var(--pink)" opacity={0.85} />
           </g>
         </g>
       </svg>
