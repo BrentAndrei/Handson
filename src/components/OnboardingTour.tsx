@@ -76,8 +76,6 @@ export function markTourSeen(uid?: string | null): void {
 const SPOT_PAD = 10;
 /** Gap between the cutout and the card, in px. */
 const SPOT_GAP = 16;
-/** Minimum room above a target before the card is placed above it. */
-const MIN_SPACE_ABOVE = 240;
 
 interface Step {
   kicker: string;
@@ -246,39 +244,68 @@ export function OnboardingTour({ onDone }: OnboardingTourProps) {
     onDone();
   };
 
-  // Card anchor. Above the cutout when there is room; below it
-  // otherwise. Centred steps float over the full scrim. The
-  // positioning styles live on a PLAIN wrapper — framer-motion
+  // Card anchor. The card goes on whichever side of the cutout
+  // has more room, clamped to that room with an internal
+  // scroll so it can never slide off-screen — a bottom-edge
+  // target (the nav) always wins the space-above comparison,
+  // and on short viewports the card scrolls instead of
+  // disappearing. Centred steps float over the full scrim.
+  // The positioning styles live on a PLAIN wrapper — framer-motion
   // owns the inner motion.div's transform, so a translateX(-50%)
   // there would be clobbered by its y/rotate animation.
   let anchor: CSSProperties = {};
-  let wrapperClass = "fixed inset-0 z-10 flex items-center justify-center p-4";
+  let wrapperClass =
+    "fixed inset-0 z-10 flex items-center justify-center p-4 pointer-events-auto";
   if (spot) {
     const spaceAbove = spot.top - SPOT_GAP;
-    wrapperClass = "fixed inset-x-0 z-10";
+    const spaceBelow = spot.vh - (spot.top + spot.height) - SPOT_GAP;
+    wrapperClass = "fixed inset-x-0 z-10 pointer-events-auto";
+    // `position: fixed` is load-bearing: without it the
+    // left/top/bottom offsets below are ignored and the
+    // card falls back to its static position at the top
+    // of the viewport, far from the element it teaches.
+    // The anchor, the motion.div and the card form a flex
+    // column: the anchor's max-height caps the card, and
+    // flex-1 + min-h-0 carries the cap down the chain, so
+    // the card is genuinely clamped — a bare max-height on
+    // an auto-height subtree is ignored. Only the text
+    // area scrolls; the action row stays pinned.
     anchor =
-      spaceAbove >= MIN_SPACE_ABOVE
+      spaceAbove >= spaceBelow
         ? {
+            position: "fixed",
+            display: "flex",
+            flexDirection: "column",
             left: "50%",
             bottom: spot.vh - (spot.top - SPOT_GAP),
+            maxHeight: Math.max(spaceAbove - 8, 120),
             transform: "translateX(-50%)",
           }
         : {
+            position: "fixed",
+            display: "flex",
+            flexDirection: "column",
             left: "50%",
             top: Math.min(
               spot.top + spot.height + SPOT_GAP,
               spot.vh - 24
             ),
-            maxHeight: spot.vh - 48,
-            overflowY: "auto",
+            maxHeight: Math.max(spaceBelow - 8, 120),
             transform: "translateX(-50%)",
           };
   }
 
+  const motionClass = `w-full max-w-md${
+    spot ? " flex min-h-0 flex-1 flex-col" : ""
+  }`;
+  const cardClass = `relative flex flex-col p-5 sm:p-6${
+    spot ? " min-h-0 flex-1" : ""
+  }`;
+
   return (
     <MotionConfig reducedMotion="user">
       <div
-        className="fixed inset-0 z-50"
+        className="fixed inset-0 z-50 pointer-events-none"
         role="dialog"
         aria-modal="true"
         aria-labelledby="tour-heading"
@@ -286,11 +313,14 @@ export function OnboardingTour({ onDone }: OnboardingTourProps) {
         {/* Flat ink scrim for centred steps. No blur — the design
             language forbids it, and a scrim only needs to dim,
             not to frost. On target steps the spotlight's own
-            box-shadow carries the dim instead. */}
+            box-shadow carries the dim instead. The whole overlay
+            is pointer-events-none, so clicks fall through to
+            the interface beneath — the highlighted element is
+            clickable, exactly like a game tutorial. Only the
+            card re-enables pointer events. */}
         {centred && (
           <div
             className="absolute inset-0 bg-[rgba(17,17,17,0.62)]"
-            onClick={finish}
             aria-hidden="true"
           />
         )}
@@ -319,12 +349,12 @@ export function OnboardingTour({ onDone }: OnboardingTourProps) {
               initial={{ opacity: 0, y: 14, rotate: -0.5 }}
               animate={{ opacity: 1, y: 0, rotate: 0 }}
               transition={{ duration: 0.28, ease: "easeOut" }}
-              className="w-full max-w-md"
+              className={motionClass}
             >
               <BrutalCard
                 as="section"
                 depth="xl"
-                className="relative overflow-visible p-5 sm:p-6"
+                className={cardClass}
               >
                 {/* The guide peeks over the card's top edge, exactly
                     the way the eye peeks over the translator card.
@@ -337,47 +367,54 @@ export function OnboardingTour({ onDone }: OnboardingTourProps) {
                   <GuideMascot roused={isLast} />
                 </div>
 
-                <div className="flex flex-wrap items-start justify-between gap-2">
-                  <BrutalSticker tone={current.tone} rotate="-2" raised>
-                    <current.Icon className="h-3.5 w-3.5" aria-hidden />
-                    {current.kicker}
-                  </BrutalSticker>
-                  <BrutalBadgeTour index={step} total={STEPS.length} />
-                </div>
+                {/* Scrollable body. On short viewports the card
+                    is clamped to the room above the cutout, and
+                    only this text scrolls — the action row below
+                    is pinned outside the scroll area so Next is
+                    always on screen and clickable. */}
+                <div className="min-h-0 flex-1 overflow-y-auto pr-1">
+                  <div className="flex flex-wrap items-start justify-between gap-2">
+                    <BrutalSticker tone={current.tone} rotate="-2" raised>
+                      <current.Icon className="h-3.5 w-3.5" aria-hidden />
+                      {current.kicker}
+                    </BrutalSticker>
+                    <BrutalBadgeTour index={step} total={STEPS.length} />
+                  </div>
 
-                <h2
-                  id="tour-heading"
-                  ref={headingRef}
-                  tabIndex={-1}
-                  className="m-0 mt-4 font-[family-name:var(--font-display)] text-[clamp(1.55rem,7vw,2rem)] uppercase leading-[1.02] tracking-tight outline-none"
-                >
-                  {current.title}
-                </h2>
-
-                <p className="m-0 mt-3 text-[15px] font-semibold leading-relaxed text-[var(--ink-soft)]">
-                  {current.body}
-                </p>
-
-                {/* Progress: a sun-filled print bar. The count is
-                    carried in text for assistive tech. */}
-                <div className="mt-5">
-                  <span className="sr-only">
-                    Step {step + 1} of {STEPS.length}
-                  </span>
-                  <div
-                    className="h-2.5 overflow-hidden rounded-[var(--radius-sm)] border-[var(--border-w-thin)] border-[var(--ink)] bg-[var(--paper-sunken)] motion-reduce:transition-none"
-                    aria-hidden="true"
+                  <h2
+                    id="tour-heading"
+                    ref={headingRef}
+                    tabIndex={-1}
+                    className="m-0 mt-4 font-[family-name:var(--font-display)] text-[clamp(1.55rem,7vw,2rem)] uppercase leading-[1.02] tracking-tight outline-none"
                   >
+                    {current.title}
+                  </h2>
+
+                  <p className="m-0 mt-3 text-[15px] font-semibold leading-relaxed text-[var(--ink-soft)]">
+                    {current.body}
+                  </p>
+
+                  {/* Progress: a sun-filled print bar. The count is
+                      carried in text for assistive tech. */}
+                  <div className="mt-5">
+                    <span className="sr-only">
+                      Step {step + 1} of {STEPS.length}
+                    </span>
                     <div
-                      className="h-full rounded-[var(--radius-sm)] bg-[var(--sun)] transition-[width] duration-300 motion-reduce:transition-none"
-                      style={{
-                        width: `${((step + 1) / STEPS.length) * 100}%`,
-                      }}
-                    />
+                      className="h-2.5 overflow-hidden rounded-[var(--radius-sm)] border-[var(--border-w-thin)] border-[var(--ink)] bg-[var(--paper-sunken)] motion-reduce:transition-none"
+                      aria-hidden="true"
+                    >
+                      <div
+                        className="h-full rounded-[var(--radius-sm)] bg-[var(--sun)] transition-[width] duration-300 motion-reduce:transition-none"
+                        style={{
+                          width: `${((step + 1) / STEPS.length) * 100}%`,
+                        }}
+                      />
+                    </div>
                   </div>
                 </div>
 
-                <div className="mt-5 flex items-stretch gap-2">
+                <div className="mt-5 flex shrink-0 items-stretch gap-2">
                   <BrutalButton
                     tone="paper"
                     size="sm"
