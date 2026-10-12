@@ -18,6 +18,7 @@ import {
   authStubLog,
   installAuthBackend,
   signInViaUi,
+  TEST_UID,
 } from "./firebase-test-backend";
 
 const ROOT = resolve(process.cwd());
@@ -667,16 +668,24 @@ async function main() {
       return true;
     });
     await new Promise((r) => setTimeout(r, 400));
-    const afterSkip = await page.evaluate(() => ({
-      dialog: Boolean(document.querySelector('[role="dialog"][aria-modal="true"]')),
-      seen: (() => {
-        try {
-          return window.localStorage.getItem("handson.tour.v1");
-        } catch {
-          return null;
-        }
-      })(),
-    }));
+    // The key is passed as an ARGUMENT, not referenced from
+    // the enclosing scope: page.evaluate serializes the
+    // function into the page realm, where the Node-side
+    // TEST_UID import does not exist (a ReferenceError here
+    // would be swallowed by the try/catch and read as null).
+    const afterSkip = await page.evaluate(
+      (tourKey) => ({
+        dialog: Boolean(document.querySelector('[role="dialog"][aria-modal="true"]')),
+        seen: (() => {
+          try {
+            return window.localStorage.getItem(tourKey);
+          } catch {
+            return null;
+          }
+        })(),
+      }),
+      `handson.tour.v1.${TEST_UID}`
+    );
     check("tour Skip button exists", skipClicked);
     check("Skip dismisses the tour", afterSkip.dialog === false);
     check("dismissal is persisted", afterSkip.seen === "1", String(afterSkip.seen));

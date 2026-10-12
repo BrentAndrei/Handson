@@ -91,6 +91,7 @@ function readDownscaleFlag(): boolean {
  * the single place that decides.
  */
 function HandSonApp() {
+  const { user } = useAuth();
   const latestFrameRef = useRef<NormalizedFrame | null>(null);
   const featureDebugLastRef = useRef<number>(0);
 
@@ -108,15 +109,14 @@ function HandSonApp() {
   const [view, setView] = useState<AppView>("home");
   /**
    * FIRST-RUN TOUR. Shows until dismissed; the dismissal is
-   * persisted, so the tour is a once-per-profile event. A fresh
-   * browser profile sees it again, which is exactly what a
-   * first-run tutorial should do.
+   * persisted PER ACCOUNT, so every new account gets the
+   * tour while a returning one never sees it again.
    */
-  const [tourOpen, setTourOpen] = useState<boolean>(() => !hasSeenTour());
+  const [tourOpen, setTourOpen] = useState<boolean>(() => !hasSeenTour(user?.id));
   const closeTour = useCallback(() => {
-    markTourSeen();
+    markTourSeen(user?.id);
     setTourOpen(false);
-  }, []);
+  }, [user?.id]);
   const [showEnglish, setShowEnglish] = useState(true);
   const [textSize, setTextSize] = useState<"sm" | "base" | "lg">("base");
   const [highContrast, setHighContrast] = useState(false);

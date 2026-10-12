@@ -43,18 +43,30 @@ import {
 
 const TOUR_KEY = "handson.tour.v1";
 
+/**
+ * The flag is PER-ACCOUNT: `handson.tour.v1.<uid>`. A new
+ * account on the same browser is a new user and gets the
+ * tour, while a returning account never sees it again.
+ * Falls back to the shared key only when no identity is
+ * known (the tour only mounts for signed-in users, so this
+ * is a defensive branch).
+ */
+function tourKey(uid?: string | null): string {
+  return uid ? `${TOUR_KEY}.${uid}` : TOUR_KEY;
+}
+
 /** True when the tour has been shown and dismissed before. */
-export function hasSeenTour(): boolean {
+export function hasSeenTour(uid?: string | null): boolean {
   try {
-    return window.localStorage.getItem(TOUR_KEY) === "1";
+    return window.localStorage.getItem(tourKey(uid)) === "1";
   } catch {
     return false;
   }
 }
 
-export function markTourSeen(): void {
+export function markTourSeen(uid?: string | null): void {
   try {
-    window.localStorage.setItem(TOUR_KEY, "1");
+    window.localStorage.setItem(tourKey(uid), "1");
   } catch {
     /* Private mode etc. — the tour simply shows again. */
   }
