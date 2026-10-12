@@ -1,8 +1,8 @@
 {
   "generatedAt": "2026-09-27T10:00:00.000Z",
   "source": "MediaPipe Holistic landmarks (345 floats per frame)",
-  "totalLabels": 404,
-  "totalFrames": 193439,
+  "totalLabels": 401,
+  "totalFrames": 193400,
   "labels": [
     "A",
     "ADOPT",
@@ -404,10 +404,7 @@
     "YOUNG",
     "YOUR",
     "YOURE_WELCOME",
-    "Z",
-    "_",
-    "__",
-    "Ã_"
+    "Z"
   ],
   "entries": [
     {
@@ -2815,24 +2812,6 @@
       "label": "Z",
       "frameCount": 37,
       "smplxFile": "Z.smplx.json"
-    },
-    {
-      "file": "_.json",
-      "label": "_",
-      "frameCount": 1,
-      "smplxFile": "_.smplx.json"
-    },
-    {
-      "file": "__.json",
-      "label": "__",
-      "frameCount": 1,
-      "smplxFile": "__.smplx.json"
-    },
-    {
-      "file": "Ã_.json",
-      "label": "Ã_",
-      "frameCount": 37,
-      "smplxFile": "Ã_.smplx.json"
     }
   ]
 }

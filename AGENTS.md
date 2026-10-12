@@ -42,6 +42,10 @@ The Python service (signavatars-service/) handles SMPL-X fitting using:
 | `src/mediapipe/types.ts` | Landmark layout constants (345 floats per frame) |
 | `src/mediapipe/pack.ts` | Pack HolisticLandmarkerResult into flat buffer |
 | `src/utils/normalizeLandmarks.ts` | Shoulder-midpoint normalization |
+| `src/lib/videoCapture.ts` | Video → avatar-data extraction engine (Import tool) + `mirrorFrame` handedness flip |
+| `src/lib/clipTester.ts` | Offline clip → classifier test (window-slice, predict, mean, verdict) |
+| `src/inference/labels.ts` | INFERENCE_LABELS — the model's output order (source of truth, was inline in App.tsx) |
+| `src/screens/VideoCaptureScreen.tsx` | "Import" screen = capture studio: Record (webcam, live avatar mimic, 30 fps resample on save) + Import (drop video, mark in/out, extract) + avatar preview/mirror/WebM export + per-clip classifier test |
 
 ### Python Service
 | File | Purpose |
@@ -110,4 +114,7 @@ npm run dev
 
 # Python service
 cd signavatars-service && python app.py
+
+# Capture-studio gate (frame contract, mirror geometry, clip tester)
+npm run verify:videocapture
 ```

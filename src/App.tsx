@@ -13,6 +13,7 @@ import { enableSmplxService } from "./avatar/dataLoader";
 import { normalizeLandmarks, NormalizedFrame } from "./utils/normalizeLandmarks";
 import { selectFeatures } from "./features/featureSelect";
 import { useSignInference } from "./inference/useSignInference";
+import { INFERENCE_LABELS } from "./inference/labels";
 import { useSentenceBuilder } from "./features/sentenceBuilder";
 import { englishToGloss } from "./features/englishToGloss";
 import { LandmarkSmoother } from "./utils/landmarkSmoother";
@@ -21,7 +22,16 @@ import { RIGHT_HAND_OFFSET, LEFT_HAND_OFFSET, HAND_COUNT } from "./mediapipe/typ
 import { HomeScreen } from "./screens/HomeScreen";
 import { LoginScreen } from "./screens/LoginScreen";
 import { AccountScreen } from "./screens/AccountScreen";
+import { PracticeScreen } from "./screens/PracticeScreen";
+import { VideoCaptureScreen } from "./screens/VideoCaptureScreen";
+import { AuthLoadingScreen } from "./screens/AuthLoadingScreen";
+import { useAuth } from "./auth/AuthProvider";
 import { BrutalNav, type AppView } from "./components/ui/BrutalNav";
+import {
+  OnboardingTour,
+  hasSeenTour,
+  markTourSeen,
+} from "./components/OnboardingTour";
 
 const pageVariants = {
   initial: { opacity: 0, y: 12 },
@@ -42,312 +52,8 @@ const sectionTransition = (delay: number) => ({ duration: 0.25, delay, ease: "ea
 const PREDICT_KEY = "predict";
 const TEXT_KEY = "text";
 const HOME_KEY = "home";
-
-const INFERENCE_LABELS: string[] = [
-  "ADOPT",
-  "AGAIN",
-  "ALLOW",
-  "ALRIGHT, NO PROBLEM",
-  "APPOINT",
-  "ARCHITECT",
-  "ARE",
-  "ARE YOU A STUDENT?",
-  "ARE YOU DEAF",
-  "ARE YOU OKAY",
-  "ASSIST",
-  "ATTEMPT",
-  "AUNTIE",
-  "BABY",
-  "BATH",
-  "BEAUTIFUL",
-  "BECAUSE",
-  "BREAK",
-  "BRING",
-  "BROTHER",
-  "BUY",
-  "CALL",
-  "CAN",
-  "CATCH",
-  "CHANGE",
-  "CHEF",
-  "CHILD",
-  "CHILDREN",
-  "CHOOSE",
-  "CLEAN",
-  "COME",
-  "COME TO EAT TOGETHER",
-  "CONTINUE",
-  "CONTROL",
-  "COOK",
-  "COOL",
-  "COPY",
-  "COULD",
-  "COUNT",
-  "COUSIN",
-  "CRY",
-  "CUTE",
-  "DANCE",
-  "DANCER",
-  "DAUGHTER",
-  "DAY",
-  "DEAF",
-  "DEVELOP",
-  "DID",
-  "DISTURB",
-  "DO",
-  "DOCTOR",
-  "DRINK",
-  "DRIVE",
-  "DRUNK",
-  "EAT",
-  "EIGHT",
-  "EIGHTEEN",
-  "ELEVEN",
-  "EXCHANGE",
-  "EXCUSE",
-  "FALL",
-  "FAMILY",
-  "FAT",
-  "FATHER",
-  "FEEL",
-  "FIFTEEN",
-  "FIGHT",
-  "FINALLY, I MEET YOU",
-  "FINGERSPELL",
-  "FINISH",
-  "FIVE",
-  "FOLLOW",
-  "FOSTERED",
-  "FOUR",
-  "FOURTEEN",
-  "FRIDAY",
-  "FROM",
-  "GET",
-  "GO",
-  "GODFATHER",
-  "GODMOTHER",
-  "GOOD AFTERNOON",
-  "GOOD DAY",
-  "GOOD EVENING",
-  "GOOD MIDDAY",
-  "GOOD MORNING",
-  "GOOD NIGHT",
-  "GRADUATE",
-  "GRANDCHILD",
-  "GRANDMA",
-  "GRANDPA",
-  "HANDSOME",
-  "HAPPEN",
-  "HAPPY",
-  "HAPPY BIRTHDAY",
-  "HAPPY FATHERS DAY",
-  "HAPPY MOTHERS DAY",
-  "HARD OF HEARING",
-  "HE/SHE",
-  "HE/SHE IS MY CLASSMATE",
-  "HE/SHE IS MY SWEETHEART",
-  "HEAR",
-  "HEARING",
-  "HELLO",
-  "HELP",
-  "HERE",
-  "HI",
-  "HIS/HER",
-  "HOLD",
-  "HOW",
-  "HOW ARE YOU",
-  "HOW ARE YOU?",
-  "HOW MUCH",
-  "HOW OLD ARE YOU?",
-  "HURRY",
-  "HUSBAND",
-  "I DONT KNOW",
-  "I DONT UNDERSTAND",
-  "I KNOW A LITTLE SIGN",
-  "I KNOW HE/SHE IS MY FRIEND",
-  "I UNDERSTAND",
-  "I'M FINE",
-  "I'M FINE, THANK YOU",
-  "I'M GOOD",
-  "I'M NOT VERY WELL",
-  "I'M OKAY",
-  "I'M PRETTY GOOD",
-  "I'M SICK",
-  "I'M WORKING",
-  "I'VE BEEN FINE, THANK YOU",
-  "IM PLEASED TO MEET YOU",
-  "IMPROVE",
-  "IN",
-  "INTRODUCE",
-  "INTRODUCTION",
-  "INVITE",
-  "IS",
-  "IS IT ALRIGHT",
-  "IT'S ALRIGHT",
-  "ITS FINE",
-  "JUMP",
-  "KEEP",
-  "KILL",
-  "LAUGH",
-  "LET",
-  "LINE",
-  "LISTEN",
-  "LIVE",
-  "LONG TIME NO SEE",
-  "LOOK",
-  "MAKE",
-  "MARCH",
-  "MATCH",
-  "MAYBE",
-  "ME",
-  "MINE",
-  "MONDAY",
-  "MOTHER",
-  "MOVE",
-  "MY NAME IS",
-  "NEPHEW",
-  "NEW",
-  "NG",
-  "NICE TO MEET YOU",
-  "NIECE",
-  "NINE",
-  "NINETEEN",
-  "NO",
-  "NO PROBLEM",
-  "NO, I AM NOT A STUDENT",
-  "NOT BAD",
-  "NOT SURE",
-  "NOW",
-  "NOWHERE",
-  "OFF",
-  "OH I SEE",
-  "OK",
-  "OKAY, I GUESS",
-  "OLD",
-  "ON",
-  "ONE",
-  "OO",
-  "OPO",
-  "OUR",
-  "OUT",
-  "OVER THERE",
-  "PARENTS",
-  "PAYMENT",
-  "PEOPLE",
-  "PERMIT",
-  "PHOTOGRAPHER",
-  "PLAN",
-  "PLAY",
-  "PLEASE SIGN SLOWLY",
-  "PREGNANT",
-  "PREPARE",
-  "PROBLEM",
-  "PROFESSOR",
-  "PUT",
-  "RESPONSES",
-  "RUN",
-  "SAD",
-  "SATURDAY",
-  "SAY",
-  "SEARCH",
-  "SEE",
-  "SEND",
-  "SERVE",
-  "SEVEN",
-  "SEVENTEEN",
-  "SHOULD",
-  "SING",
-  "SISTER",
-  "SIT",
-  "SIX",
-  "SIXTEEN",
-  "SLEEP",
-  "SMELL",
-  "SMILE",
-  "SOMEWHERE",
-  "SON",
-  "SORRY",
-  "STAND",
-  "STEAL",
-  "STEP BROTHER",
-  "STEP SISTER",
-  "STOP",
-  "STUDENT",
-  "STUDY",
-  "SUNDAY",
-  "SUPPORT",
-  "SURE",
-  "SWIM",
-  "TAKE",
-  "TAKE CARE",
-  "TALK",
-  "TEACH",
-  "TEACHER",
-  "TEENAGER",
-  "TEMPT",
-  "TEN",
-  "THANK YOU",
-  "THEIR",
-  "THEM",
-  "THINK",
-  "THIRTEEN",
-  "THREE",
-  "THURSDAY",
-  "TOUCH",
-  "TRADE",
-  "TRY",
-  "TUESDAY",
-  "TWELVE",
-  "TWENTY",
-  "TWO",
-  "UGLY",
-  "UNCLE",
-  "UNDERSTAND",
-  "USE",
-  "VISIT",
-  "WAIT",
-  "WAKE UP",
-  "WALK",
-  "WANT",
-  "WAS",
-  "WASH",
-  "WATCH",
-  "WE",
-  "WEDDING",
-  "WEDNESDAY",
-  "WEEK",
-  "WELCOME",
-  "WERE",
-  "WHAT",
-  "WHAT ARE YOU STUDYING?",
-  "WHAT WORK DO YOU DO?",
-  "WHAT'S NEW",
-  "WHAT'S YOUR NAME",
-  "WHAT'S YOUR NAME?",
-  "WHATEVER",
-  "WHATS YOUR NAME?",
-  "WHEN",
-  "WHERE",
-  "WHERE DO YOU LIVE?",
-  "WHICH",
-  "WHICH UNIVERSITY ARE YOU STUDYING AT?",
-  "WHISPER",
-  "WHO",
-  "WHY",
-  "WIFE",
-  "WILL",
-  "WORK",
-  "WOULD",
-  "WOW",
-  "WRITE",
-  "YES",
-  "YES, I AM A STUDENT",
-  "YOU",
-  "YOU SIGN FAST",
-  "YOUNG",
-  "YOUR",
-  "Ã‘",
-];
+const PRACTICE_KEY = "practice";
+const CAPTURE_KEY = "capture";
 
 /** Developer feature-vector dump. Off by default; flip to true to trace
  *  `selectFeatures` output once per second in the console. */
@@ -379,7 +85,12 @@ function readDownscaleFlag(): boolean {
   return true;
 }
 
-export default function App() {
+/**
+ * The application proper. Every screen, pipeline and view lives inside this
+ * component and is only ever mounted for a signed-in user — the gate below is
+ * the single place that decides.
+ */
+function HandSonApp() {
   const latestFrameRef = useRef<NormalizedFrame | null>(null);
   const featureDebugLastRef = useRef<number>(0);
 
@@ -395,8 +106,17 @@ export default function App() {
    * are untouched, only the names of the screens changed.
    */
   const [view, setView] = useState<AppView>("home");
-  /** Sign-in / sign-up is a sub-screen of the account tab, not a nav item. */
-  const [showAuthForm, setShowAuthForm] = useState(false);
+  /**
+   * FIRST-RUN TOUR. Shows until dismissed; the dismissal is
+   * persisted, so the tour is a once-per-profile event. A fresh
+   * browser profile sees it again, which is exactly what a
+   * first-run tutorial should do.
+   */
+  const [tourOpen, setTourOpen] = useState<boolean>(() => !hasSeenTour());
+  const closeTour = useCallback(() => {
+    markTourSeen();
+    setTourOpen(false);
+  }, []);
   const [showEnglish, setShowEnglish] = useState(true);
   const [textSize, setTextSize] = useState<"sm" | "base" | "lg">("base");
   const [highContrast, setHighContrast] = useState(false);
@@ -547,10 +267,7 @@ const landmarkSmootherRef = useRef(new LandmarkSmoother(3, true, true));
             <HomeScreen
               modelReady={inference.ready}
               modelError={Boolean(inference.error)}
-              onNavigate={(v) => {
-                if (v === "account") setShowAuthForm(false);
-                setView(v);
-              }}
+              onNavigate={setView}
             />
           </motion.div>
         )}
@@ -692,6 +409,40 @@ const landmarkSmootherRef = useRef(new LandmarkSmoother(3, true, true));
             </motion.aside>
           </motion.div>
         )}
+        {view === "practice" && (
+          <motion.div
+            key={PRACTICE_KEY}
+            data-view="practice"
+            variants={pageVariants}
+            initial="initial"
+            animate="animate"
+            exit="exit"
+            transition={pageTransition}
+          >
+            <PracticeScreen
+              onNavigate={setView}
+              liveFrameRef={avatarLiveFrameRef}
+              attachVideo={attachVideo}
+              attachCanvas={attachCanvas}
+              resolution={resolution}
+              cameraReady={ready && !error}
+              cameraError={error}
+            />
+          </motion.div>
+        )}
+        {view === "capture" && (
+          <motion.div
+            key={CAPTURE_KEY}
+            data-view="capture"
+            variants={pageVariants}
+            initial="initial"
+            animate="animate"
+            exit="exit"
+            transition={pageTransition}
+          >
+            <VideoCaptureScreen onNavigate={setView} />
+          </motion.div>
+        )}
         <div className="mt-6 flex justify-end">
           <AccessibilityControls
             textSize={textSize}
@@ -701,29 +452,46 @@ const landmarkSmootherRef = useRef(new LandmarkSmoother(3, true, true));
           />
         </div>
 
-        {view === "account" &&
-          (showAuthForm ? (
-            <LoginScreen
-              onNavigate={(v) => {
-                setShowAuthForm(false);
-                setView(v);
-              }}
-            />
-          ) : (
-            <AccountScreen
-              onNavigate={setView}
-              onSignInRequested={() => setShowAuthForm(true)}
-            />
-          ))}
+        {/* No auth sub-screen here any more: HandSonApp only mounts for a
+            signed-in user, so Account always shows the real profile. */}
+        {view === "account" && (
+          <AccountScreen onNavigate={setView} onReplayTour={() => setTourOpen(true)} />
+        )}
         </AnimatePresence>
-        <BrutalNav
-          active={view}
-          onNavigate={(v) => {
-            setShowAuthForm(false);
-            setView(v);
-          }}
-        />
+        <BrutalNav active={view} onNavigate={setView} />
       </main>
+
+      {/* FIRST-RUN TOUR — mounted AFTER <main> on purpose.
+          The UI gate's global mascot scan reads
+          `document.querySelector('[data-mascot="eye"]')`, i.e.
+          DOCUMENT ORDER, and every home-scoped assertion is
+          scoped to [data-view=home]. Placing the overlay after
+          <main> keeps the home mascots first in document order
+          and the overlay outside every home-scoped sweep. */}
+      {tourOpen && <OnboardingTour onDone={closeTour} />}
     </div>
   );
 }
+
+/**
+ * AUTHENTICATION GATE
+ * ---------------------------------------------------------------------------
+ *   loading        -> AuthLoadingScreen  (Firebase has not answered yet)
+ *   user exists    -> HandSonApp
+ *   no user        -> LoginScreen
+ *
+ * Nothing behind this gate — Home, the real-time translator, the 3D avatar,
+ * Account — is reachable without a Firebase session, and none of it is mounted
+ * early enough to flash for an unauthenticated visitor. After a sign-out,
+ * `onAuthStateChanged` fires with null and this swaps straight back to the
+ * login screen; a refresh does the same because Firebase rehydrates the session
+ * from its own persisted credential.
+ */
+export default function App() {
+  const { user, status } = useAuth();
+
+  if (status === "loading") return <AuthLoadingScreen />;
+  if (!user) return <LoginScreen onNavigate={() => {}} />;
+  return <HandSonApp />;
+}
+

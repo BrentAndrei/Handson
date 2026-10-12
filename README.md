@@ -41,7 +41,7 @@ npm run verify:all
 Runs the full gate suite: typechecks, the contrast palette contract, the
 retargeting suite (37 tests / 2,789 checks), root-translation checks, a
 **bit-identical golden-output comparison** (7,940 floats), a production build,
-and the headless UI smoke check.
+the authentication gate, and the headless UI smoke check.
 
 Individual gates, useful when iterating:
 
@@ -55,10 +55,60 @@ Individual gates, useful when iterating:
 | `npm run verify:zeroalloc` | No per-frame THREE geometry allocation |
 | `npm run verify:handedness` | MediaPipe handedness is not silently mirrored |
 | `npm run verify:contrast` | Every text/background pair meets WCAG AA |
+| `npm run verify:auth` | Login gate, signup, logout, persistence, password reset |
 | `npm run verify:ui` | Renders the real build headless and screenshots it |
 
 The UI check needs a Chromium-based browser; it looks for Edge or Chrome in
 their standard install locations.
+
+## Authentication
+
+HandSon is gated behind **Firebase Authentication** (email + password). No part
+of the app — Home, the real-time translator, the 3D avatar, Account — mounts
+before Firebase resolves a session.
+
+```
+UI  ->  AuthProvider  ->  AuthService  ->  Firebase Authentication
+```
+
+* `src/lib/firebase.ts` — initialises the SDK from `VITE_FIREBASE_*` variables.
+* `src/auth/AuthProvider.tsx` — React state; `onAuthStateChanged` is the only
+  thing that decides whether the app renders.
+* `src/screens/LoginScreen.tsx` — the existing neo-brutalist form, unchanged in
+  look, now backed by Firebase. Raw SDK errors are mapped to plain language.
+
+Firebase owns credentials, sessions and password storage. HandSon keeps no
+password and no local "logged in" flag; the session lives in the SDK's own
+IndexedDB persistence.
+
+### One-time setup
+
+1. Create a project at <https://console.firebase.google.com>.
+2. **Add app → Web**, then copy the config values.
+3. **Build → Authentication → Sign-in method → enable Email/Password.**
+4. **Authentication → Settings → Authorised domains → add your host** (localhost
+   is included by default).
+5. Copy `.env.example` to `.env` and fill in the six values, then restart the dev
+   server. `.env` is git-ignored; only `.env.example` is committed.
+
+```bash
+cp .env.example .env
+npm run dev
+```
+
+Without a populated `.env` the app still runs and shows the login screen with a
+setup notice, rather than failing silently.
+
+The Firebase **web** config values are safe in a browser bundle — the API key is
+not a secret and access is governed by Authentication settings and authorised
+domains. Never add a service-account key or the Admin SDK to this frontend.
+
+### Verifying without a Firebase project
+
+`npm run verify:auth` and `npm run verify:ui` build in Vite's `test` mode, which
+loads the committed `.env.test` placeholders, and stub Firebase's REST calls
+locally (`scripts/firebase-test-backend.ts`). The real SDK runs; only the server
+is fake. That keeps the gates green on any machine.
 
 ## Layout
 
@@ -68,7 +118,8 @@ src/
                        adaptive resolution ladder, hero status bar
   index.css            Design system: neo-brutalist tokens, paper grid,
                        hard shadows, display type scale
-  screens/             Home, Login, Account
+  screens/             Home, Login, Account, AuthLoading
+  auth/                AuthProvider + FirebaseAuthService (the AuthService impl)
   components/
     ui/                BrutalNav, BrutalCard, BrutalButton, BrutalBadge,
                        BrutalLabel, BrutalSticker, BrutalArrow, BrutalInput
@@ -83,7 +134,7 @@ src/
                        coordinateSystem, constraints, footingSolver,
                        rootTranslation, mediapipeAdapter, smplxAdapter
   mediapipe/           pack, drawResult, smoothing, types
-  lib/                 cn, usePointerIntent
+  lib/                 cn, usePointerIntent, firebase (SDK bootstrap)
 public/
   models/fsl_model/    TF.js bidirectional GRU (model.json + shard)
   models/              Xbot / RobotExpressive / Soldier GLB avatars

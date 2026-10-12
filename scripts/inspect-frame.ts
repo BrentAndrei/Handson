@@ -1,0 +1,17 @@
+import * as fs from "fs";
+const j = JSON.parse(fs.readFileSync("public/avatar-data/FOUR.json", "utf8")) as { frames: number[] };
+const f = j.frames;
+console.log("total floats:", f.length, "frames:", f.length / 345);
+const fr = f.slice(0, 345);
+const lm = (i: number) => [fr[i * 3], fr[i * 3 + 1], fr[i * 3 + 2]];
+const fmt = (a: number[]) => a.map((v) => v.toFixed(3)).join(",");
+console.log("nose:", fmt(lm(0)));
+console.log("L shoulder:", fmt(lm(11)));
+console.log("R shoulder:", fmt(lm(12)));
+console.log("L wrist:", fmt(lm(15)));
+console.log("R wrist:", fmt(lm(16)));
+const h = (off: number, i: number) => [fr[off + i * 3], fr[off + i * 3 + 1], fr[off + i * 3 + 2]];
+console.log("slot99 (left) wrist:", fmt(h(99, 0)));
+console.log("slot162 (right) wrist:", fmt(h(162, 0)));
+console.log("slot99 index mcp:", fmt(h(99, 5)));
+console.log("slot162 index mcp:", fmt(h(162, 5)));

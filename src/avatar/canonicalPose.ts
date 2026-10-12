@@ -38,10 +38,32 @@ export type JointPositions = Record<string, Vector3>;
  * `dir` is the world-space direction of the finger's *metacarpal* bone,
  * normalized to unit length. `curl` (0…1) is the flexion of the
  * proximal interphalangeal joint — 0 = straight, 1 = fully curled.
+ * `bendDir` (optional) is the direction the finger bends toward,
+ * measured as the curvature (2nd difference) of the MCP/PIP/DIP
+ * chain. It points to the concave side of the bend — the side the
+ * fingertip swings toward — so the hand retargeter can hinge the
+ * finger the right way without depending on `palmNormal` (which
+ * inverts whenever the handedness assignment fails). Absent on
+ * straight fingers, where the hinge axis is indistinguishable and
+ * the applied flexion is ~0 anyway.
  */
 export interface FingerPose {
   dir: Vec3;
   curl: number;
+  bendDir?: Vec3;
+  /**
+   * PHASE 43 — the world-space directions of each phalange
+   * segment, read straight off the landmark chain:
+   *   jointDirs[0] = MCP → PIP, [1] = PIP → DIP, [2] = DIP → TIP.
+   *
+   * These are the ACTUAL segment directions, so aiming each bone
+   * at its segment makes the rendered chain follow the landmark
+   * chain by construction -- no curl magnitude, no sign
+   * correction, no dependence on the handedness assignment or
+   * the (unreliable) palmNormal sign. Absent when the caller
+   * only has a direction+curl (e.g. the default hand pose).
+   */
+  jointDirs?: Vec3[];
 }
 
 /** Which finger. Thumb is special-cased because it has a different bend plane. */
@@ -56,6 +78,8 @@ export type FingerName =
 export interface HandPose {
   /** Wrist position in canonical space (meters). */
   wristPos: Vec3;
+  /** Thumb CMC (carpometacarpal) joint position. */
+  thumbCMC: Vec3;
   /** Direction from wrist to index MCP, normalized. */
   palmNormal: Vec3;
   /** Direction from wrist to middle MCP, normalized. */

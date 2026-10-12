@@ -1,5 +1,6 @@
 node_modules/
 dist/
+dist-verify/
 *.env
 *.env.local
 *.log
@@ -8,6 +9,15 @@ dist/
 tsconfig.tsbuildinfo
 tsconfig.node.tsbuildinfo
 vite.config.d.ts
+
+# Firebase CLI cache state (auth tokens, project aliases live in .firebaserc)
+.firebase/
+
+# Stray compiled copies of the tracked vite.config.ts
+vite.config.js
+
+# Scratch screenshots dropped into scripts/ by debug runs
+scripts/*.png
 
 # OS / editor cruft
 .DS_Store

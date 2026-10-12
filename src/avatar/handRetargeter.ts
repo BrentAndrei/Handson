@@ -63,6 +63,11 @@ const _palmDir = new Vector3();
 const _palmNormal = new Vector3();
 const _handBindDir = new Vector3();
 const _fingerDir = new Vector3();
+const _bendDir = new Vector3();
+// PHASE 42 — consensus bend direction, computed once per hand in
+// retargetHand and read by every finger's sign correction. See
+// retargetHand for the rationale.
+const _consensusBend = new Vector3();
 
 const VEC_POOL: Vector3[] = [];
 const QUAT_POOL: Quaternion[] = [];
@@ -396,6 +401,33 @@ export function retargetHand(
   // --- Step 2: Retarget each finger ---
   const fingerBones = getFingerBoneNames(skeleton, side);
 
+  // PHASE 42 — consensus bend direction.
+  //
+  // A single finger's bend direction (the 2nd difference of its
+  // MCP/PIP/DIP chain) is noise-dominated: the landmark jitter is
+  // comparable to the bend signal itself, so using it to sign the
+  // flex axis curled the finger backwards on ~38% of right-hand
+  // frames. All five fingers bend the SAME way -- into the palm --
+  // so the curl-weighted average of their bend directions is a far
+  // more robust estimate of the palm's inward direction than any
+  // one finger's 2nd difference. Unlike the palmNormal it does NOT
+  // depend on the handedness assignment, which the hand-slot vs
+  // pose-wrist disagreement (measured ~2.5 shoulder-widths) makes
+  // unreliable: the bend direction is read straight off the finger
+  // chain and is invariant to which slot the hand was resolved to.
+  _consensusBend.set(0, 0, 0);
+  let consensusWeight = 0;
+  for (const fn of ALL_FINGERS) {
+    const fp = hand.fingers[fn];
+    if (!fp || !fp.bendDir || fp.curl < 0.02) continue;
+    const bd = cvec(fp.bendDir, tmpVec());
+    _consensusBend.addScaledVector(bd, fp.curl);
+    consensusWeight += fp.curl;
+    freeVec(bd);
+  }
+  const hasConsensus = consensusWeight > 1e-6;
+  if (hasConsensus) _consensusBend.normalize();
+
   for (const fingerName of ALL_FINGERS) {
     const bones = fingerBones[fingerName];
     if (bones.length === 0) continue;
@@ -419,7 +451,9 @@ export function retargetHand(
       // out of the palm plane on average and up to 86.5 deg -- which curls
       // fingers sideways out of the palm instead of into it.
       palmDir,
-      palmNormal
+      palmNormal,
+      hasConsensus ? _consensusBend : null,
+      fingerPose.jointDirs ?? null
     );
   }
 
@@ -465,10 +499,51 @@ function retargetSingleFinger(
   // that plane) rather than from the global world up. See the call site for the
   // measured justification.
   palmDir: Vector3,
-  palmNormal: Vector3
+  palmNormal: Vector3,
+  // PHASE 42: the curl-weighted consensus bend direction of ALL five
+  // fingers, computed once per hand. More robust than this finger's
+  // own 2nd difference (noise-dominated) and independent of the
+  // handedness assignment (unlike the palmNormal). Null when no
+  // finger in this hand is bent enough to contribute.
+  consensusBend: Vector3 | null,
+  // PHASE 43: the per-phalange segment directions (MCP→PIP,
+  // PIP→DIP, DIP→TIP) in canonical space, read straight off
+  // the landmark chain. When present, each bone is aimed
+  // directly at its segment direction, which makes the rendered
+  // chain follow the landmark chain by construction -- no curl
+  // magnitude, no sign correction, no dependence on the
+  // handedness assignment or the palmNormal sign. Null when the
+  // caller only has a direction+curl.
+  jointDirs: Vec3[] | null
 ) {
   const fingerDir = cvec(fingerPose.dir, _fingerDir).normalize();
   const curl = Math.max(0, Math.min(1, fingerPose.curl));
+
+  // PHASE 37 — bend-derived sign correction for the flex axis.
+  //
+  // The flex axis LINE is `cross(fingerDir, fingerSide)` from the
+  // palm normal: it is smooth (the palm plane averages out the
+  // per-point landmark jitter that a single finger's 2nd difference
+  // amplifies) and it is the same line whether or not the
+  // handedness assignment is correct (negating palmNormal negates
+  // the axis, leaving the line unchanged).
+  //
+  // What the assignment DOES break is the SIGN: a failed assignment
+  // inverts palmNormal, which inverts the axis, which curls the
+  // finger backwards. Measured: 27-39% of right-hand frames.
+  //
+  // The fix orients the sign from the finger's OWN curvature
+  // direction, `bendDir`, which is ground truth for which way the
+  // finger bends and is independent of the assignment. Rotating
+  // `dirSoFar` about an axis by +theta displaces it toward
+  // (axis x dirSoFar); we want that to point along bendDir, so the
+  // axis is flipped whenever (axis x dirSoFar) . bendDir < 0.
+  //
+  // Straight fingers have no bendDir and no curl, so the sign is
+  // immaterial there and the palmNormal axis is used unchanged.
+  const bendDirV = fingerPose.bendDir
+    ? cvec(fingerPose.bendDir, _bendDir)
+    : null;
 
   // PHASE 30: per-joint anatomical ceiling instead of one total cap.
   const jointMax = JOINT_FLEX_MAX[fingerName] ?? [90, 110, 80];
@@ -550,6 +625,51 @@ function retargetSingleFinger(
       continue;
     }
 
+    // PHASE 43 — direct segment aiming.
+    //
+    // When the per-phalange segment directions are available,
+    // aim this bone directly at its landmark segment
+    // direction. The rendered chain then follows the landmark
+    // chain by construction: the curl magnitude and the
+    // bend-direction sign correction -- both of which depend
+    // on measurements that are either noise-dominated (a
+    // single finger's 2nd difference) or assignment-dependent
+    // (the palmNormal sign) -- are bypassed entirely. The
+    // leaf phalanx reuses the most distal segment direction,
+    // matching the parent-inheritance rule above.
+    //
+    // Gated on curl >= 0.02: for a near-flat finger the
+    // per-segment directions are dominated by landmark
+    // jitter (a straight finger's MCP/PIP/DIP/TIP are
+    // near-collinear, so the 2nd-difference that defines
+    // each segment amplifies noise), and the curl path's
+    // smooth straight line is the better estimate. Once the
+    // finger is genuinely bent the segment directions carry
+    // the real articulation and the direct aim wins.
+    if (jointDirs && jointDirs.length > 0 && curl >= 0.02) {
+      const segIdx = Math.min(i, jointDirs.length - 1);
+      const segDir = cvec(jointDirs[segIdx], tmpVec()).normalize();
+      if (segDir.length() > 1e-6) {
+        const targetSide = tmpVec().copy(fingerSide);
+        const parentWorldRot = tmpQuat()
+          .copy(handWorldRot)
+          .multiply(accumulatedLocal);
+        const localRot = retargetBoneDirection(
+          bone,
+          segDir,
+          targetSide,
+          parentWorldRot
+        );
+        boneRotations.set(bone.name, localRot);
+        accumulatedLocal.multiply(localRot);
+        freeVec(targetSide);
+        freeQuat(parentWorldRot);
+        freeVec(segDir);
+        continue;
+      }
+      freeVec(segDir);
+    }
+
     // PHASE 30: each joint flexes toward ITS OWN anatomical maximum, scaled by
     // curl. `jointBones` is ordered proximal->distal, so index 0 is the MCP, 1 the
     // PIP and 2 the DIP. A chain with more joints than JOINT_FLEX_MAX entries
@@ -561,15 +681,41 @@ function retargetSingleFinger(
 
     // Flexion axis: perpendicular to the CURRENT direction, in the finger's
     // bend plane. Recomputed per joint because the direction has rotated.
+    //
+    // PHASE 37: the palmNormal-derived axis is the same LINE for either
+    // handedness, but its SIGN flips when the handedness assignment
+    // fails. When the finger's own curvature direction (`bendDir`) is
+    // available, the sign is re-oriented so the curl follows the bend:
+    // rotating dirSoFar about the axis by +theta displaces it toward
+    // (axis x dirSoFar); flip the axis whenever that points away
+    // from bendDir. Straight fingers have no bendDir and no curl, so
+    // the sign is immaterial there and the axis is used unchanged.
     let flexAxis = tmpVec().crossVectors(dirSoFar, fingerSide).normalize();
     if (flexAxis.length() < 0.1) {
       // PHASE 25: fall back to the PALM direction, not the global world up.
-      // The previous fallback re-introduced exactly the world-frame assumption
-      // this fix removes, and only on the degenerate path.
       flexAxis = tmpVec().copy(palmDir).projectOnPlane(dirSoFar).normalize();
       if (flexAxis.length() < 0.1) {
         flexAxis.copy(palmDir);
       }
+    }
+    // PHASE 42 — sign the flex axis from the hand-wide consensus
+    // bend direction when it is available: it is the curl-weighted
+    // average of all five fingers' bend directions, so the
+    // per-frame landmark jitter that dominates any single finger's
+    // 2nd difference averages out, and it does not depend on the
+    // handedness assignment. Fall back to this finger's own bend
+    // direction only when no finger in the hand contributed to the
+    // consensus (every finger straight).
+    const signDir =
+      consensusBend && consensusBend.lengthSq() > 1e-4
+        ? consensusBend
+        : bendDirV && bendDirV.lengthSq() > 1e-4
+          ? bendDirV
+          : null;
+    if (signDir) {
+      const swing = tmpVec().crossVectors(flexAxis, dirSoFar);
+      if (swing.dot(signDir) < 0) flexAxis.negate();
+      freeVec(swing);
     }
 
     const flexQuat = tmpQuat().setFromAxisAngle(flexAxis, flexAngle);

@@ -46,9 +46,8 @@ registerServiceWorker();
 ReactDOM.createRoot(document.getElementById("root") as HTMLElement).render(
   <React.StrictMode>
     {/*
-      AuthProvider owns user state for the whole tree. It currently defaults to
-      LocalAuthService; passing a real AuthService here is the single seam where
-      a backend gets connected, and no screen needs to change.
+      AuthProvider owns user state for the whole tree. Firebase is the default
+      AuthService; no screen talks to the SDK directly.
     */}
     <AuthProvider>
       <App />

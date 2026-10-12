@@ -338,7 +338,32 @@
 }
 
 /* ----------------------------------------------------------------------------
-   MASCOT INTENT
+    MARQUEE
+    The moving type strip. The track is the item list rendered twice;
+    `translateX(-50%)` lands exactly on the seam between the halves,
+    so the loop is invisible. CSS (not JS) so the global
+    prefers-reduced-motion rule freezes it into a static strip.
+    -------------------------------------------------------------------------- */
+@keyframes hs-marquee {
+  from { transform: translateX(0); }
+  to { transform: translateX(-50%); }
+}
+.hs-marquee {
+  animation: hs-marquee 24s linear infinite;
+}
+
+/* ----------------------------------------------------------------------------
+    MASCOT BOB
+    The guide character's idle bob. CSS for the same reduced-motion
+    guarantee as the marquee.
+    -------------------------------------------------------------------------- */
+@keyframes hs-bob {
+  from { transform: translateY(0); }
+  to { transform: translateY(-5px); }
+}
+
+/* ----------------------------------------------------------------------------
+    MASCOT INTENT
    ----------------------------------------------------------------------------
    The pointer/scroll intent written by usePointerIntent, REGISTERED as `0`.
 

@@ -301,6 +301,10 @@ function buildHandFromJoints(
   const pinkyMcp = toCanonical(readJoint(joints, pinkyMcpIdx), true);
   const palmNormal = normalize(cross(sub(idxMcp, wristPos), sub(pinkyMcp, wristPos)));
 
+  // Thumb CMC: base of the thumb column (for thumb CMC joint mapping)
+  const thumbMcpIdx = SMPLX_IDX[side === "left" ? "left_thumb_1" : "right_thumb_1"]!;
+  const thumbCMC = toCanonical(readJoint(joints, thumbMcpIdx), true);
+
   // Per-finger
   const fingers: Record<FingerName, FingerPose> = { ...defaultFingers() };
   for (const finger of ["thumb", "index", "middle", "ring", "pinky"] as FingerName[]) {
@@ -312,6 +316,7 @@ function buildHandFromJoints(
 
   return {
     wristPos,
+    thumbCMC,
     palmNormal: palmNormal[0] === 0 && palmNormal[1] === 0 && palmNormal[2] === 0
       ? [0, 0, 1]
       : palmNormal,
@@ -350,6 +355,7 @@ function buildHandFromIK(
 
   return {
     wristPos,
+    thumbCMC: handMcpPos,
     palmNormal,
     palmDir,
     fingers: defaultFingers(),

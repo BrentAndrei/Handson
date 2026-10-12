@@ -201,6 +201,7 @@ function emptyHand(): HandPose {
   }
   return {
     wristPos: [0, 0, 0],
+    thumbCMC: [0, 0, 0],
     palmNormal: [0, 0, 1],
     palmDir: [0, 0, 1],
     fingers: fingers as HandPose["fingers"],
@@ -485,6 +486,7 @@ function syntheticHand(palmDir: Vec3, palmNormal: Vec3, curl: number): HandPose 
   }
   return {
     wristPos: [0, 0, 0],
+    thumbCMC: [0, 0, 0],
     palmNormal: [...palmNormal] as Vec3,
     palmDir: [...palmDir] as Vec3,
     fingers: fingers as HandPose["fingers"],

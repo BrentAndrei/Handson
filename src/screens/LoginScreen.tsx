@@ -16,15 +16,41 @@ const COPY: Record<Mode, { kicker: string; title: string; cta: string }> = {
 };
 
 /**
+ * Client-side checks that run BEFORE any network call.
+ *
+ * Cheap format problems (a typo'd address, mismatched passwords) are answered
+ * instantly and locally; anything that genuinely requires the server goes to
+ * Firebase. `noValidate` on the form is deliberate — the browser's own bubble
+ * would pre-empt these messages and we would never control the wording.
+ */
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const MIN_PASSWORD = 6;
+
+function validate(mode: Mode, email: string, password: string, confirm: string): string | null {
+  if (mode !== "signup" && mode !== "signin" && !EMAIL_RE.test(email.trim())) {
+    return "Please enter a valid email.";
+  }
+  if (mode === "signup") {
+    if (!EMAIL_RE.test(email.trim())) return "Please enter a valid email.";
+    if (password.length < MIN_PASSWORD) {
+      return `Password must be at least ${MIN_PASSWORD} characters.`;
+    }
+    if (password !== confirm) return "Passwords do not match.";
+  }
+  return null;
+}
+
+/**
  * One screen, three modes. Keeping them together preserves context when a user
  * moves between them — no separate routes to lose.
  */
 export function LoginScreen({ onNavigate }: { onNavigate: (v: AppView) => void }) {
-  const { signIn, signUp, requestPasswordReset, service } = useAuth();
+  const { signIn, signUp, requestPasswordReset, service, configured } = useAuth();
   const [mode, setMode] = useState<Mode>("signin");
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [confirm, setConfirm] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -32,22 +58,31 @@ export function LoginScreen({ onNavigate }: { onNavigate: (v: AppView) => void }
 
   async function onSubmit(e: FormEvent) {
     e.preventDefault();
-    setBusy(true);
     setError(null);
     setNotice(null);
+
+    const invalid = validate(mode, email, password, confirm);
+    if (invalid) {
+      setError(invalid);
+      return;
+    }
+
+    setBusy(true);
     try {
       if (mode === "forgot") {
         await requestPasswordReset(email);
-        setNotice("If that address has an account, a reset link is on its way.");
+        // Firebase returns success whether or not the address exists; saying so
+        // here avoids turning the reset form into an account-enumeration probe.
+        setNotice("If that address has an account, a reset link is on its way. Check your inbox.");
       } else if (mode === "signup") {
         await signUp(name, email, password);
-        onNavigate("home");
+        // No navigation here: AuthProvider's listener re-renders the app once
+        // Firebase reports the new user. Calling onNavigate would race it.
       } else {
         await signIn(email, password);
-        onNavigate("home");
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Something went wrong. Try again.");
+      setError(err instanceof Error ? err.message : "Unable to connect. Please try again.");
     } finally {
       setBusy(false);
     }
@@ -101,8 +136,20 @@ export function LoginScreen({ onNavigate }: { onNavigate: (v: AppView) => void }
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               autoComplete={mode === "signup" ? "new-password" : "current-password"}
-              placeholder={mode === "signup" ? "At least 8 characters" : "••••••••"}
-              hint={mode === "signup" ? "Use at least 8 characters." : undefined}
+              placeholder={mode === "signup" ? `At least ${MIN_PASSWORD} characters` : "••••••••"}
+              hint={mode === "signup" ? `Use at least ${MIN_PASSWORD} characters.` : undefined}
+              required
+            />
+          ) : null}
+
+          {mode === "signup" ? (
+            <BrutalInput
+              label="Confirm password"
+              type="password"
+              value={confirm}
+              onChange={(e) => setConfirm(e.target.value)}
+              autoComplete="new-password"
+              placeholder="Repeat your password"
               required
             />
           ) : null}
@@ -144,14 +191,26 @@ export function LoginScreen({ onNavigate }: { onNavigate: (v: AppView) => void }
         </div>
       </BrutalCard>
 
-      {/* Honesty about what this actually is. */}
-      {!service.isSecureBackend ? (
+      {/* Setup notice, shown only when the Firebase env vars are missing. */}
+      {!configured ? (
+        <p className="m-4 flex items-start gap-2 rounded-[var(--radius)] border-[var(--border-w-thin)] border-[var(--danger)] bg-[var(--danger)]/10 px-3 py-2 text-xs leading-relaxed text-[var(--danger)]">
+          <IconSpark className="mt-0.5 h-4 w-4 shrink-0" aria-hidden />
+          <span>
+            <strong className="font-extrabold">Firebase not configured.</strong> Copy
+            <code className="mx-1 font-mono">.env.example</code> to
+            <code className="mx-1 font-mono">.env</code>, paste in your Firebase web config,
+            then restart the dev server.
+          </span>
+        </p>
+      ) : null}
+
+      {/* What this account actually is now that there is a real backend. */}
+      {configured && !service.isSecureBackend ? (
         <p className="m-4 flex items-start gap-2 rounded-[var(--radius)] border-[var(--border-w-thin)] border-[var(--ink)] bg-[var(--paper-sunken)] px-3 py-2 text-xs leading-relaxed text-[var(--ink-soft)]">
           <IconSpark className="mt-0.5 h-4 w-4 shrink-0" aria-hidden />
           <span>
-            <strong className="font-extrabold">Local profile only.</strong> HandSon has no
-            server yet, so this account is stored in this browser and is not real
-            authentication. Clearing site data removes it.
+            <strong className="font-extrabold">Local profile only.</strong> This build is not
+            connected to a real auth provider.
           </span>
         </p>
       ) : null}

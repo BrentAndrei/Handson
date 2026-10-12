@@ -162,3 +162,15 @@ export const IconCubeHand = (p: IconProps) => (
     <path d="M12 12v9.5" />
   </Icon>
 );
+
+/**
+ * Import: a film frame with a play triangle — "video in". Paired with the
+ * Import nav item and the video drop zone.
+ */
+export const IconVideoImport = (p: IconProps) => (
+  <Icon {...p}>
+    <rect x="3.5" y="5" width="17" height="14" rx="1.5" />
+    <path d="M8 5v14M16 5v14" />
+    <path d="M10.75 9.5 14.25 12l-3.5 2.5z" />
+  </Icon>
+);

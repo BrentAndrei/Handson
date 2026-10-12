@@ -41,7 +41,19 @@ function extrapolateGroup(
   }));
 }
 
-export function useHolisticPipeline(onLandmarks: (result: LandmarksResult) => void) {
+export interface HolisticPipelineOptions {
+  /**
+   * Per-group detection confidences. Defaults to the live view's
+   * strict 0.7. Capture tools pass a looser preset — recording
+   * training data is worthless if the hands keep dropping out.
+   */
+  confidence?: { pose: number; face: number; hand: number };
+}
+
+export function useHolisticPipeline(
+  onLandmarks: (result: LandmarksResult) => void,
+  options: HolisticPipelineOptions = {}
+) {
   const landmarkerRef = useRef<HolisticLandmarker | null>(null);
   const rafRef = useRef<number | null>(null);
   const lastFrameTimeRef = useRef(0);
@@ -136,6 +148,10 @@ export function useHolisticPipeline(onLandmarks: (result: LandmarksResult) => vo
   }, []);
 
   // --- Landmarker setup ----------------------------------------------------
+  // Confidence is read once per create: the option object is a stable
+  // module constant at every call site, so this effect re-runs only
+  // when the caller actually changes preset.
+  const confidence = options.confidence;
   useEffect(() => {
     let cancelled = false;
 
@@ -150,11 +166,11 @@ export function useHolisticPipeline(onLandmarks: (result: LandmarksResult) => vo
             delegate: "CPU",
           },
           runningMode: "VIDEO",
-          minPoseDetectionConfidence: 0.7,
-          minPosePresenceConfidence: 0.7,
-          minFaceDetectionConfidence: 0.7,
-          minFacePresenceConfidence: 0.7,
-          minHandLandmarksConfidence: 0.7,
+          minPoseDetectionConfidence: confidence?.pose ?? 0.7,
+          minPosePresenceConfidence: confidence?.pose ?? 0.7,
+          minFaceDetectionConfidence: confidence?.face ?? 0.7,
+          minFacePresenceConfidence: confidence?.face ?? 0.7,
+          minHandLandmarksConfidence: confidence?.hand ?? 0.7,
         });
 
         if (cancelled) {
@@ -179,7 +195,8 @@ export function useHolisticPipeline(onLandmarks: (result: LandmarksResult) => vo
       landmarkerRef.current?.close();
       landmarkerRef.current = null;
     };
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [confidence]);
 
   // --- Capture + detect loop ------------------------------------------------
   //

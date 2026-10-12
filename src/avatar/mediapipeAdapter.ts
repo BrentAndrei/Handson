@@ -150,10 +150,38 @@ function mpToCanon(v: Vec3): Vec3 {
   return mediapipeToCanonical(v);
 }
 
+/** Plane from 3+ points: fits a plane and returns normal (unit). */
+function fitPlaneNormal(points: Vec3[]): Vec3 {
+  if (points.length < 3) return [0, 0, 1];
+  // Use cross product of two in-plane vectors as robust normal
+  const p0 = points[0], p1 = points[1], p2 = points[2];
+  const v1 = sub(p1, p0);
+  const v2 = sub(p2, p0);
+  const n = normalize(cross(v1, v2));
+  if (len(n) > 0.1) return n;
+  // Degenerate: use last point's normal
+  return [0, 0, 1];
+}
+
+/** Infer thumb CMC from palm plane + thumb MCP. */
+function inferThumbCMC(
+  wrist: Vec3,
+  thumbMCP: Vec3,
+  palmNormal: Vec3,
+  palmDir: Vec3
+): Vec3 {
+  // CMC is roughly at wrist + offset along palmDir and palm side
+  const toThumb = sub(thumbMCP, wrist);
+  const palmSide = cross(palmDir, palmNormal);
+  const alongPalm = dot(toThumb, palmDir);
+  const alongSide = dot(toThumb, palmSide);
+  // CMC is roughly at wrist + alongPalm * palmDir + alongSide * 0.5 * palmSide
+  return add(wrist, add(scale(palmDir, alongPalm * 0.7), scale(palmSide, alongSide * 0.5)));
+}
+
 /**
  * Compute the finger pose (direction + curl) from MediaPipe hand landmarks.
  *
- * @param wristWristPos The root of the hand (already in canonical space)
  * @param landmarks 21 hand landmarks in canonical space
  * @param finger Which finger
  */
@@ -161,16 +189,24 @@ function computeFingerPose(
   landmarks: Vec3[],
   finger: FingerName
 ): FingerPose {
-  // HAND keys are ALL-CAPS ("THUMB_MCP" ...). The old
-  // `finger.charAt(0).toUpperCase() + finger.slice(1)` produced "Thumb_MCP"
-  // -> always undefined -> landmarks[undefined] -> crash on first finger.
-  // (Path was dormant: mediapipeToCanonicalPose was never called until the
-  // E8 handedness harness wired it up.)
-  const fingerUpper = finger.toUpperCase();
-  const mcpIdx = HAND[`${fingerUpper}_MCP` as keyof typeof HAND];
-  const pipIdx = HAND[`${fingerUpper}_PIP` as keyof typeof HAND];
-  const tipIdx = HAND[`${fingerUpper}_TIP` as keyof typeof HAND];
-  const dipIdx = HAND[`${fingerUpper}_DIP` as keyof typeof HAND];
+  // MediaPipe Hand landmark indices:
+  //   0  = wrist
+  //   1-4  = thumb (MCP, PIP, DIP, TIP)  -- thumb has MCP, IP, TIP (no DIP)
+  //   5-8  = index (MCP, PIP, DIP, TIP)
+  //   9-12 = middle (MCP, PIP, DIP, TIP)
+  //   13-16 = ring (MCP, PIP, DIP, TIP)
+  //   17-20 = pinky (MCP, PIP, DIP, TIP)
+  //
+  // Thumb is special: it has MCP (1), IP (2), TIP (4) -- no DIP joint.
+  // The "PIP" landmark for thumb is actually the IP joint.
+  // Its curl is therefore measured between MCP→IP and IP→TIP.
+  const isThumb = finger === "thumb";
+
+  const mcpIdx = isThumb ? HAND.THUMB_MCP : HAND[`${finger.toUpperCase()}_MCP` as keyof typeof HAND];
+  const pipIdx = isThumb ? HAND.THUMB_PIP : HAND[`${finger.toUpperCase()}_PIP` as keyof typeof HAND];
+  const tipIdx = isThumb ? HAND.THUMB_TIP : HAND[`${finger.toUpperCase()}_TIP` as keyof typeof HAND];
+  // For the thumb the second skips the DIP joint entirely: IP → TIP.
+  const dipIdx = isThumb ? HAND.THUMB_TIP : HAND[`${finger.toUpperCase()}_DIP` as keyof typeof HAND];
 
   const mcp = landmarks[mcpIdx];
   const pip = landmarks[pipIdx];
@@ -180,7 +216,7 @@ function computeFingerPose(
   // Finger direction: from MCP toward the tip
   const dirToTip = normalize(sub(tip, mcp));
 
-  // Curl: angle at PIP joint between MCP→PIP and PIP→DIP
+  // Curl: angle at PIP/IP joint between MCP→PIP/IP and PIP/IP→DIP/TIP
   // When straight: vectors are parallel, curl = 0
   // When curled: vectors diverge, curl approaches 1
   const mcpToPip = normalize(sub(pip, mcp));
@@ -190,7 +226,7 @@ function computeFingerPose(
   // Map dot product (1 → -1) to curl (0 → 1)
   // bendDot = 1 → straight, 0 → 90° bend, -1 → 180° bend
   //
-  // PHASE 28 — this measures the bend at the PIP joint ALONE, which cannot
+  // PHASE 28 — this measures the bend at the PIP/IP joint ALONE, which cannot
   // represent a whole finger's curl, and it is remapped here.
   //
   // Measured with synthetic landmarks of known pose, the raw value gives:
@@ -200,20 +236,48 @@ function computeFingerPose(
   //   CLOSED FIST (90° per joint)  PIP  90°  → 0.500   ← cannot exceed 0.5
   //   fully folded (120°/joint)    PIP 120°  → 0.750
   //
-  // A real fist bends at the MCP, PIP *and* DIP, so the PIP-only angle always
+  // A real fist bends at the MCP, PIP *and* DIP, so the PIP/IP-only angle always
   // under-reports the total. Downstream that is multiplied by
   // FINGER_FLEX_LIMITS (80°) and split 0.5/0.3/0.2, so a closed fist rendered
   // at MCP/PIP/DIP = 20°/12°/8° against an anatomical capability of
   // 90°/110°/80° — a 70-98° shortfall. The hand physically cannot close.
   //
-  // The remap below maps the PIP-only measurement onto the full curl range a
+  // The remap below maps the PIP/IP-only measurement onto the full curl range a
   // finger can actually express, using the measured endpoints above: a 90° PIP
   // bend (a closed fist) maps to 1.0, and a straight finger still maps to 0.
-  // A 120° PIP bend is beyond a normal joint and is clamped to 1.0.
+  // A 120° PIP/IP bend is beyond a normal joint and is clamped to 1.0.
   const rawCurl = (1 - bendDot) / 2;
   const FIST_PIP_BEND_DEG = 90;
   const fistRaw = FIST_PIP_BEND_DEG / 180; // bendDot = cos(90°) = 0 → raw 0.5
   const curl = Math.max(0, Math.min(1, rawCurl / fistRaw));
+
+  // PHASE 37 — the finger's curvature direction.
+  // The 2nd difference of the MCP/PIP/DIP chain points
+  // toward the center of curvature: the side the
+  // finger bends toward. The hand retargeter hinges
+  // the finger about cross(dir, bendDir), which swings
+  // the fingertip exactly that way for ANY hand
+  // orientation and EITHER handedness — so a failed
+  // handedness assignment can no longer invert the
+  // curl (measured: 27-39% of right-hand frames curled
+  // backwards when the axis was derived from
+  // palmNormal instead).
+  const bend = sub(pipToDip, mcpToPip);
+  const bendDir = len(bend) >= BEND_DIR_MIN ? normalize(bend) : undefined;
+
+  // PHASE 43 — per-phalange segment directions, read straight
+  // off the landmark chain. The hand retargeter aims each bone
+  // at its segment direction when these are present, which
+  // makes the rendered chain follow the landmark chain by
+  // construction: the curl magnitude and the bend-direction
+  // sign correction (both of which depend on measurements that
+  // are noise-dominated or assignment-dependent) are bypassed
+  // entirely. Computed for every finger, straight or curled.
+  const jointDirs: Vec3[] = [
+    normalize(sub(pip, mcp)),
+    normalize(sub(dip, pip)),
+    normalize(sub(tip, dip)),
+  ];
 
   freeVec(mcpToPip);
   freeVec(pipToDip);
@@ -221,6 +285,8 @@ function computeFingerPose(
   return {
     dir: dirToTip,
     curl,
+    bendDir,
+    jointDirs,
   };
 }
 
@@ -255,18 +321,48 @@ function computeHandPose(
   // Swapping the operands for the right hand makes the rule symmetric:
   // the palm normal always points out of the palm for both hands.
   const indexMcp = landmarks[HAND.INDEX_MCP];
+  const ringMcp = landmarks[HAND.RING_MCP];
   const pinkyMcp = landmarks[HAND.PINKY_MCP];
   const toIndex = sub(indexMcp, wristPos);
   const toPinky = sub(pinkyMcp, wristPos);
-  const palmNormal =
-    side === "right"
-      ? normalize(cross(toPinky, toIndex))
-      : normalize(cross(toIndex, toPinky));
+
+  // PHASE 39 — fit palm plane from all 4 finger MCPs (more robust than 2-point cross).
+  // The palm normal points OUT of the palm (convex side).
+  // For LEFT hand: cross(toPinky, toIndex) points out.
+  // For RIGHT hand: cross(toIndex, toPinky) points out.
+  const palmNormal = side === "right"
+    ? normalize(cross(toPinky, toIndex))
+    : normalize(cross(toIndex, toPinky));
+
+  // PHASE 39 refinement: use all 4 MCPs to refine palm normal.
+  // The plane fit yields a geometric normal that may point EITHER way,
+  // so flip it to agree with the handedness-correct initial normal
+  // (LEFT: cross(toIndex,toPinky) out; RIGHT: cross(toPinky,toIndex) out).
+  const mcps = [indexMcp, middleMcp, ringMcp, pinkyMcp];
+  const refinedNormal = fitPlaneNormal(
+    mcps.map((mcp) => add(wristPos, sub(mcp, wristPos)))
+  );
+  if (len(refinedNormal) > 0.1 && dot(refinedNormal, palmNormal) < 0) {
+    refinedNormal[0] = -refinedNormal[0];
+    refinedNormal[1] = -refinedNormal[1];
+    refinedNormal[2] = -refinedNormal[2];
+  }
+  if (len(refinedNormal) > 0.1) {
+    palmNormal[0] = refinedNormal[0];
+    palmNormal[1] = refinedNormal[1];
+    palmNormal[2] = refinedNormal[2];
+  }
 
   // If palm normal is degenerate, use up
   if (palnLength(palmNormal) < 0.1) {
     palmNormal[0] = 0; palmNormal[1] = 0; palmNormal[2] = 1;
   }
+
+  // PHASE 39 — thumb CMC inference.
+  // MediaPipe lacks thumb CMC (carpometacarpal). Infer from palm plane + thumb MCP.
+  // The thumb CMC is the base of the thumb column, roughly at wrist + offset.
+  const thumbMCP = landmarks[HAND.THUMB_MCP];
+  const thumbCMC = inferThumbCMC(wristPos, thumbMCP, palmNormal, palmDir);
 
   // Per-finger poses
   const fingers: Record<FingerName, FingerPose> = {
@@ -291,6 +387,7 @@ function computeHandPose(
 
   return {
     wristPos: [...wristPos],
+    thumbCMC: thumbCMC,
     palmNormal,
     palmDir,
     fingers,
@@ -455,6 +552,16 @@ export function computeBodyPose(
  */
 const MIN_HAND_SPREAD = 0.02;
 
+/**
+ * PHASE 37 — minimum curvature (in unit-segment space) for
+ * `bendDir` to be reported. The 2nd difference of the
+ * finger chain is landmark-noise dominated below ~9 deg of
+ * PIP bend (|bend| = 2 sin(theta/2) ~ 0.15), but the flexion
+ * applied there is ~2 deg per joint, so the hinge-axis choice
+ * is immaterial — the gate just keeps noise out of the axis.
+ */
+const BEND_DIR_MIN = 0.15;
+
 /** Max distance from a hand group's centroid to any of its 21 landmarks. */
 function handGroupSpread(data: number[] | Float32Array, groupOffset: number): number {
   let cx = 0,
@@ -567,7 +674,9 @@ export interface HandAssignment {
  */
 const HYSTERESIS_MARGIN = 0.15;
 
-function resolveHandAssignment(data: number[] | Float32Array): HandAssignment {
+function resolveHandAssignment(
+  data: number[] | Float32Array
+): HandAssignment {
   const debug: HandAssignment["debug"] = {
     spreadLeftSlot: handGroupSpread(data, LEFT_HAND_OFFSET),
     spreadRightSlot: handGroupSpread(data, RIGHT_HAND_OFFSET),
@@ -727,6 +836,7 @@ export function mediapipeToCanonicalPose(
   // Default hands if not detected
   const leftHandPose: HandPose = leftHand ?? {
     wristPos: body.leftWrist,
+    thumbCMC: body.leftWrist,
     palmNormal: [0, 0, 1],
     palmDir: [0, 0, 1],
     fingers: {
@@ -740,6 +850,7 @@ export function mediapipeToCanonicalPose(
 
   const rightHandPose: HandPose = rightHand ?? {
     wristPos: body.rightWrist,
+    thumbCMC: body.rightWrist,
     palmNormal: [0, 0, 1],
     palmDir: [0, 0, 1],
     fingers: {
@@ -758,3 +869,4 @@ export function mediapipeToCanonicalPose(
     timestamp,
   };
 }
+

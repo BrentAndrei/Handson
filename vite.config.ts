@@ -15,6 +15,24 @@ export default defineConfig({
     // expected for a self-signed dev cert and only affects this dev server.
     basicSsl(),
   ],
+  build: {
+    rollupOptions: {
+      output: {
+        // One 2.98 MB monolith meant every code change invalidated
+        // the whole bundle (React + Three.js + TF.js + MediaPipe +
+        // app code, all refetched together). Splitting by library
+        // lets browsers load the chunks in parallel and cache the
+        // heavy vendors independently of app-code changes.
+        manualChunks: {
+          react: ["react", "react-dom"],
+          firebase: ["firebase/app", "firebase/auth"],
+          three: ["three"],
+          tfjs: ["@tensorflow/tfjs", "@tensorflow/tfjs-backend-webgl"],
+          mediapipe: ["@mediapipe/tasks-vision"],
+        },
+      },
+    },
+  },
   server: {
     // MediaPipe's WASM assets are fetched from a CDN by default (see
     // FilesetResolver.forVisionTasks in useHolisticPipeline.ts), so no

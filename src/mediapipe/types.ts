@@ -1,3 +1,4 @@
+
 import type { NormalizedLandmark } from "@mediapipe/tasks-vision";
 
 export type { NormalizedLandmark };

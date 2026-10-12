@@ -3,19 +3,33 @@
  *
  * Boots the built app in headless Edge and asserts the neo-brutalist home
  * screen actually renders: both feature cards, both CTAs, the bottom nav, and
- * four-item navigation. Also captures a screenshot for visual review.
+ * five-item navigation. Also captures a screenshot for visual review.
  *
  * This is a UI-layer gate only. It deliberately asserts NOTHING about the
  * retargeting pipeline — verify:retarget / verify:golden own that.
  */
-import { launch } from "puppeteer-core";
+import { launch, type Page } from "puppeteer-core";
 import { createServer } from "node:http";
 import { readFile, mkdir } from "node:fs/promises";
 import { existsSync } from "node:fs";
 import { extname, join, resolve } from "node:path";
+import { spawnSync } from "node:child_process";
+import {
+  authStubLog,
+  installAuthBackend,
+  signInViaUi,
+} from "./firebase-test-backend";
 
 const ROOT = resolve(process.cwd());
-const DIST = join(ROOT, "dist");
+/**
+ * The app is gated behind Firebase, so the UI gate needs a build that HAS
+ * Firebase config. It therefore builds its own bundle in Vite's `test` mode,
+ * which loads the committed `.env.test` placeholders — the real `.env` is
+ * git-ignored and may not exist on a contributor's machine. Built to a separate
+ * directory so it never clobbers the production `dist/` that `npm run build`
+ * produces.
+ */
+const DIST = join(ROOT, "dist-verify");
 const PORT = 4317;
 
 const EDGE_CANDIDATES = [
@@ -36,9 +50,35 @@ function check(name: string, ok: boolean, detail = "") {
   console.log(`  ${ok ? "PASS" : "FAIL"}  ${name}${detail ? ` \u2014 ${detail}` : ""}`);
 }
 
+/** Like waitForFunction, but reports failure instead of throwing. */
+async function waitForFunctionSafe(
+  page: Page,
+  fn: () => boolean,
+  timeout: number
+): Promise<boolean> {
+  try {
+    await page.waitForFunction(fn, { timeout });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+
 async function main() {
+  // Always rebuild: the gate must exercise current source, not a stale bundle.
+  console.log("Building test bundle (Vite mode=test, loads .env.test)…");
+  const built = spawnSync(
+    process.platform === "win32" ? "npx.cmd" : "npx",
+    ["vite", "build", "--mode", "test", "--outDir", "dist-verify"],
+    { cwd: ROOT, stdio: "inherit", shell: process.platform === "win32" }
+  );
+  if (built.status !== 0) {
+    console.error("Test-mode build failed.");
+    process.exit(1);
+  }
   if (!existsSync(join(DIST, "index.html"))) {
-    console.error("dist/index.html missing. Run `npm run build` first.");
+    console.error(`${join(DIST, "index.html")} missing after build.`);
     process.exit(1);
   }
 
@@ -73,6 +113,13 @@ async function main() {
     const page = await browser.newPage();
     await page.setViewport({ width: 414, height: 900, deviceScaleFactor: 2 });
 
+    /* HandSon sits behind a Firebase auth gate, so the built app opens on the
+     * login screen. Intercept Firebase's REST calls (scripts/firebase-test-
+     * backend.ts) and sign in for real through the LoginScreen before any of
+     * the home-screen assertions run. */
+    const authLog = authStubLog();
+    await installAuthBackend(page, authLog, process.env.AUTH_STUB_DEBUG === "1");
+
     const errors: string[] = [];
     page.on("pageerror", (e) => errors.push(String(e)));
     page.on("console", (m) => {
@@ -80,6 +127,20 @@ async function main() {
     });
 
     await page.goto(`http://localhost:${PORT}/`, { waitUntil: "networkidle0", timeout: 60_000 });
+    await new Promise((r) => setTimeout(r, 1200));
+
+    console.log("Auth gate:");
+    const gated = await page.evaluate(() => document.body.innerText);
+    check("login gate blocks the app", /Log in/i.test(gated) && !/START TRANSLATING/i.test(gated));
+    check("no app content leaks before auth", !/REAL-TIME/i.test(gated));
+
+    await signInViaUi(page);
+    const reached = await waitForFunctionSafe(
+      page,
+      () => /START TRANSLATING/i.test(document.body.innerText),
+      20_000
+    );
+    check("signed-in user reaches the app", reached, reached ? "" : "timed out after sign-in");
     await new Promise((r) => setTimeout(r, 1200));
 
     const text = await page.evaluate(() => document.body.innerText);
@@ -302,12 +363,12 @@ async function main() {
       };
     });
     check("bottom nav present", nav !== null);
-    check("nav has 4 items", nav?.count === 4, String(nav?.count));
+    check("nav has 6 items", nav?.count === 6, String(nav?.count));
     check("exactly one active item", nav?.activeCount === 1, String(nav?.activeCount));
     check("Home is active on load", nav?.activeIsHome === true);
     check(
       "nav labels",
-      JSON.stringify(nav?.labels) === JSON.stringify(["Home", "Translate", "Avatar", "Account"]),
+      JSON.stringify(nav?.labels) === JSON.stringify(["Home", "Translate", "Avatar", "Practice", "Import", "Account"]),
       JSON.stringify(nav?.labels)
     );
 
@@ -343,6 +404,24 @@ async function main() {
         () => document.querySelector('nav[aria-label="Primary"] li button[aria-current="page"]')?.textContent?.trim() ?? ""
       );
       check("nav switches to Translate", /Translate/i.test(afterNav), afterNav);
+    };
+
+    /* The Practice nav item mounts the tutor view: the DTW scorer's
+       screen must exist under the [data-view=practice] scope. Runs
+       after the home-scoped assertions, like every other nav click. */
+    const practiceClick = async () => {
+      await page.evaluate(() => {
+        const navBtns = document.querySelectorAll('nav[aria-label="Primary"] li button');
+        (navBtns[3] as HTMLElement)?.click();
+      });
+      await new Promise((r) => setTimeout(r, 600));
+      const mounted = await page.evaluate(
+        () => Boolean(document.querySelector('[data-view="practice"]'))
+      );
+      const active = await page.evaluate(
+        () => document.querySelector('nav[aria-label="Primary"] li button[aria-current="page"]')?.textContent?.trim() ?? ""
+      );
+      check("nav switches to Practice", mounted && /Practice/i.test(active), active);
     };
 
     /* Contrast + surface checks. A DOM-only gate can pass while the page is
@@ -512,6 +591,7 @@ async function main() {
 
     // Navigation check runs LAST, once every home-scoped assertion is done.
     await navClick();
+    await practiceClick();
 
     /* REGRESSION: only one view may be mounted at a time.
      *
@@ -538,6 +618,81 @@ async function main() {
     check("navigated view is within the viewport",
       viewState.backTop !== null && viewState.backTop >= 0 && viewState.backTop < viewState.vh,
       `top=${viewState.backTop}px, viewport=${viewState.vh}px`);
+
+    /* FIRST-RUN TOUR.
+     * The onboarding overlay: it MUST open on a fresh profile
+     * (the puppeteer profile is fresh every run, so this asserts
+     * the tour's presence on every gate run), it must be built
+     * from the brutalist primitives (h2, not h1; real labelled
+     * buttons; the guide mascot), and dismissing it must persist
+     * across a reload. Runs LAST: the Skip click and the reload
+     * below tear down the first-run state every other check
+     * depends on. */
+    const tour = await page.evaluate(() => {
+      const dlg = document.querySelector('[role="dialog"][aria-modal="true"]');
+      if (!dlg) return null;
+      const btns = Array.from(dlg.querySelectorAll("button"));
+      return {
+        h1s: dlg.querySelectorAll("h1").length,
+        h2s: dlg.querySelectorAll("h2").length,
+        guide: Boolean(dlg.querySelector('[data-mascot="guide"]')),
+        buttons: btns.map((b) => ({
+          text: (b.textContent ?? "").trim(),
+          h: Math.round(b.getBoundingClientRect().height),
+        })),
+      };
+    });
+    check("first-run tour opens on a fresh profile", tour !== null);
+    check(
+      "tour heading is an h2, never an h1",
+      (tour?.h2s ?? 0) >= 1 && (tour?.h1s ?? 0) === 0,
+      `h1=${tour?.h1s} h2=${tour?.h2s}`
+    );
+    check("tour shows the guide mascot", tour?.guide === true);
+    check(
+      "tour buttons are labelled and >= 38px",
+      (tour?.buttons.length ?? 0) >= 3 &&
+        tour!.buttons.every((b) => b.text.length > 0 && b.h >= 38),
+      JSON.stringify(tour?.buttons.map((b) => b.text + "@" + b.h))
+    );
+
+    // Skip dismisses the tour and records the dismissal.
+    const skipClicked = await page.evaluate(() => {
+      const dlg = document.querySelector('[role="dialog"][aria-modal="true"]');
+      const skip = Array.from(dlg?.querySelectorAll("button") ?? []).find(
+        (b) => /skip/i.test(b.textContent || "")
+      );
+      if (!skip) return false;
+      (skip as HTMLElement).click();
+      return true;
+    });
+    await new Promise((r) => setTimeout(r, 400));
+    const afterSkip = await page.evaluate(() => ({
+      dialog: Boolean(document.querySelector('[role="dialog"][aria-modal="true"]')),
+      seen: (() => {
+        try {
+          return window.localStorage.getItem("handson.tour.v1");
+        } catch {
+          return null;
+        }
+      })(),
+    }));
+    check("tour Skip button exists", skipClicked);
+    check("Skip dismisses the tour", afterSkip.dialog === false);
+    check("dismissal is persisted", afterSkip.seen === "1", String(afterSkip.seen));
+
+    // A reload must NOT bring the tour back for a profile that
+    // dismissed it — the Firebase session rehydrates from
+    // localStorage through the stubbed lookup, so the app (and
+    // therefore the tour's once-per-profile logic) remounts.
+    await page.reload({ waitUntil: "networkidle0", timeout: 60_000 });
+    await new Promise((r) => setTimeout(r, 2000));
+    const afterReload = await page.evaluate(() => ({
+      dialog: Boolean(document.querySelector('[role="dialog"][aria-modal="true"]')),
+      app: /START TRANSLATING/i.test(document.body.innerText),
+    }));
+    check("still signed in after reload", afterReload.app);
+    check("tour stays dismissed after reload", afterReload.dialog === false);
     // UI_CHECK_MARKER
   } finally {
     await browser.close();

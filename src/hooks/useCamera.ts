@@ -95,7 +95,10 @@ export function useCamera(options: UseCameraOptions = {}): UseCameraReturn {
       streamRef.current = stream;
       if (videoRef.current) {
         videoRef.current.srcObject = stream;
-        await videoRef.current.play();
+        // Non-fatal: a reject here (e.g. element mounted but sourceless
+        // during a resolution change) must not masquerade as a camera
+        // error — the re-attach effect below owns playback startup.
+        videoRef.current.play().catch(() => {});
       }
       setStatus("ready");
     } catch (err) {
@@ -117,6 +120,20 @@ export function useCamera(options: UseCameraOptions = {}): UseCameraReturn {
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // CameraPreview renders the <video> element only once status === "ready",
+  // so on a cold start the srcObject assignment in start() runs while
+  // videoRef.current is still null: the stream is acquired (permission
+  // granted, camera light on) but never attached, and the panel stays
+  // blank. Attach the stream the moment the element mounts.
+  useEffect(() => {
+    if (status !== "ready") return;
+    const video = videoRef.current;
+    const stream = streamRef.current;
+    if (!video || !stream || video.srcObject === stream) return;
+    video.srcObject = stream;
+    video.play().catch(() => {});
+  }, [status]);
 
   return { videoRef, status, error, start, stop };
 }

@@ -275,7 +275,13 @@ function main() {
   console.log("\n--- 8. frame axes (mirror + facing sanity) ---");
   checkDir("shoulderAxis L->R == +Z", b.shoulderAxis, E_AXIS, 0.9999);
   checkDir("spineDir == +Y", b.spineDir, E_SPINE, 0.9999);
-  check("head faces +X (nose toward camera)", b.headDir[0] > 0, "x > 0", `x=${b.headDir[0].toFixed(4)}`);
+  checkDir("headDir follows trunk axis (spineDir)", b.headDir, E_SPINE, 0.9999);
+  check(
+    "nose toward camera (headPos x)",
+    b.headPos[0] > 0,
+    "x > 0",
+    `x=${b.headPos[0].toFixed(4)}`
+  );
   check(
     "shoulderMid above hipMid (Y up)",
     b.shoulderHeight > b.hipsPos[1],

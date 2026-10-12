@@ -26,6 +26,10 @@ export interface GlossToken {
   meaning: string;
   /** Structural role in the Topic-Comment structure. */
   role: "topic" | "comment" | "unknown";
+  /** True when this token came from the fingerspelling fallback:
+   *  a letter sign (A-Z) standing in for a word the starter
+   *  vocabulary doesn't cover. */
+  fingerspelled?: boolean;
 }
 
 export interface EnglishToGlossResult {
@@ -334,6 +338,28 @@ function tryPhraseMatch(
 }
 
 // ---------------------------------------------------------------------------
+// Fingerspelling fallback
+// ---------------------------------------------------------------------------
+
+/**
+ * Decompose an out-of-vocabulary word into letter signs A-Z.
+ *
+ * FSL fingerspells words that have no sign of their own (names,
+ * loan words, technical terms). Every letter A-Z has a recorded
+ * sign in the model vocabulary, so any pure-alphabetic word can
+ * still be signed letter-by-letter instead of being dropped.
+ *
+ * Returns the letter glosses, or null when the word contains
+ * digits or symbols (the vocabulary has no single-digit signs to
+ * fall back to — those stay flagged as unknown).
+ */
+function fingerspell(word: string): string[] | null {
+  const upper = word.toUpperCase();
+  if (upper.length === 0 || !/^[A-Z]+$/.test(upper)) return null;
+  return upper.split("");
+}
+
+// ---------------------------------------------------------------------------
 // Structural reordering — English SVO → FSL Topic-Comment
 // ---------------------------------------------------------------------------
 
@@ -499,8 +525,23 @@ export function englishToGloss(text: string): EnglishToGlossResult {
         glosses.push({ gloss: known, meaning: known, role: "unknown" });
         trace.push(`word: "${tokens[i]}" → "${known}"`);
       } else {
-        glosses.push({ gloss: word, meaning: word, role: "unknown" });
-        trace.push(`unknown: "${tokens[i]}" — not in starter vocabulary`);
+        const letters = fingerspell(tokens[i]);
+        if (letters) {
+          for (const letter of letters) {
+            glosses.push({
+              gloss: letter,
+              meaning: `letter ${letter}`,
+              role: "unknown",
+              fingerspelled: true,
+            });
+          }
+          trace.push(
+            `fingerspell: "${tokens[i]}" → ${letters.join(" ")} (not in vocabulary; signed letter-by-letter with the A-Z letter signs)`
+          );
+        } else {
+          glosses.push({ gloss: word, meaning: word, role: "unknown" });
+          trace.push(`unknown: "${tokens[i]}" — not in starter vocabulary`);
+        }
       }
       i++;
     }

@@ -14,10 +14,12 @@ import type { ResolvedSkeleton } from "../avatar/boneResolver";
 import { retarget, applyBoneRotations } from "../avatar/retargeter";
 import type { RetargetedPose } from "../avatar/retargeter";
 import type { CanonicalPose } from "../avatar/canonicalPose";
+import { stabilizeCanonicalFrames, StabilityGuard } from "../avatar/stabilityGuard";
 import { RootTranslationSolver } from "../avatar/rootTranslation";
 import { solveFooting } from "../avatar/footingSolver";
 
 import { mediapipeToCanonicalPose } from "../avatar/mediapipeAdapter";
+import { sameSignSequence, signHoldMs } from "../avatar/signSequence";
 
 /** PHASE 9: Xbot's bind-pose floor. Measured from the real GLB — its lowest
  *  bone (mixamorigLeftToe_End) sits at y = -0.0029 m at bind, so the floor is
@@ -185,6 +187,9 @@ export default function SignAvatar({
   const liveSeqRef = useRef(-1);
   const livePrevPoseRef = useRef<RetargetedPose | null>(null);
   const liveWasActiveRef = useRef(false);
+  // PHASE 44 — live stability lock. Holds the last good retargeted
+  // pose across a handedness flip so the live feed never flails.
+  const liveStabilityGuardRef = useRef<StabilityGuard | null>(null);
   // Mirror of the `liveActive` prop. The animation loop and the auto-advance
   // interval are both installed once, so they would otherwise capture a stale
   // `false` forever and the live toggle would appear to do nothing.
@@ -401,8 +406,20 @@ export default function SignAvatar({
   }, []);
 
   const [signSequenceState, setSignSequenceState] = useState(signSequence);
+  // The sequence last pushed into state. Parents re-render with a FRESH
+  // array literal carrying the SAME labels (`glosses.map(g => g.gloss)`,
+  // `[label]`), and the old identity-only check pushed every one of those
+  // into state — which re-ran the scene effect below and tore down the
+  // renderer, the GLB model, the lights and the post-processing chain on
+  // every parent re-render (every keystroke, every prediction, every
+  // 250 ms practice frame counter). Compare CONTENT so the scene is
+  // rebuilt only when the sequence's labels actually change.
+  const appliedSequenceRef = useRef<string[] | undefined>(signSequence);
   useEffect(() => {
-    setSignSequenceState(signSequence);
+    if (!sameSignSequence(appliedSequenceRef.current, signSequence)) {
+      appliedSequenceRef.current = signSequence;
+      setSignSequenceState(signSequence);
+    }
   }, [signSequence]);
 
   const loadSignData = useCallback(async (label: string, parentWorldQuats?: ParentWorldQuats) => {
@@ -434,18 +451,28 @@ export default function SignAvatar({
       // not become "unavailable" purely because of this swap.
       const canonicalDataset =
         (await loadLabelDataMediaPipe(label)) ?? (await loadLabelDataCanonical(label));
-       if (canonicalDataset && canonicalDataset.frames.length > 0) {
-         const step = Math.max(1, Math.floor(canonicalDataset.frames.length / 16));
-         const sampled: (CanonicalPose | null)[] = [];
-         for (let i = 0; i < canonicalDataset.frames.length; i += step) {
-           sampled.push(canonicalDataset.frames[i]);
-         }
-         if (sampled.length > 0 && sampled[sampled.length - 1] !== canonicalDataset.frames[canonicalDataset.frames.length - 1]) {
-           sampled.push(canonicalDataset.frames[canonicalDataset.frames.length - 1]);
-         }
-         if (sampled.length < 2) {
-           sampled.push(canonicalDataset.frames[0]);
-         }
+        if (canonicalDataset && canonicalDataset.frames.length > 0) {
+          // PHASE 44 — temporal stability lock. Stabilize the FULL
+          // sequence before sampling so the lock compares against
+          // the previous FRAME (the correct ~15-25 deg/frame
+          // baseline), not against the previous 16-frame-sampled
+          // keyframe, where legitimate motion could exceed 90 deg
+          // and false-trigger. A handedness flip (palm normal
+          // inverting ~180 deg) is replaced by the last good pose,
+          // so the sampled keyframes — and every slerp between
+          // them — never flail.
+          const stabilized = stabilizeCanonicalFrames(canonicalDataset.frames);
+          const step = Math.max(1, Math.floor(stabilized.length / 16));
+          const sampled: (CanonicalPose | null)[] = [];
+          for (let i = 0; i < stabilized.length; i += step) {
+            sampled.push(stabilized[i]);
+          }
+          if (sampled.length > 0 && sampled[sampled.length - 1] !== stabilized[stabilized.length - 1]) {
+            sampled.push(stabilized[stabilized.length - 1]);
+          }
+          if (sampled.length < 2) {
+            sampled.push(stabilized[0]);
+          }
 
          // Retarget each canonical pose to avatar bone rotations
          const retargeted: RetargetedPose[] = [];
@@ -714,9 +741,20 @@ export default function SignAvatar({
           // WebGLRenderer + GLTF scene on every live toggle, which is precisely
           // the leak this phase is meant to close. A ref keeps the toggle free.
           if (liveActiveRef.current) return;
-          if (signSequenceState && signSequenceState.length > 0) {
+          // Auto-advance only through a MULTI-sign sequence. A single-sign
+          // sequence (the Practice screen) already loops on its own; the
+          // interval reloading it would restart the clip mid-play.
+          if (signSequenceState && signSequenceState.length > 1) {
             const now = Date.now();
-            if (now - lastSignTimeRef.current > 12000) {
+            // Hold each sign long enough to finish playing it at the current
+            // speed (see avatar/signSequence.ts). The old fixed 12 s hold
+            // cut every sign off at ~40% at the default 0.25x speed, where
+            // a 19-keyframe clip needs ~30 s.
+            const holdMs = signHoldMs(
+              currentRetargetedRef.current.length,
+              playbackSpeedRef.current,
+            );
+            if (now - lastSignTimeRef.current > holdMs) {
               lastSignTimeRef.current = now;
               signIndexRef.current = (signIndexRef.current + 1) % signSequenceState.length;
               await loadSignData(signSequenceState[signIndexRef.current], parentWorldQuatsForRetarget);
@@ -775,7 +813,18 @@ export default function SignAvatar({
           // Same adapter the recorded SMPL-X path and verify:browser use.
           const livePose = mediapipeToCanonicalPose(liveFrame.vector, 0);
           if (livePose) {
-            const liveRet = retarget(skel, livePose);
+            // PHASE 44 — route through the stability lock. A
+            // frame that flips the palm normal returns the last
+            // good retargeted pose instead of the flipped one,
+            // so the live feed locks into a correct pose
+            // through a handedness failure instead of flailing.
+            if (liveStabilityGuardRef.current === null) {
+              liveStabilityGuardRef.current = new StabilityGuard();
+            }
+            const liveRet = liveStabilityGuardRef.current.retargetStable(
+              skel,
+              livePose
+            );
             // Reset the root baseline on the first live frame, otherwise the
             // delta solver would jump the model by the difference between a
             // recorded clip's hips and the live hips.
@@ -802,6 +851,10 @@ export default function SignAvatar({
         liveWasActiveRef.current = false;
         livePrevPoseRef.current = null;
         liveSeqRef.current = -1;
+        // PHASE 44 — drop the held live pose too, so re-enabling
+        // starts from a clean baseline instead of comparing the
+        // first new frame against a stale one from the last session.
+        liveStabilityGuardRef.current?.reset();
       }
 
       // PHASE 10 BUGFIX: this gate used to require `targetFrameRef2.current`,

@@ -6,6 +6,7 @@ import { BrutalSticker } from "../components/ui/BrutalSticker";
 import { BrutalLabel } from "../components/ui/BrutalLabel";
 import { EyeMascot } from "../components/mascots/EyeMascot";
 import { HandsMascot } from "../components/mascots/HandsMascot";
+import { MarqueeStrip } from "../components/MarqueeStrip";
 import { IconLogin, IconSpark } from "../components/icons";
 import { useAuth } from "../auth/AuthProvider";
 import type { AppView } from "../components/ui/BrutalNav";
@@ -436,9 +437,11 @@ export function HomeScreen({ onNavigate, modelReady, modelError }: HomeScreenPro
         onAccount={() => onNavigate("account")}
       />
 
+      <MarqueeStrip />
+
       {/* Section rule with an oversized index, the editorial device that ties
           the hero to the two cards. */}
-      <div className="mb-5 flex items-center gap-3 sm:mb-6">
+      <div className="mb-5 mt-6 flex items-center gap-3 sm:mb-6">
         <BrutalLabel tone="mute">Explore</BrutalLabel>
         <span aria-hidden="true" className="h-[3px] flex-1 bg-[var(--ink)]" />
       </div>

@@ -1,14 +1,14 @@
 import { cn } from "../../lib/cn";
-import { IconCamera, IconHome, IconUser, IconAvatar, type IconProps } from "../icons";
+import { IconCamera, IconHome, IconUser, IconAvatar, IconHandScan, IconVideoImport, type IconProps } from "../icons";
 
-export type AppView = "home" | "translate" | "avatar" | "account";
+export type AppView = "home" | "translate" | "avatar" | "practice" | "capture" | "account";
 
 export interface NavItem {
   id: AppView;
   label: string;
   Icon: (p: IconProps) => JSX.Element;
   /** Fill colour of the active block. Roles come from the palette. */
-  activeTone: "sun" | "coral" | "lime" | "pink";
+  activeTone: "sun" | "coral" | "lime" | "pink" | "teal";
   /** Printed index, part of the editorial numbering. */
   index: string;
 }
@@ -17,7 +17,9 @@ export const NAV_ITEMS: NavItem[] = [
   { id: "home", label: "Home", Icon: IconHome, activeTone: "sun", index: "01" },
   { id: "translate", label: "Translate", Icon: IconCamera, activeTone: "coral", index: "02" },
   { id: "avatar", label: "Avatar", Icon: IconAvatar, activeTone: "lime", index: "03" },
-  { id: "account", label: "Account", Icon: IconUser, activeTone: "pink", index: "04" },
+  { id: "practice", label: "Practice", Icon: IconHandScan, activeTone: "teal", index: "04" },
+  { id: "capture", label: "Import", Icon: IconVideoImport, activeTone: "pink", index: "05" },
+  { id: "account", label: "Account", Icon: IconUser, activeTone: "pink", index: "06" },
 ];
 
 const ACTIVE_FILL: Record<NavItem["activeTone"], string> = {
@@ -25,6 +27,7 @@ const ACTIVE_FILL: Record<NavItem["activeTone"], string> = {
   coral: "bg-[var(--coral)] text-[var(--ink)]",
   lime: "bg-[var(--lime)] text-[var(--ink)]",
   pink: "bg-[var(--pink)] text-[var(--ink)]",
+  teal: "bg-[var(--teal)] text-[var(--ink)]",
 };
 
 export interface BrutalNavProps {

@@ -1,7 +1,10 @@
 export const WINDOW_SIZE = 16;
-// Requested range is 4-8; 6 sits in the middle — dense enough to catch
-// short signs without emitting (and running inference) every single frame.
-export const DEFAULT_STRIDE = 6;
+// Stride 3: the temporal ensemble (inference/temporalEnsemble.ts)
+// decides on a ring of windows, so no single window can fire a
+// prediction on its own — denser windows only add votes, at
+// ~10 inferences/sec at 30fps. The adaptive-resolution logic
+// in App.tsx lowers the inference size if camera FPS drops.
+export const DEFAULT_STRIDE = 3;
 
 /**
  * Fixed-size ring buffer of feature frames for a LIVE sliding window.
