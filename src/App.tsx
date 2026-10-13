@@ -294,7 +294,7 @@ const landmarkSmootherRef = useRef(new LandmarkSmoother(3, true, true));
         {view === "translate" && (
           <motion.div
             key={PREDICT_KEY}
-            className={`grid gap-6 ${inference.ready ? "lg:grid-cols-[minmax(0,1.45fr)_minmax(19rem,0.8fr)]" : "grid-cols-1"} lg:items-start`}
+            className={`grid gap-6 ${inference.ready ? "lg:grid-cols-[minmax(320px,1.45fr)_minmax(19rem,0.8fr)]" : "grid-cols-1"} lg:items-start`}
             variants={pageVariants}
             initial="initial"
             animate="animate"
@@ -343,7 +343,7 @@ const landmarkSmootherRef = useRef(new LandmarkSmoother(3, true, true));
         {view === "avatar" && (
           <motion.div
             key={TEXT_KEY}
-            className="grid gap-6 lg:grid-cols-[minmax(0,1.45fr)_minmax(19rem,0.8fr)] lg:items-start animate-soft-in"
+            className="grid gap-6 lg:grid-cols-[minmax(320px,1.45fr)_minmax(19rem,0.8fr)] lg:items-start animate-soft-in"
             variants={pageVariants}
             initial="initial"
             animate="animate"
