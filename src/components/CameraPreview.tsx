@@ -57,8 +57,8 @@ export function CameraPreview({ onVideoReady, onCanvasReady, resolution = DEFAUL
     >
       {status === "ready" ? (
         <>
-          <video ref={videoRef} muted playsInline className="absolute inset-0 size-full -scale-x-100 object-cover" />
-          <canvas ref={canvasRef} className="pointer-events-none absolute inset-0 size-full -scale-x-100 object-cover" />
+          <video ref={videoRef} muted playsInline className={`absolute inset-0 size-full object-cover ${facingMode === "user" ? "-scale-x-100" : ""}`} />
+          <canvas ref={canvasRef} className={`pointer-events-none absolute inset-0 size-full object-cover ${facingMode === "user" ? "-scale-x-100" : ""}`} />
           {showFlipButton && (
             <button
               type="button"
