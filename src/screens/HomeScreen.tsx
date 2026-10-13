@@ -286,7 +286,22 @@ function Hero({
   onAccount: () => void;
 }) {
   return (
-    <section className="relative mb-9 grid grid-cols-1 gap-x-10 sm:mb-12 lg:grid-cols-[minmax(0,1fr)_320px]" aria-labelledby="hero-title">
+    <section className="relative z-0 mb-9 grid grid-cols-1 gap-x-10 sm:mb-12 lg:grid-cols-[minmax(0,1fr)_320px]" aria-labelledby="hero-title">
+      {/* PRINTED BACKDROP. A sun wash bleeding off the top
+          edge, a halftone patch in the opposite corner, and
+          three sparks scattered through the empty space. Flat
+          colour only — no blur, no gradients on the wash —
+          because the design language is ink and paper. Every
+          piece is aria-hidden, pointer-events-none, and kept
+          inside the container so it can never widen the page. */}
+      <div aria-hidden="true" className="pointer-events-none absolute inset-0 -z-10">
+        <span className="absolute -top-24 right-0 block h-[300px] w-[300px] rounded-full bg-[var(--sun)] sm:-top-28 sm:h-[360px] sm:w-[360px]" />
+        <span className="hs-dots hs-rot-neg2 absolute -bottom-4 left-0 block h-[90px] w-[150px] opacity-30" />
+        <IconSpark className="absolute left-[3px] top-[80px] h-7 w-7 text-[var(--coral)] hs-rot-3" />
+        <IconSpark className="absolute right-[70px] top-[150px] h-5 w-5 text-[var(--teal)] hs-rot-neg3" />
+        <IconSpark className="absolute bottom-[190px] right-[14px] h-6 w-6 text-[var(--lime)] hs-rot-1" />
+      </div>
+
       {/* HEADER spans both columns, then everything below splits into a type
           column and a graphic column. `grid` (not flex) so the graphic column
           keeps a real width the type can be measured against; the type column
@@ -440,10 +455,15 @@ export function HomeScreen({ onNavigate, modelReady, modelError }: HomeScreenPro
       <MarqueeStrip />
 
       {/* Section rule with an oversized index, the editorial device that ties
-          the hero to the two cards. */}
+          the hero to the two cards. A spark caps the rule so it ends on
+          a printed object instead of a bare line. */}
       <div className="mb-5 mt-6 flex items-center gap-3 sm:mb-6">
         <BrutalLabel tone="mute">Explore</BrutalLabel>
         <span aria-hidden="true" className="h-[3px] flex-1 bg-[var(--ink)]" />
+        <IconSpark
+          aria-hidden
+          className="h-4 w-4 shrink-0 text-[var(--coral)] hs-rot-3"
+        />
       </div>
 
       {/* Stacked. `space-y` is used instead of margins so the two articles are
@@ -455,6 +475,15 @@ export function HomeScreen({ onNavigate, modelReady, modelError }: HomeScreenPro
           modelError={modelError}
         />
         <AvatarCard onNavigate={onNavigate} />
+      </div>
+
+      {/* INK FOOTER BAND. A thin printed rule capped by a registration
+          mark on the right — the page's colophon. Keeps the printed-
+          paper metaphor all the way to the bottom edge without ever
+          introducing a symmetric "footer" component. */}
+      <div aria-hidden="true" className="mt-10 flex items-center justify-end gap-3">
+        <span className="h-[1px] flex-1 bg-[var(--ink)] opacity-30" />
+        <span className="hs-mark-cross text-[var(--ink)] opacity-40" />
       </div>
     </div>
   );

@@ -3,7 +3,8 @@ import { AnimatePresence, motion } from "framer-motion";
 import { BrutalButton } from "../components/ui/BrutalButton";
 import { BrutalCard } from "../components/ui/BrutalCard";
 import { BrutalBadge } from "../components/ui/BrutalBadge";
-import { IconCheck, IconVideoImport } from "../components/icons";
+import { BrutalLabel } from "../components/ui/BrutalLabel";
+import { IconCheck, IconSpark, IconVideoImport } from "../components/icons";
 import { CameraPreview } from "../components/CameraPreview";
 import SignAvatar from "../components/SignAvatar";
 import { useHolisticPipeline } from "../hooks/useHolisticPipeline";
@@ -26,6 +27,7 @@ import {
   type ClipTestResult,
 } from "../lib/clipTester";
 import { INFERENCE_LABELS } from "../inference/labels";
+import { WINDOW_SIZE, DEFAULT_STRIDE, sliceIntoWindows } from "../features/windowBuffer";
 import type { LandmarksResult } from "../mediapipe/types";
 import type { AppView } from "../components/ui/BrutalNav";
 
@@ -117,7 +119,7 @@ export function VideoCaptureScreen({
   const clipIdRef = useRef(1);
   const avatarBoxRef = useRef<HTMLDivElement | null>(null);
 
-  const [tab, setTab] = useState<"import" | "record">("import");
+  const [tab, setTab] = useState<"import" | "record" | "train">("import");
   const [videoFile, setVideoFile] = useState<File | null>(null);
   const [videoUrl, setVideoUrl] = useState<string | null>(null);
   const [duration, setDuration] = useState(0);
@@ -140,11 +142,20 @@ export function VideoCaptureScreen({
   const [tests, setTests] = useState<Map<number, ClipTestState>>(new Map());
   const [error, setError] = useState<string | null>(null);
 
-  /** Existing corpus labels → filename, so the UI can say whether a
-   *  clip replaces a recording or introduces a new label. */
+/** Existing corpus labels → filename, so the UI can say whether a
+    *  clip replaces a recording or introduces a new label. */
   const [manifestFiles, setManifestFiles] = useState<Map<string, string>>(
     new Map()
   );
+
+  /** Training dataset state — built from captured clips. */
+  const [trainingDataset, setTrainingDataset] = useState<{
+    featureDim: number;
+    windowSize: number;
+    labels: string[];
+    samples: { label: string; frames: number[] }[];
+  } | null>(null);
+  const [exportingDataset, setExportingDataset] = useState(false);
 
   useEffect(() => {
     fetch("/avatar-data/manifest.json")
@@ -584,13 +595,85 @@ export function VideoCaptureScreen({
     results.forEach((r) => download(r));
   }, [results, download]);
 
+  /** Build a training dataset (fsl_dataset.json format) from captured clips.
+    *  Each clip is sliced into sliding windows of WINDOW_SIZE frames with
+    *  DEFAULT_STRIDE, exactly like the live pipeline and clipTester do. */
+  const buildTrainingDataset = useCallback(() => {
+    const samples: { label: string; frames: number[] }[] = [];
+    for (const clip of results) {
+      const frameCount = Math.floor(clip.frames.length / FEATURE_DIM);
+      const frames: Float32Array[] = [];
+      for (let i = 0; i < frameCount; i++) {
+        frames.push(
+          new Float32Array(
+            clip.frames.slice(i * FEATURE_DIM, (i + 1) * FEATURE_DIM)
+          )
+        );
+      }
+      const windows = sliceIntoWindows(
+        frames,
+        FEATURE_DIM,
+        WINDOW_SIZE,
+        DEFAULT_STRIDE
+      );
+      for (const window of windows) {
+        samples.push({ label: clip.label, frames: Array.from(window) });
+      }
+    }
+    if (samples.length === 0) {
+      setError("No clips to train on — capture or import some clips first.");
+      return;
+    }
+    const labels = Array.from(new Set(samples.map((s) => s.label))).sort();
+    setTrainingDataset({
+      featureDim: FEATURE_DIM,
+      windowSize: WINDOW_SIZE,
+      labels,
+      samples,
+    });
+    setError(null);
+  }, [results]);
+
+  const exportTrainingDataset = useCallback(() => {
+    if (!trainingDataset) return;
+    setExportingDataset(true);
+    try {
+      const json = JSON.stringify(trainingDataset, null, 2);
+      const blob = new Blob([json], { type: "application/json" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "fsl_dataset.json";
+      a.click();
+      URL.revokeObjectURL(url);
+    } finally {
+      setExportingDataset(false);
+    }
+  }, [trainingDataset]);
+
   const clipPlanned = (label: string) =>
     manifestFiles.has(label) ? "replaces" : "new";
 
   const previewClip = results.find((r) => r.id === previewId) ?? null;
 
   return (
-    <div className="space-y-6">
+    <div className="relative space-y-6">
+      {/* PRINTED BACKDROP. Sun wash, halftone patch, three sparks —
+          same visual language as the home screen. All pieces are
+          aria-hidden, pointer-events-none, locked to -z-10 so they
+          never interfere with interaction or widen the page. */}
+      <div aria-hidden="true" className="pointer-events-none absolute inset-0 -z-10">
+        <span className="absolute -top-24 right-0 block h-[300px] w-[300px] rounded-full bg-[var(--sun)] sm:-top-28 sm:h-[360px] sm:w-[360px]" />
+        <span className="hs-dots hs-rot-neg2 absolute -bottom-4 left-0 block h-[90px] w-[150px] opacity-30" />
+        <IconSpark className="absolute left-[3px] top-[80px] h-7 w-7 text-[var(--coral)] hs-rot-3" />
+        <IconSpark className="absolute right-[70px] top-[150px] h-5 w-5 text-[var(--teal)] hs-rot-neg3" />
+        <IconSpark className="absolute bottom-[190px] right-[14px] h-6 w-6 text-[var(--lime)] hs-rot-1" />
+      </div>
+
+      {/* Registration marks, asymmetric on purpose. */}
+      <span aria-hidden="true" className="hs-mark-cross absolute -right-1 top-16 hidden opacity-40 lg:block" />
+      <span aria-hidden="true" className="hs-mark-cross absolute left-1/2 top-4 hidden opacity-30 lg:block" />
+
       {/* Header */}
       <div className="flex items-center gap-3">
         <BrutalButton tone="paper" size="sm" onClick={() => onNavigate("home")}>
@@ -604,6 +687,14 @@ export function VideoCaptureScreen({
             Capture studio
           </h1>
         </div>
+      </div>
+
+      {/* Section rule with spark — editorial device tying header to the
+          studio guide. */}
+      <div className="mb-4 flex items-center gap-3">
+        <BrutalLabel tone="mute">How it works</BrutalLabel>
+        <span aria-hidden="true" className="h-[3px] flex-1 bg-[var(--ink)]" />
+        <IconSpark aria-hidden className="h-4 w-4 shrink-0 text-[var(--coral)] hs-rot-3" />
       </div>
 
       {/* How it works */}
@@ -640,12 +731,19 @@ export function VideoCaptureScreen({
           The avatar replays the signer's hands — a generic model, not a
           mirror of you. Left-handed source? Flip it with the mirror
           toggle so the avatar signs with your dominant hand.
-        </p>
-      </BrutalCard>
+</p>
+        </BrutalCard>
+
+      {/* Section rule with spark — separates the guide from the tabs. */}
+      <div className="mb-4 flex items-center gap-3">
+        <BrutalLabel tone="mute">Capture source</BrutalLabel>
+        <span aria-hidden="true" className="h-[3px] flex-1 bg-[var(--ink)]" />
+        <IconSpark aria-hidden className="h-4 w-4 shrink-0 text-[var(--teal)] hs-rot-neg3" />
+      </div>
 
       {/* Tab bar */}
       <div role="tablist" aria-label="Capture source" className="flex gap-2">
-        {(["record", "import"] as const).map((t) => (
+        {(["record", "import", "train"] as const).map((t) => (
           <button
             key={t}
             role="tab"
@@ -658,23 +756,26 @@ export function VideoCaptureScreen({
                 : "bg-[var(--paper-sunken)] text-[var(--ink)] hover:bg-[var(--paper-raised)]"
             )}
           >
-            {t === "record" ? "Record (webcam)" : "Import (video file)"}
+            {t === "record"
+              ? "Record (webcam)"
+              : t === "import"
+                ? "Import (video file)"
+                : "Train model"}
           </button>
         ))}
       </div>
 
-      <AnimatePresence mode="wait">
-        {tab === "record" ? (
-          <motion.section
-            key="record"
-            initial={{ opacity: 0, y: 12 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -8 }}
-            aria-label="Record from webcam"
-            className="space-y-4"
-          >
-            <BrutalCard depth="lg" className="p-5">
-              <div className="grid gap-4 lg:grid-cols-2">
+      {tab === "record" ? (
+        <motion.section
+          key="record"
+          initial={{ opacity: 0, y: 12 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0, y: -8 }}
+          aria-label="Record from webcam"
+          className="space-y-4"
+        >
+          <BrutalCard depth="lg" className="p-5">
+            <div className="grid gap-4 lg:grid-cols-2">
                 <div>
                   <p className="mb-2 m-0 text-[10px] font-extrabold uppercase tracking-[0.12em] text-[var(--ink-soft)]">
                     You
@@ -778,9 +879,9 @@ export function VideoCaptureScreen({
                 convention on save, so it plays back at the speed you
                 signed it. Clips cap at {MAX_RECORD_SEC}s.
               </p>
-            </BrutalCard>
+</BrutalCard>
           </motion.section>
-        ) : (
+        ) : tab === "import" ? (
           <motion.section
             key="import"
             initial={{ opacity: 0, y: 12 }}
@@ -790,7 +891,7 @@ export function VideoCaptureScreen({
             className="space-y-4"
           >
             <BrutalCard depth="lg" className="p-5">
-              <div
+            <div
                 role="button"
                 tabIndex={0}
                 aria-label="Drop a video file or press to choose one"
@@ -963,8 +1064,8 @@ export function VideoCaptureScreen({
                 )}
               </div>
 
-              <AnimatePresence>
-                {extracting && (
+<AnimatePresence>
+                {extracting ? (
                   <motion.div
                     initial={{ opacity: 0, y: 8 }}
                     animate={{ opacity: 1, y: 0 }}
@@ -973,7 +1074,7 @@ export function VideoCaptureScreen({
                     aria-live="polite"
                   >
                     <p className="m-0 mb-2 text-[11px] font-extrabold uppercase tracking-[0.12em]">
-                      Extracting “{extracting.label}” — {extracting.done}/
+                      Extracting "{extracting.label}" — {extracting.done}/
                       {extracting.total} frames
                     </p>
                     <div className="h-[14px] overflow-hidden rounded-full border-[var(--border-w)] border-[var(--ink)] bg-[var(--paper-sunken)]">
@@ -985,12 +1086,185 @@ export function VideoCaptureScreen({
                       />
                     </div>
                   </motion.div>
-                )}
+                ) : null}
               </AnimatePresence>
             </BrutalCard>
           </motion.section>
+        ) : (
+          <motion.section
+            key="train"
+            initial={{ opacity: 0, y: 12 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -8 }}
+            aria-label="Train model"
+            className="space-y-4"
+          >
+            <BrutalCard depth="lg" className="p-5">
+              <div className="flex items-center justify-between gap-3 mb-4">
+                <h2 className="m-0 font-[family-name:var(--font-display)] text-lg uppercase tracking-tight">
+                  Train model
+                </h2>
+                {trainingDataset ? (
+                  <BrutalBadge tone="lime">Dataset ready — {trainingDataset.samples.length} windows</BrutalBadge>
+                ) : (
+                  <BrutalBadge tone="paper">No dataset built</BrutalBadge>
+                )}
+              </div>
+
+              <p className="mb-4 text-sm text-[var(--ink-soft)]">
+                Build a training dataset from your captured clips and export it
+                as <code className="rounded border-[var(--border-w-thin)] border-[var(--ink)] bg-[var(--paper-sunken)] px-1">fsl_dataset.json</code>.
+                Run the Python training script locally, then convert the model to
+                TensorFlow.js and replace <code className="rounded border-[var(--border-w-thin)] border-[var(--ink)] bg-[var(--paper-sunken)] px-1">handson/public/models/fsl_model/</code>.
+              </p>
+
+              {results.length === 0 ? (
+                <p className="text-center py-8 text-[var(--ink-soft)]">
+                  No captured clips yet. Record or import clips first, then come
+                  back here to build the training dataset.
+                </p>
+              ) : (
+                <>
+                  <div className="space-y-2 mb-4">
+                    <h3 className="m-0 text-[10px] font-extrabold uppercase tracking-[0.12em] text-[var(--ink-soft)]">
+                      Captured clips available for training
+                    </h3>
+                    <ul className="space-y-1.5 max-h-60 overflow-y-auto">
+                      {results.map((result) => {
+                        const frameCount = Math.floor(
+                          result.frames.length / FEATURE_DIM
+                        );
+                        const windows = Math.max(
+                          0,
+                          Math.floor(
+                            (frameCount - WINDOW_SIZE) / DEFAULT_STRIDE
+                          ) + 1
+                        );
+                        return (
+                          <li
+                            key={result.id}
+                            className="flex items-center justify-between gap-3 rounded-[var(--radius)] border-[var(--border-w-thin)] border-[var(--ink)] bg-[var(--paper-sunken)] px-3 py-2"
+                          >
+                            <div className="flex flex-col gap-0.5">
+                              <span className="font-[family-name:var(--font-display)] text-sm font-bold uppercase tracking-[0.08em]">
+                                {result.label}
+                              </span>
+                              <span className="text-[10px] font-bold text-[var(--ink-soft)]">
+                                {result.frameCount} frames @ {result.fps} fps →{" "}
+                                {windows} window{windows !== 1 ? "s" : ""}
+                              </span>
+                            </div>
+                            <BrutalBadge
+                              tone={result.source === "webcam" ? "teal" : "sun"}
+                            >
+                              {result.source === "webcam" ? "webcam" : "video"}
+                            </BrutalBadge>
+                          </li>
+                        );
+                      })}
+                    </ul>
+                  </div>
+
+                  {trainingDataset ? (
+                    <div className="flex flex-wrap items-center gap-3 border-t-[var(--border-w-thin)] border-[var(--ink)] pt-4">
+                      <BrutalButton
+                        tone="ink"
+                        size="sm"
+                        onClick={exportTrainingDataset}
+                        disabled={exportingDataset}
+                        withArrow
+                      >
+                        {exportingDataset ? "Exporting…" : "Export fsl_dataset.json"}
+                      </BrutalButton>
+                      <BrutalButton
+                        tone="paper"
+                        size="sm"
+                        onClick={() => setTrainingDataset(null)}
+                      >
+                        Clear dataset
+                      </BrutalButton>
+                    </div>
+                  ) : (
+                    <div className="border-t-[var(--border-w-thin)] border-[var(--ink)] pt-4">
+                      <BrutalButton
+                        tone="teal"
+                        size="md"
+                        onClick={buildTrainingDataset}
+                        withArrow
+                      >
+                        Build training dataset ({results.length} clip{results.length > 1 ? "s" : ""})
+                      </BrutalButton>
+                    </div>
+                  )}
+
+                  {trainingDataset && (
+                    <details className="mt-4">
+                      <summary className="cursor-pointer text-[11px] font-extrabold uppercase tracking-[0.1em] text-[var(--ink-soft)]">
+                        Dataset details (JSON structure)
+                      </summary>
+                      <pre className="mt-2 p-3 rounded-[var(--radius)] bg-[var(--paper-sunken)] text-[10px] overflow-x-auto max-h-64">
+                        {JSON.stringify(
+                          {
+                            featureDim: trainingDataset.featureDim,
+                            windowSize: trainingDataset.windowSize,
+                            labels: trainingDataset.labels,
+                            sampleCount: trainingDataset.samples.length,
+                          },
+                          null,
+                          2
+                        )}
+                      </pre>
+                    </details>
+                  )}
+                </>
+              )}
+            </BrutalCard>
+
+            <BrutalCard depth="lg" className="p-5">
+              <h3 className="m-0 mb-3 font-[family-name:var(--font-display)] text-base uppercase tracking-tight">
+                Training workflow
+              </h3>
+              <ol className="m-0 list-decimal list-inside space-y-2 p-0 text-sm text-[var(--ink-soft)]">
+                <li>
+                  Click <strong>Build training dataset</strong> above to slice all
+                  captured clips into {WINDOW_SIZE}-frame windows (stride {DEFAULT_STRIDE}).
+                </li>
+                <li>
+                  Click <strong>Export fsl_dataset.json</strong> to download the
+                  dataset file.
+                </li>
+                <li>
+                  Run the Python training script:
+                  <pre className="mt-1 ml-4 p-2 rounded-[var(--radius)] bg-[var(--paper-sunken)] text-[10px] overflow-x-auto">
+{`python training/train.py \\
+  --dataset fsl_dataset.json \\
+  --out ./model_out \\
+  --epochs 200 \\
+  --batch-size 8`}
+                  </pre>
+                </li>
+                <li>
+                  Convert the trained Keras model to TensorFlow.js:
+                  <pre className="mt-1 ml-4 p-2 rounded-[var(--radius)] bg-[var(--paper-sunken)] text-[10px] overflow-x-auto">
+{`tensorflowjs_converter \\
+  --input_format=tf_saved_model \\
+  --output_format=tfjs_layers_model \\
+  ./model_out/saved_model \\
+  ./model_out/tfjs_model`}
+                  </pre>
+                </li>
+                <li>
+                  Replace the contents of{" "}
+                  <code className="rounded border-[var(--border-w-thin)] border-[var(--ink)] bg-[var(--paper-sunken)] px-1">
+                    handson/public/models/fsl_model/
+                  </code>{" "}
+                  with the generated TFJS model files, then restart the dev
+                  server.
+                </li>
+              </ol>
+            </BrutalCard>
+          </motion.section>
         )}
-      </AnimatePresence>
 
       {error && (
         <p
@@ -1000,6 +1274,13 @@ export function VideoCaptureScreen({
           {error}
         </p>
       )}
+
+      {/* Section rule with spark — editorial cap before the clips list. */}
+      <div className="mb-4 flex items-center gap-3">
+        <BrutalLabel tone="mute">Captured clips</BrutalLabel>
+        <span aria-hidden="true" className="h-[3px] flex-1 bg-[var(--ink)]" />
+        <IconSpark aria-hidden className="h-4 w-4 shrink-0 text-[var(--sun)] hs-rot-1" />
+      </div>
 
       {/* Results + avatar preview */}
       <AnimatePresence>
@@ -1148,13 +1429,13 @@ export function VideoCaptureScreen({
                   {test?.status === "done" && (
                     <div className="mt-3">
                       <div className="flex flex-wrap items-center gap-2">
-                        {test.result.agree ? (
+{test.result.agree ? (
                           <BrutalBadge tone="lime">
-                            Model agrees — reads “{result.label}”
+                            Model agrees — reads "{result.label}"
                           </BrutalBadge>
                         ) : (
                           <BrutalBadge tone="coral">
-                            Model reads it as “{test.result.top[0]?.label}”
+                            Model reads it as "{test.result.top[0]?.label}"
                           </BrutalBadge>
                         )}
                         <span className="text-[10px] font-bold text-[var(--ink-soft)]">
@@ -1246,6 +1527,14 @@ export function VideoCaptureScreen({
           </motion.section>
         )}
       </AnimatePresence>
+
+      {/* INK FOOTER BAND. Thin printed rule capped by a registration
+          mark — the page's colophon. Keeps the printed-paper metaphor
+          all the way to the bottom edge. */}
+      <div aria-hidden="true" className="mt-10 flex items-center justify-end gap-3">
+        <span className="h-[1px] flex-1 bg-[var(--ink)] opacity-30" />
+        <span className="hs-mark-cross text-[var(--ink)] opacity-40" />
+      </div>
     </div>
   );
 }
