@@ -27,6 +27,7 @@ import { VideoCaptureScreen } from "./screens/VideoCaptureScreen";
 import { AuthLoadingScreen } from "./screens/AuthLoadingScreen";
 import { useAuth } from "./auth/AuthProvider";
 import { BrutalNav, type AppView } from "./components/ui/BrutalNav";
+import { CONFIDENCE_PRESETS } from "./lib/videoCapture";
 import {
   OnboardingTour,
   hasSeenTour,
@@ -183,7 +184,11 @@ const landmarkSmootherRef = useRef(new LandmarkSmoother(3, true, true));
 
     inferencePushRef.current(features); sentenceOnActivityRef.current(msg.hasLeftHand || msg.hasRightHand, performance.now());
   }, []);
-  const { ready, error, fps, attachVideo, attachCanvas, setInferenceSize } = useHolisticPipeline(handleLandmarks);
+  const { ready, error, fps, attachVideo, attachCanvas, setInferenceSize } = useHolisticPipeline(handleLandmarks, {
+    confidence: typeof window !== "undefined" && window.innerWidth < 768
+      ? CONFIDENCE_PRESETS.balanced
+      : CONFIDENCE_PRESETS.strict,
+  });
 
   // PHASE 10 â€” live vs recorded source for the avatar.
   //
