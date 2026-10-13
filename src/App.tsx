@@ -252,7 +252,7 @@ const landmarkSmootherRef = useRef(new LandmarkSmoother(3, true, true));
       />
 
       {/* pb-28 reserves room so the fixed bottom nav never covers content. */}
-      <main className="relative mx-auto max-w-6xl px-3 pb-28 pt-4 sm:px-6">
+      <main className="relative mx-auto max-w-6xl px-3 pb-28 pt-4 sm:px-6 pb-safe">
         <AnimatePresence mode="wait">
         {view === "home" && (
           <motion.div
@@ -297,7 +297,7 @@ const landmarkSmootherRef = useRef(new LandmarkSmoother(3, true, true));
                 </button>
                 <p className="text-sm font-bold text-cyan-400">Predict Mode</p>
               </div>
-              <CameraPreview onVideoReady={attachVideo} onCanvasReady={attachCanvas} resolution={resolution} />
+              <CameraPreview onVideoReady={attachVideo} onCanvasReady={attachCanvas} resolution={resolution} showFlipButton />
             </motion.section>
             <motion.aside
               className={`space-y-4 ${inference.ready ? "" : "lg:hidden"}`}

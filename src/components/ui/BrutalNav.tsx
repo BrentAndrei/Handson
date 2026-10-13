@@ -56,6 +56,7 @@ export function BrutalNav({ active, onNavigate }: BrutalNavProps) {
     <nav
       aria-label="Primary"
       className="fixed inset-x-0 bottom-0 z-40 border-t-[var(--border-w-thick)] border-[var(--ink)] bg-[var(--paper-raised)] shadow-[0_-6px_0_var(--ink)]"
+      style={{ paddingBottom: 'var(--safe-area-inset-bottom)' } as React.CSSProperties}
     >
       <ul className="mx-auto flex max-w-3xl items-stretch gap-1.5 px-2 py-2 sm:gap-2 sm:px-3">
         {NAV_ITEMS.map(({ id, label, Icon, activeTone, index }) => {

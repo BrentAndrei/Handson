@@ -96,6 +96,36 @@
   }
 }
 
+/* Mobile performance optimizations */
+@media (max-width: 768px) {
+  :root {
+    --press-ms: 60ms;
+  }
+  /* Reduce shadow complexity on mobile */
+  .hs-lift-lg,
+  .hs-lift-xl,
+  .glass-card-interactive:hover {
+    box-shadow: var(--shadow);
+  }
+  .glass-card-interactive:active {
+    box-shadow: var(--shadow-pressed);
+  }
+  /* Simplify marquee on mobile */
+  .hs-marquee {
+    animation-duration: 40s;
+  }
+  /* Reduce mascot animation complexity */
+  [data-mascot] {
+    --mx: 0;
+    --my: 0;
+  }
+  /* Prevent text selection on interactive elements */
+  button, [role="button"] {
+    -webkit-user-select: none;
+    user-select: none;
+  }
+}
+
 /* Base element styling lives in the legacy @layer base block further down this
    file. Keeping one definition avoids two competing `body` rules, where the
    later one silently wins. */
@@ -143,6 +173,7 @@
     margin: 0;
     min-width: 320px;
     min-height: 100vh;
+    min-height: 100dvh;
     font-family: var(--font-body);
     -webkit-font-smoothing: antialiased;
     text-rendering: optimizeLegibility;
@@ -159,6 +190,14 @@
     overflow-x: hidden;
   }
 
+  /* Safe area insets for notched devices */
+  :root {
+    --safe-area-inset-top: env(safe-area-inset-top, 0);
+    --safe-area-inset-right: env(safe-area-inset-right, 0);
+    --safe-area-inset-bottom: env(safe-area-inset-bottom, 0);
+    --safe-area-inset-left: env(safe-area-inset-left, 0);
+  }
+
   body {
     /* PHASE 1: warm paper, not the old navy. Colour and background must be
        declared together — inheriting a near-white `--text` on a light surface
@@ -167,9 +206,16 @@
     background-color: var(--paper);
     line-height: 1.6;
     letter-spacing: 0.01em;
+    font-size: 16px; /* Prevents iOS zoom on focus */
   }
 
   button, input { font: inherit; }
+
+  /* Touch optimizations for mobile */
+  button, [role="button"], input, select, textarea {
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: transparent;
+  }
 
   :focus-visible {
     /* Never a soft glow. A hard ink ring reads on paper AND on the dark
@@ -639,6 +685,18 @@
 [data-text-size="lg"] { font-size: 1.125rem; line-height: 1.55; }
 [data-text-size="lg"] .hero-text { font-size: 3.5rem; }
 [data-text-size="lg"] .hero-text-xl { font-size: 2rem; }
+
+/* Safe area padding utilities */
+.pb-safe {
+  padding-bottom: calc(7rem + var(--safe-area-inset-bottom));
+}
+.pt-safe {
+  padding-top: calc(var(--safe-area-inset-top) + 1rem);
+}
+.px-safe {
+  padding-left: calc(1rem + var(--safe-area-inset-left));
+  padding-right: calc(1rem + var(--safe-area-inset-right));
+}
 
 /* ============================================================================
    HIGH CONTRAST

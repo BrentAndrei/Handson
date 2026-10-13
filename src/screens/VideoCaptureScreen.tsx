@@ -784,6 +784,7 @@ export function VideoCaptureScreen({
                     onVideoReady={studioPipeline.attachVideo}
                     onCanvasReady={studioPipeline.attachCanvas}
                     resolution={{ width: 960, height: 540 }}
+                    showFlipButton
                   />
                 </div>
                 <div>

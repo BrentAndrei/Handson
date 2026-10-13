@@ -1,19 +1,36 @@
 {
   "name": "HandsOn — Filipino Sign Language",
   "short_name": "HandsOn",
-  "description": "Practice Filipino Sign Language with live recognition.",
+  "description": "Practice Filipino Sign Language with live recognition and 3D avatar.",
   "lang": "en",
   "dir": "ltr",
   "display": "standalone",
   "orientation": "portrait-primary",
-  "background_color": "#0a0e1a",
-  "theme_color": "#38bdf8",
+  "background_color": "#f4efe5",
+  "theme_color": "#18d5c5",
   "icons": [
     {
       "src": "/favicon.svg",
       "sizes": "any",
-      "type": "image/svg+xml"
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
     }
   ],
-  "categories": ["education", "productivity"]
+  "categories": ["education", "productivity"],
+  "shortcuts": [
+    {
+      "name": "Translate",
+      "short_name": "Translate",
+      "description": "Real-time FSL translation",
+      "url": "/#translate",
+      "icons": [{ "src": "/favicon.svg", "sizes": "192x192" }]
+    },
+    {
+      "name": "Avatar",
+      "short_name": "Avatar",
+      "description": "3D sign avatar",
+      "url": "/#avatar",
+      "icons": [{ "src": "/favicon.svg", "sizes": "192x192" }]
+    }
+  ]
 }

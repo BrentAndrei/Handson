@@ -174,3 +174,14 @@ export const IconVideoImport = (p: IconProps) => (
     <path d="M10.75 9.5 14.25 12l-3.5 2.5z" />
   </Icon>
 );
+
+/**
+ * Camera flip: two camera bodies with arrows — switch front/back.
+ */
+export const IconCameraFlip = (p: IconProps) => (
+  <Icon {...p}>
+    <path d="M3 8.5h4l2-2.5h6l2 2.5h4v11H3z" />
+    <circle cx="12" cy="13.5" r="3.5" />
+    <path d="M20 2v4h-4M20 18v4h-4" />
+  </Icon>
+);

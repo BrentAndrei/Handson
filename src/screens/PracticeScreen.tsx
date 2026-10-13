@@ -230,6 +230,7 @@ export function PracticeScreen({
           onVideoReady={attachVideo}
           onCanvasReady={attachCanvas}
           resolution={resolution}
+          showFlipButton
         />
         {/* The target: the avatar performs the selected sign on
             loop (its own playback controls sit under the canvas).
