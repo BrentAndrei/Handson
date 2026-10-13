@@ -184,11 +184,26 @@ const landmarkSmootherRef = useRef(new LandmarkSmoother(3, true, true));
 
     inferencePushRef.current(features); sentenceOnActivityRef.current(msg.hasLeftHand || msg.hasRightHand, performance.now());
   }, []);
-  const { ready, error, fps, attachVideo, attachCanvas, setInferenceSize } = useHolisticPipeline(handleLandmarks, {
-    confidence: typeof window !== "undefined" && window.innerWidth < 768
-      ? CONFIDENCE_PRESETS.balanced
-      : CONFIDENCE_PRESETS.strict,
-  });
+  const [isMobile, setIsMobile] = useState(() => 
+    typeof window !== "undefined" && window.innerWidth < 768
+  );
+  
+  useEffect(() => {
+    const mq = window.matchMedia("(max-width: 767px)");
+    const handler = (e: MediaQueryListEvent) => setIsMobile(e.matches);
+    mq.addEventListener?.("change", handler);
+    // Also handle resize as fallback
+    const resizeHandler = () => setIsMobile(window.innerWidth < 768);
+    window.addEventListener("resize", resizeHandler);
+    return () => {
+      mq.removeEventListener?.("change", handler);
+      window.removeEventListener("resize", resizeHandler);
+    };
+  }, []);
+  
+  const confidence = isMobile ? CONFIDENCE_PRESETS.balanced : CONFIDENCE_PRESETS.strict;
+  
+  const { ready, error, fps, attachVideo, attachCanvas, setInferenceSize } = useHolisticPipeline(handleLandmarks, { confidence });
 
   // PHASE 10 â€” live vs recorded source for the avatar.
   //
