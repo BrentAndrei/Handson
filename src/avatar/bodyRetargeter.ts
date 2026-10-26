@@ -564,37 +564,45 @@ const armPlaneSide = tmpVec().crossVectors(armDir, forearmDir);
    worldRotations.set(shoulder.name, tmpQuat().copy(shoulderParentWorldRot).multiply(shoulderLocalRot));
 
     // Upper arm: align to armDir (shoulder -> ELBOW).
-    // The upper-arm bone's child offset IS the elbow — measured on Xbot.glb:
-    // mixamorig:LeftForeArm sits at (27.84, 0, 0) in mixamorig:LeftArm's local space,
-    // so the bone's bind "point" is the elbow, not the wrist.  (The legacy
-    // retarget.ts:453-455 aims DEFAULT_BONE_DIRS.leftUpperArm=[1,0,0] at
-    // (leftElbow - leftShoulder) — the same rule.)  Aiming it at forearmDir instead
-    // collapsed the elbow: the forearm's local rotation then resolved to ~identity,
-    // so the arm rendered as a rigid straight stick, and for a folded arm
-    // (armDir ~= -forearmDir) the upper arm swung through ~180deg.
+    // Side reference: the subject's lateral axis projected onto the plane
+    // perpendicular to armDir. This defines the outward direction of the arm
+    // in the arm plane — anatomically correct because the elbow hinges about
+    // the lateral axis. Using armPlaneSide (the arm plane NORMAL) here was
+    // the root cause of the twisted arms: the normal is perpendicular to the
+    // arm plane, so the twist was computed relative to a vector 90 deg off.
+    const uaSide = tmpVec().copy(lateral).projectOnPlane(armDir).normalize();
+    if (uaSide.length() < 0.1) {
+      uaSide.copy(armPlaneSide).crossVectors(armPlaneSide, armDir).normalize();
+    }
     const uaParentWorldRot = worldRotations.get(shoulder.name) ?? _identQ.identity();
     const upperArmLocalRot = retargetSingleBone(
       upperArm,
       armDir,
-      armPlaneSide,
+      uaSide,
       uaParentWorldRot
     );
    boneRotations.set(upperArm.name, upperArmLocalRot);
    worldRotations.set(upperArm.name, tmpQuat().copy(uaParentWorldRot).multiply(upperArmLocalRot));
 
-   // Forearm: align to forearmDir, twist from arm plane side
-   // The arm plane side should remain consistent across the chain
-const faParentWorldRot = worldRotations.get(upperArm.name) ?? _identQ.identity();
-    const forearmLocalRot = retargetSingleBone(
-      forearm,
-      forearmDir,
-      armPlaneSide,
-      faParentWorldRot
-    );
-    boneRotations.set(forearm.name, forearmLocalRot);
-    worldRotations.set(forearm.name, tmpQuat().copy(faParentWorldRot).multiply(forearmLocalRot));
+   // Forearm: align to forearmDir, twist from lateral axis
+   // Side reference: lateral axis projected onto the plane perpendicular to
+   // forearmDir. Same rationale as the upper arm — the lateral axis defines
+   // the roll reference in the arm plane.
+   const faSide = tmpVec().copy(lateral).projectOnPlane(forearmDir).normalize();
+   if (faSide.length() < 0.1) {
+     faSide.copy(armPlaneSide).crossVectors(armPlaneSide, forearmDir).normalize();
+   }
+   const faParentWorldRot = worldRotations.get(upperArm.name) ?? _identQ.identity();
+   const forearmLocalRot = retargetSingleBone(
+     forearm,
+     forearmDir,
+     faSide,
+     faParentWorldRot
+   );
+   boneRotations.set(forearm.name, forearmLocalRot);
+   worldRotations.set(forearm.name, tmpQuat().copy(faParentWorldRot).multiply(forearmLocalRot));
 
-    // PHASE 38 — per-segment arm scaling.
+// PHASE 38 — per-segment arm scaling.
     //
     // Measured on Xbot.glb vs the recordings: the avatar's arm is 1.85
     // shoulder-widths long (upper 0.918 + forearm 0.934), the SIGNER'S is
@@ -612,23 +620,6 @@ const faParentWorldRot = worldRotations.get(upperArm.name) ?? _identQ.identity()
     // frame) do not compound.
     const personUa = elbowPos.distanceTo(shoulderPos);
     const personFa = wristPos.distanceTo(elbowPos);
-    // PHASE 38 — per-segment arm scaling.
-    //
-    // Measured on Xbot.glb vs the recordings: the avatar's arm is 1.85
-    // shoulder-widths long (upper 0.918 + forearm 0.934), the SIGNER'S is
-    // 2.65-3.11. Aim-only retargeting leaves the wrist 0.8-1.26 sh-w short
-    // of the sign position, and hand LOCATION is a core FSL parameter —
-    // a hand in the wrong place is an unrecognizable sign. This is the
-    // single biggest understandability defect, larger than the finger
-    // curl fixed in PHASE 37.
-    //
-    // Each segment is stretched to the signer's measured length. The
-    // bone's local position is its offset from the parent joint, so
-    // scaling it scales that segment; the parent's world rotation then
-    // maps it into world space along the aimed direction. Positions are
-    // reset from `localPos` first so repeated retarget calls (live path,
-    // one per frame) do not compound.
-    //
     // The avatar's bind-pose lengths come from the resolver's `worldPos`
     // (world bind-pose joint positions, consistent world units). They
     // must NOT come from `localPos`: that is the parent-relative offset
@@ -636,43 +627,22 @@ const faParentWorldRot = worldRotations.get(upperArm.name) ?? _identQ.identity()
     // scaled local frames (measured: the two clavicles' localPos span is
     // 9.14 while the forearm's is 27.84, i.e. ~10x apart), which produced
     // a scale factor 10x too small and left the wrist untouched.
-    const otherUpperArm = skeleton.getBone(
-      `${side === "left" ? "right" : "left"}UpperArm` as CanonicalRole
-    )!;
-    // The shoulder WIDTH is the distance between the shoulder JOINTS
-    // (the upperArm origins), NOT the clavicles: the two clavicles sit at
-    // the chest and span ~0.09 m while the shoulder joints span ~0.30 m,
-    // so measuring the clavicles produced a scale ~3x too small and
-    // shrank the arm instead of stretching it.
-    const avatarShW = upperArm.worldPos.distanceTo(otherUpperArm.worldPos);
     const avatarUa = forearm.worldPos.distanceTo(upperArm.worldPos);
     const avatarFa = hand.worldPos.distanceTo(forearm.worldPos);
-    const uaScale = avatarShW > 1e-4 ? (personUa * avatarShW) / avatarUa : 1;
-    const faScale = avatarShW > 1e-4 ? (personFa * avatarShW) / avatarFa : 1;
-    // The upper-arm segment (shoulder->elbow) is the FOREARM joint's
-    // offset from the shoulder joint, and the forearm segment
-    // (elbow->wrist) is the HAND joint's offset from the elbow joint, so
-    // the upper-arm scale stretches the forearm joint and the forearm
-    // scale stretches the hand joint. The shoulder joint itself is
-    // fixed by the clavicle and must not move.
-    // Store scaled positions in the map for later application during playback.
-    // Positions are reset from `localPos` first so repeated retarget calls
-    // (live path, one per frame) do not compound.
+    const uaScale = avatarUa > 1e-4 ? personUa / avatarUa : 1;
+    const faScale = avatarFa > 1e-4 ? personFa / avatarFa : 1;
     const forearmPos = tmpVec().copy(forearm.localPos).multiplyScalar(uaScale);
     const handPos = tmpVec().copy(hand.localPos).multiplyScalar(faScale);
     bonePositions.set(forearm.name, forearmPos.clone());
     bonePositions.set(hand.name, handPos.clone());
-    if ((globalThis as any).__ARM_DEBUG) {
-      console.log(`ARMDBG2 ${side} faPosAfter=${forearmPos.length().toFixed(4)} haPosAfter=${handPos.length().toFixed(4)}`);
-    }
 
     // Hand: aligned by hand retargeter (called separately)
-   // Store forearm world rotation for the hand retargeter to consume
-   if (!boneRotations.has(hand.name)) {
-     const handParentWorldRot = worldRotations.get(forearm.name) ?? _identQ.identity();
-     boneRotations.set(hand.name, new Quaternion());
-     worldRotations.set(hand.name, tmpQuat().copy(handParentWorldRot));
-   }
+    // Store forearm world rotation for the hand retargeter to consume
+    if (!boneRotations.has(hand.name)) {
+      const handParentWorldRot = worldRotations.get(forearm.name) ?? _identQ.identity();
+      boneRotations.set(hand.name, new Quaternion());
+      worldRotations.set(hand.name, tmpQuat().copy(handParentWorldRot));
+    }
 
   freeVec(armDir);
   freeVec(forearmDir);

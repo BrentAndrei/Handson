@@ -393,7 +393,7 @@ export default function SignAvatar({
 
               // Resolve skeleton using boneResolver for the new retargeting pipeline
               try {
-                resolvedSkeletonRef.current = resolveSkeleton(model);
+                resolvedSkeletonRef.current! = resolveSkeleton(model);
               } catch (e) {
                 console.warn("[avatar] skeleton resolution failed:", e);
               }
@@ -440,7 +440,7 @@ export default function SignAvatar({
     }
 
       // Try new CanonicalPose pipeline first (SMPL-X adapter)
-      const skeleton = resolvedSkeletonRef.current;
+      const skeleton = resolvedSkeletonRef.current!;
       let usedCanonical = false;
       usedCanonicalRef.current = false;
 
@@ -798,7 +798,7 @@ export default function SignAvatar({
       // switch instead of snapping.
 const liveFrame = liveFrameRef?.current ?? null;
       if (liveActiveRef.current && liveFrame && liveFrame.seq !== liveSeqRef.current) {
-        const skel = resolvedSkeletonRef.current;
+        const skel = resolvedSkeletonRef.current!;
         if (skel) {
           liveSeqRef.current = liveFrame.seq;
           lastLiveFrameTimeRef.current = t;
@@ -928,7 +928,7 @@ const liveFrame = liveFrameRef?.current ?? null;
 
           if (curRet && tgtRet) {
             const av = avatarRef.current;
-            const skeleton = resolvedSkeletonRef.current;
+            const skeleton = resolvedSkeletonRef.current!;
              if (av && skeleton) {
               // Interpolate root position
               tmpVec1.current.copy(curRet.hipsWorldPos);
@@ -982,26 +982,28 @@ if (curRot.dot(tgtRot) < 0) {
                      } else {
                        bone.quaternion.slerp(resultQuat.current, SMOOTHING);
                      }
-                     bone.quaternion.normalize();
-                   }
-                 }
- 
-               // Interpolate arm bone positions (forearm, hand) to match scaled lengths per frame.
-               // These positions are computed per-frame by retargetBody and stored in bonePositions.
-               // Bone names use CanonicalRole: leftForearm / rightForearm / leftHand / rightHand
-               const armCanonRoles = ["leftForearm", "rightForearm", "leftHand", "rightHand"] as const;
-               for (const canonRole of armCanonRoles) {
-const resolved = skeleton.getBone(canonRole);
-                  if (!resolved?.bone) continue;
-                 const bone = resolved.bone;
-                 const curPos = curRet.bonePositions?.get(resolved.name);
-                 const tgtPos = tgtRet.bonePositions?.get(resolved.name);
-                 if (curPos && tgtPos) {
-                   bone.position.lerpVectors(curPos, tgtPos, progress);
-                 }
-               }
+bone.quaternion.normalize();
+}
+                }
 
-              // PHASE 9: additive ground contact, applied AFTER the interpolated
+                    // Restore arm bone position interpolation: lerp local-space
+                // positions between keyframes at current progress. This keeps
+                // arm segment lengths consistent with the interpolated rotation
+                // state — positions transition alongside rotations so arms
+                // stay connected throughout the slerp.
+                const armCanonRoles = ["leftForearm", "rightForearm", "leftHand", "rightHand"] as const;
+                for (const canonRole of armCanonRoles) {
+                    const resolved = skeleton.getBone(canonRole);
+                    if (!resolved?.bone) continue;
+                    const bone = resolved.bone;
+                    const curPos = curRet.bonePositions?.get(resolved.name);
+                    const tgtPos = tgtRet.bonePositions?.get(resolved.name);
+                    if (curPos && tgtPos) {
+                        bone.position.lerpVectors(curPos, tgtPos, progress);
+                    }
+                }
+
+                // PHASE 9: additive ground contact, applied AFTER the interpolated
               // retargeted pose (not after applyBoneRotations — this path slerps
               // between keyframes rather than re-applying the bone map). The
               // solver reads the current world state and rewrites ONLY the four
@@ -1088,6 +1090,18 @@ const resolved = skeleton.getBone(canonRole);
               transitionProgressRef.current = 0;
               transitionStartTimeRef.current = t;
               isAnimatingRef.current = true;
+              // Do NOT apply rotations or positions here — the interpolation
+              // block below slerps rotations and lerps positions from the
+              // current keyframe (prevRetargetedRef) to the new keyframe
+              // (targetRetargetedRef). Applying the new keyframe's rotations
+              // ahead of its positions desynchronises the two: the bones
+              // jump to the target rotation while the position lerp still
+              // starts from the previous keyframe's local positions, so the
+              // arm segment length no longer matches the rotation state and
+              // the hand detaches from the forearm.
+              // The bones already hold the current keyframe's pose from the
+              // previous interpolation cycle, so the slerp/lerp can start
+              // cleanly from it.
               setFrameIndex(curIdx);
               onFrameChange?.(curIdx, retargeted.length);
             } else {
@@ -1096,6 +1110,9 @@ const resolved = skeleton.getBone(canonRole);
               transitionProgressRef.current = 0;
               transitionStartTimeRef.current = t;
               isAnimatingRef.current = true;
+              // Same as above — let the interpolation block drive the
+              // transition from frame 0 to frame 1 instead of applying
+              // both poses ahead of time.
               setFrameIndex(0);
               onFrameChange?.(0, retargeted.length);
             }
