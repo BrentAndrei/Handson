@@ -114,7 +114,7 @@ async function main() {
       const pose = mediapipeToCanonicalPose(view, idx / 24);
       if (pose) {
         const result = retarget(sk, pose);
-        applyBoneRotations(result.boneRotations, sk);
+        applyBoneRotations(result.boneRotations, result.bonePositions, sk);
         const solver = new RootTranslationSolver();
         const offset = new THREE.Vector3();
         solver.solve(result.hipsWorldPos, offset);

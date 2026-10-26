@@ -135,7 +135,7 @@ async function main() {
 
     resetToBind(sk, scene);
     const result = retarget(sk, pose);
-    applyBoneRotations(result.boneRotations, sk);
+    applyBoneRotations(result.boneRotations, result.bonePositions, sk);
     scene.updateMatrixWorld(true);
 
     // The delta solver consumes the raw source-unit hips position and emits a

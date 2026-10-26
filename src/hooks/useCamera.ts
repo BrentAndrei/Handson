@@ -37,6 +37,7 @@ export function useCamera(options: UseCameraOptions = {}): UseCameraReturn {
   const videoRef = useRef<HTMLVideoElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const mountedRef = useRef(true);
+  const startRef = useRef(false);
 
   const [status, setStatus] = useState<CameraStatus>("idle");
   const [error, setError] = useState<string | null>(null);
@@ -48,12 +49,20 @@ export function useCamera(options: UseCameraOptions = {}): UseCameraReturn {
       videoRef.current.srcObject = null;
     }
     if (mountedRef.current) setStatus("idle");
+    startRef.current = false;
   }, []);
 
   const start = useCallback(async () => {
+    // Prevent concurrent start calls (e.g. from rapid resolution downgrades)
+    if (startRef.current) {
+      return;
+    }
+    startRef.current = true;
+
     if (!navigator.mediaDevices?.getUserMedia) {
       setError("getUserMedia is not supported in this browser.");
       setStatus("error");
+      startRef.current = false;
       return;
     }
 
@@ -89,6 +98,7 @@ export function useCamera(options: UseCameraOptions = {}): UseCameraReturn {
       // the stream immediately rather than attaching it to a dead ref.
       if (!mountedRef.current) {
         stream.getTracks().forEach((t) => t.stop());
+        startRef.current = false;
         return;
       }
 
@@ -109,6 +119,8 @@ export function useCamera(options: UseCameraOptions = {}): UseCameraReturn {
           : "Unknown camera error.";
       setError(message);
       setStatus("error");
+    } finally {
+      startRef.current = false;
     }
   }, [width, height, facingMode]);
 

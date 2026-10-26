@@ -2,6 +2,8 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { CameraPreview } from "../components/CameraPreview";
 import SignAvatar from "../components/SignAvatar";
 import { BrutalButton } from "../components/ui/BrutalButton";
+import { BrutalCard } from "../components/ui/BrutalCard";
+import { BrutalLabel } from "../components/ui/BrutalLabel";
 import { BrutalBadge } from "../components/ui/BrutalBadge";
 import {
   DEFAULT_SIMILARITY_CONFIG,
@@ -216,42 +218,45 @@ export function PracticeScreen({
   return (
     <div className="grid gap-6 lg:grid-cols-[minmax(0,1.45fr)_minmax(19rem,0.8fr)] lg:items-start">
       {/* Left column: the mirror (camera) and the model (avatar). */}
-      <section className="space-y-4 bg-slate-900/40 border border-slate-800/80 rounded-2xl p-4 relative backdrop-blur-xl shadow-2xl">
-        <div className="flex items-center gap-3">
-          <button
-            onClick={() => onNavigate("home")}
-            className="rounded-lg px-3 py-1.5 text-sm font-bold text-slate-300 hover:bg-white/10 hover:text-white transition-all duration-200 active:scale-[0.98] focus:outline-none focus:ring-2 focus:ring-cyan-400/40"
-          >
-            ← Back
-          </button>
-          <p className="text-sm font-bold text-cyan-400">Sign Practice</p>
-        </div>
-        <CameraPreview
-          onVideoReady={attachVideo}
-          onCanvasReady={attachCanvas}
-          resolution={resolution}
-          showFlipButton
-        />
-        {/* The target: the avatar performs the selected sign on
-            loop (its own playback controls sit under the canvas).
-            liveActive is false — the live feed drives the scorer,
-            not the avatar, so the model never copies the student. */}
-        <SignAvatar
-          signSequence={[label]}
-          liveFrameRef={liveFrameRef}
-          liveActive={false}
-        />
+      <section className="space-y-4">
+        <BrutalCard depth="lg" className="p-4">
+          <div className="flex items-center gap-3">
+            <BrutalButton tone="paper" size="sm" onClick={() => onNavigate("home")}>
+              ← Back
+            </BrutalButton>
+            <BrutalLabel tone="ink-on-bright">Sign practice</BrutalLabel>
+          </div>
+          <div className="mt-4">
+            <CameraPreview
+              onVideoReady={attachVideo}
+              onCanvasReady={attachCanvas}
+              resolution={resolution}
+              showFlipButton
+            />
+          </div>
+          {/* The target: the avatar performs the selected sign on
+              loop (its own playback controls sit under the canvas).
+              liveActive is false — the live feed drives the scorer,
+              not the avatar, so the model never copies the student. */}
+          <div className="mt-4">
+            <SignAvatar
+              signSequence={[label]}
+              liveFrameRef={liveFrameRef}
+              liveActive={false}
+            />
+          </div>
+        </BrutalCard>
       </section>
 
       {/* Right column: picker, attempt controls, verdict. */}
       <aside className="space-y-4">
-        <section className="glass-card" aria-label="Sign selection">
-          <p className="card-title">Sign to practice</p>
+        <BrutalCard depth="lg" aria-label="Sign selection">
+          <BrutalLabel>Sign to practice</BrutalLabel>
           <select
             value={label}
             onChange={(e) => setLabel(e.target.value)}
             aria-label="Sign to practice"
-            className="mt-3 w-full rounded-lg border border-slate-700 bg-slate-900/60 px-3 py-2.5 text-sm font-semibold text-slate-200 focus:outline-none focus:ring-2 focus:ring-cyan-400/40"
+            className="mt-3 w-full min-h-[44px] rounded-[var(--radius)] border-[var(--border-w)] border-[var(--ink)] bg-[var(--paper)] px-3 font-[family-name:var(--font-display)] text-sm font-bold uppercase tracking-[0.08em] focus:outline-none focus:ring-2 focus:ring-[var(--teal)]"
           >
             {labels.map((l) => (
               <option key={l} value={l}>
@@ -259,21 +264,21 @@ export function PracticeScreen({
               </option>
             ))}
           </select>
-          <p className="mt-3 text-sm text-slate-400" role="status">
+          <p className="mt-3 text-sm font-semibold text-[var(--ink-soft)]" role="status">
             {canonicalStatus === "loading" && "Loading the reference recording…"}
             {canonicalStatus === "ready" && (
               <>
-                <span className="font-semibold text-slate-200">Reference loaded.</span>{" "}
+                <span className="font-bold">Reference loaded.</span>{" "}
                 Watch the avatar, then start an attempt.
               </>
             )}
             {canonicalStatus === "missing" &&
               "This sign has no reference recording yet."}
           </p>
-        </section>
+        </BrutalCard>
 
-        <section className="glass-card" aria-label="Attempt controls">
-          <p className="card-title">Your attempt</p>
+        <BrutalCard depth="lg" aria-label="Attempt controls">
+          <BrutalLabel>Your attempt</BrutalLabel>
           {attempt === "idle" && (
             <div className="mt-4">
               <BrutalButton
@@ -286,7 +291,7 @@ export function PracticeScreen({
                 Start attempt
               </BrutalButton>
               {!cameraReady && (
-                <p className="mt-3 text-sm text-slate-400">
+                <p className="mt-3 text-sm font-semibold text-[var(--ink-soft)]">
                   {cameraError ? `Camera unavailable: ${cameraError}` : "Start the camera to begin."}
                 </p>
               )}
@@ -302,7 +307,7 @@ export function PracticeScreen({
                   Discard
                 </BrutalButton>
               </div>
-              <p className="mt-3 text-sm text-slate-400" role="status">
+              <p className="mt-3 text-sm font-semibold text-[var(--ink-soft)]" role="status">
                 Capturing… {framesCollected} frames
               </p>
             </div>
@@ -314,11 +319,11 @@ export function PracticeScreen({
               </BrutalButton>
             </div>
           )}
-        </section>
+        </BrutalCard>
 
         {result && band && guidance && (
-          <section className="glass-card" aria-live="polite" aria-label="Score">
-            <p className="card-title">Score</p>
+          <BrutalCard depth="lg" aria-live="polite" aria-label="Score">
+            <BrutalLabel>Score</BrutalLabel>
             <div className="mt-3 flex flex-col items-center gap-3 text-center">
               <p className={`m-0 hero-text font-black tracking-tight ${band.text}`}>
                 {Math.round(result.score * 100)}%
@@ -332,19 +337,19 @@ export function PracticeScreen({
             </div>
             {/* The weakest part is named in words with the fix, so
                 the verdict is actionable, not just a number. */}
-            <p className="mt-5 text-sm font-semibold text-slate-200">
+            <p className="mt-5 text-sm font-bold text-[var(--ink)]">
               {guidance.advice}
             </p>
-            <p className="mt-2 text-xs text-slate-500">
+            <p className="mt-2 text-xs font-bold text-[var(--ink-mute)]">
               Compared {result.liveFrames} live frames against{" "}
               {result.canonicalFrames} reference frames.
             </p>
-          </section>
+          </BrutalCard>
         )}
 
         {notice && (
           <p
-            className="rounded-xl border border-amber-400/20 bg-amber-400/10 p-3 text-sm text-amber-200"
+            className="rounded-[var(--radius)] border-[var(--border-w)] border-[var(--sun)] bg-[var(--sun)]/10 p-3 text-sm font-bold text-[var(--ink)]"
             role="status"
           >
             {notice}
@@ -362,12 +367,12 @@ function bandFor(score: number): {
   badgeTone: "lime" | "sun" | "coral";
 } {
   if (score >= 0.75) {
-    return { words: "Strong match", text: "text-lime-300", badgeTone: "lime" };
+    return { words: "Strong match", text: "text-[var(--lime)]", badgeTone: "lime" };
   }
   if (score >= 0.5) {
-    return { words: "Close — refine the details", text: "text-amber-300", badgeTone: "sun" };
+    return { words: "Close — refine the details", text: "text-[var(--sun)]", badgeTone: "sun" };
   }
-  return { words: "Keep practicing", text: "text-rose-300", badgeTone: "coral" };
+  return { words: "Keep practicing", text: "text-[var(--coral)]", badgeTone: "coral" };
 }
 
 /** The weakest part, with the thing to fix — never colour alone. */
@@ -386,13 +391,13 @@ function ScoreBar({ name, score }: { name: string; score: number }) {
   const pct = Math.round(score * 100);
   return (
     <div>
-      <div className="flex items-center justify-between text-sm font-semibold text-slate-300">
+      <div className="flex items-center justify-between text-sm font-bold text-[var(--ink)]">
         <span>{name}</span>
         <span>{pct}%</span>
       </div>
-      <div className="mt-2 h-3 overflow-hidden rounded-full bg-white/10">
+      <div className="mt-2 h-3 overflow-hidden rounded-full bg-[var(--paper-sunken)]">
         <div
-          className="h-full rounded-full bg-cyan-400 transition-[width] duration-500 ease-out"
+          className="h-full bg-[var(--teal)] transition-[width] duration-500 ease-out"
           style={{ width: `${pct}%` }}
         />
       </div>

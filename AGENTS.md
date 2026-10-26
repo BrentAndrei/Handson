@@ -103,6 +103,14 @@ setSmplxServiceUrl('http://localhost:8000');
 - **Phase 4 (DONE)**: Batch convert all 402 labels to SMPL-X (193,152 frames)
 - **Phase 5 (DONE)**: Enable SMPL-X as default, keep quaternion as fallback
 
+## Classifier Model
+
+- **Deployed**: `public/models/fsl_model/` — `fsl_bigru_v2`, 399 classes, input `[None, 16, 345]`, `sparse_categorical_crossentropy`, accuracy ~0.47
+- **Source weights**: `training/model_out/fsl_model.h5` (399 classes, original YouTube-captured dataset)
+- **Labels**: `src/inference/labels.ts` — 399 labels in exact model output order (source of truth)
+- **Rejected**: merged-dataset model (`training/train_out_merged/`, 399 classes but val accuracy 0.137 — SMPL-X-converted samples poisoned the training distribution)
+- **Note**: `training/tfjs_model_old_backup/` is a stale 303-class model; do not restore it.
+
 ## Testing
 
 ```bash

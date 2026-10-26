@@ -13,7 +13,7 @@ export default defineConfig({
     // your phone's browser will show a "not private" warning the first
     // time you open the LAN URL — tap through/"advance" past it, that's
     // expected for a self-signed dev cert and only affects this dev server.
-    basicSsl(),
+    // basicSsl(),  // disabled: plain http://localhost works fine, no cert warning
   ],
   build: {
     rollupOptions: {

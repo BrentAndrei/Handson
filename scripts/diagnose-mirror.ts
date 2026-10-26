@@ -84,10 +84,13 @@ async function main() {
     const assign = lastHandAssignment!;
     console.log(`\n=== ${rec} frame ${fi} ===`);
     console.log(`  assignment: left<->slot ${assign.left}   right<->slot ${assign.right}`);
+    console.log(`  debug: spreadL=${assign.debug.spreadLeftSlot.toFixed(4)} spreadR=${assign.debug.spreadRightSlot.toFixed(4)}`);
+    console.log(`  dLslot->Lwrist=${assign.debug.dLeftSlotToLeftWrist.toFixed(4)} dLslot->Rwrist=${assign.debug.dLeftSlotToRightWrist.toFixed(4)}`);
+    console.log(`  dRslot->Lwrist=${assign.debug.dRightSlotToLeftWrist.toFixed(4)} dRslot->Rwrist=${assign.debug.dRightSlotToRightWrist.toFixed(4)}`);
 
     reset();
     const result = retarget(sk, pose);
-    applyBoneRotations(result.boneRotations, sk);
+    applyBoneRotations(result.boneRotations, result.bonePositions, sk);
     scene.updateMatrixWorld(true);
 
     // rendered shoulder frame

@@ -28,6 +28,49 @@ export { CONFIDENCE_MARGIN, MIN_CONFIDENCE } from "./temporalEnsemble";
 const DEBUG_INFERENCE = import.meta.env.VITE_DEBUG_INFERENCE === "1";
 
 /**
+ * Hard ceiling on the DTW second-opinion consult.
+ *
+ * The consult is a network fetch (the canonical recordings) followed by a
+ * DTW alignment. Both can stall: a 404 that never resolves, a slow CDN, or
+ * a pathological O(n*m) alignment against a long recording. Before this
+ * timeout existed, a stalled consult meant the emission was simply LOST —
+ * the `scoreCandidates(...)` promise had no rejection handler either, so a
+ * throw inside it produced an unhandled rejection and the user saw NO
+ * prediction at all for that sign. That is the "hard time detecting"
+ * symptom for every gray-zone emission.
+ *
+ * With the timeout, the worst case is that the second opinion is simply
+ * skipped and the ensemble's own label is emitted.
+ */
+const SECOND_OPINION_TIMEOUT_MS = 1500;
+
+/** Resolve to `null` if `promise` has not settled within `ms`. */
+function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T | null> {
+  return new Promise<T | null>((resolve) => {
+    let settled = false;
+    const timer = setTimeout(() => {
+      if (settled) return;
+      settled = true;
+      resolve(null);
+    }, ms);
+    promise.then(
+      (value) => {
+        if (settled) return;
+        settled = true;
+        clearTimeout(timer);
+        resolve(value);
+      },
+      () => {
+        if (settled) return;
+        settled = true;
+        clearTimeout(timer);
+        resolve(null);
+      }
+    );
+  });
+}
+
+/**
  * Loads a tfjs LayersModel trained on [WINDOW_SIZE, FEATURE_DIM] windows
  * (see the Python training script) and runs live inference against a
  * streaming sliding-window buffer. Call pushFrame() from the same
@@ -43,6 +86,11 @@ export function useSignInference(modelUrl: string, labels: string[], stride = DE
   const [ready, setReady] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [prediction, setPrediction] = useState<Prediction | null>(null);
+  const pushCountRef = useRef(0);
+  const restCountRef = useRef(0);
+  const unusableCountRef = useRef(0);
+  const emitCountRef = useRef(0);
+  const lastEmitTimeRef = useRef(0);
   // Temporal ensemble: averages the probability vectors of the
   // last ENSEMBLE_WINDOWS windows and decides on majority vote +
   // mean confidence + margin + debounce (see temporalEnsemble.ts).
@@ -65,13 +113,13 @@ export function useSignInference(modelUrl: string, labels: string[], stride = DE
 
     (async () => {
       try {
-        console.log('[useSignInference] Starting model load...');
+        if (DEBUG_INFERENCE) console.log('[useSignInference] Starting model load...');
         await tf.setBackend("webgl");
         await tf.ready();
-        console.log('[useSignInference] Backend ready, loading model...');
+        if (DEBUG_INFERENCE) console.log('[useSignInference] Backend ready, loading model...');
 
         const model = await tf.loadLayersModel(modelUrl);
-        console.log('[useSignInference] Model loaded successfully');
+        if (DEBUG_INFERENCE) console.log('[useSignInference] Model loaded successfully');
         if (cancelled) {
           model.dispose();
           return;
@@ -109,7 +157,15 @@ export function useSignInference(modelUrl: string, labels: string[], stride = DE
       // pose, and a held rest pose could otherwise fire a false
       // prediction from accumulated stale frames.
       const quality = qualityGateRef.current.evaluate(frame);
+      pushCountRef.current++;
       if (quality.isRest) {
+        restCountRef.current++;
+        if (DEBUG_INFERENCE && pushCountRef.current % 30 === 0) {
+          console.log(
+            `[pipe] pushes=${pushCountRef.current} rest=${restCountRef.current} ` +
+              `unusable=${unusableCountRef.current} emits=${emitCountRef.current}`
+          );
+        }
         // The signer stopped: clear all accumulated evidence so
         // the next sign is decided on fresh windows only.
         bufferRef.current.reset();
@@ -120,6 +176,7 @@ export function useSignInference(modelUrl: string, labels: string[], stride = DE
       if (!quality.usable) {
         // Transient single-frame dropout — skip it rather than
         // corrupt the window, but keep the ensemble's evidence.
+        unusableCountRef.current++;
         return;
       }
 
@@ -170,6 +227,23 @@ export function useSignInference(modelUrl: string, labels: string[], stride = DE
           // confident one — can no longer fire a prediction on its own.
           const result = ensembleRef.current?.push(data as Float32Array);
           if (result) {
+            const now = performance.now();
+            const sinceLast = lastEmitTimeRef.current
+              ? now - lastEmitTimeRef.current
+              : 0;
+            lastEmitTimeRef.current = now;
+            emitCountRef.current++;
+            if (DEBUG_INFERENCE) {
+              console.log(
+                `[pipe] emit #${emitCountRef.current} label=${result.label} ` +
+                  `conf=${result.confidence.toFixed(3)} ` +
+                  `margin=${(result.margin ?? 0).toFixed(3)} ` +
+                  `runnerUp=${result.runnerUp ?? "n/a"} ` +
+                  `ring=${ensembleRef.current?.size ?? 0} ` +
+                  `sinceLastMs=${sinceLast.toFixed(0)} ` +
+                  `pushes=${pushCountRef.current}`
+              );
+            }
             const emit = (
               label: string,
               confidence: number,
@@ -207,15 +281,24 @@ export function useSignInference(modelUrl: string, labels: string[], stride = DE
               // each other in practice.
               const candidates = top3;
               const live = liveFramesRef.current.slice();
-              scoreCandidates(
-                candidates.map((c) => c.label),
-                live,
-                canonicalStore
-              ).then((dtwScores) => {
-                if (Object.keys(dtwScores).length === 0) {
-                  emit(result.label, result.confidence);
-                  return;
-                }
+withTimeout(
+                  scoreCandidates(
+                    candidates.map((c) => c.label),
+                    live,
+                    canonicalStore
+                  ),
+                  SECOND_OPINION_TIMEOUT_MS
+                ).then((dtwScores) => {
+                  if (!dtwScores || Object.keys(dtwScores).length === 0) {
+                    if (DEBUG_INFERENCE) {
+                      console.log(
+                        `[pipe] second-opinion skipped (timeout or empty) ` +
+                          `-> emit ensemble label=${result.label}`
+                      );
+                    }
+                    emit(result.label, result.confidence);
+                    return;
+                  }
                 const decision = applySecondOpinion(candidates, dtwScores);
                 const finalLabel =
                   EMISSION_ALIASES[decision.label] ?? decision.label;

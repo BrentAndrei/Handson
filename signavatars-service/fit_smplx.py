@@ -121,15 +121,36 @@ def extract_landmarks(frame: np.ndarray) -> dict[str, np.ndarray]:
     for mp_idx, name in POSE_LANDMARK_NAMES.items():
         result[name] = frame[mp_idx].copy()
 
-    # Left hand landmarks (indices 33..53 → buffer 99..161)
+    # Left hand landmarks (indices 33..53 -> buffer 99..161)
     left_base = POSE_COUNT  # 33
     for h_idx, suffix in HAND_LANDMARK_OFFSETS.items():
         result[f"left_{suffix}"] = frame[left_base + h_idx].copy()
 
-    # Right hand landmarks (indices 54..74 → buffer 162..224)
+    # Right hand landmarks (indices 54..74 -> buffer 162..224)
     right_base = POSE_COUNT + HAND_COUNT  # 54
     for h_idx, suffix in HAND_LANDMARK_OFFSETS.items():
         result[f"right_{suffix}"] = frame[right_base + h_idx].copy()
+
+    # FIX (root cause of the SMPL-X forearm corruption): the hand loop above
+    # writes `left_wrist` / `right_wrist` (suffix "wrist" at offset 0), which
+    # COLLIDES with the POSE wrist landmarks (pose index 15/16). The hand-block
+    # wrist is a separate, hand-local estimate (and is frequently collapsed or
+    # degenerate when the hand landmark detector fails), so it must NOT
+    # clobber the anatomical pose wrist.
+    #
+    # The IK solver and the SMPL-X full-model path both rely on
+    # `left_wrist`/`right_wrist` being the POSE wrist (index 15/16), matching
+    # the TypeScript adapter (mediapipeAdapter.ts reads POSE.LEFT_WRIST /
+    # POSE.RIGHT_WRIST). Before this fix the fitter measured the forearm to a
+    # garbage hand-wrist point, producing 2.28-2.97m elbow-to-wrist segments
+    # and collapsing the avatar on playback.
+    #
+    # The hand-block wrist is preserved under a distinct key so the
+    # hand-target fallback below can still consult it.
+    result["left_hand_wrist"] = frame[left_base + 0].copy()
+    result["right_hand_wrist"] = frame[right_base + 0].copy()
+    result["left_wrist"] = frame[15].copy()
+    result["right_wrist"] = frame[16].copy()
 
     # Face landmarks (indices 75..114 → buffer 225..344)
     face_base = right_base + HAND_COUNT  # 75
@@ -794,9 +815,65 @@ class SmplxFitter:
         ik.joint_positions[name_to_idx["left_forearm"]] = l_elbow_pos + l_forearm_dir * l_forearm_len
         ik.joint_positions[name_to_idx["right_forearm"]] = r_elbow_pos + r_forearm_dir * r_forearm_len
 
-        # Hands at end of forearm chains (hand centre in T-pose)
-        ik.joint_positions[name_to_idx["left_hand"]] = ik.joint_positions[name_to_idx["left_forearm"]] + l_forearm_dir * l_forearm_len
-        ik.joint_positions[name_to_idx["right_hand"]] = ik.joint_positions[name_to_idx["right_forearm"]] + r_forearm_dir * r_forearm_len
+        # Hands at end of forearm chains.
+        #
+        # Root cause of the avatar collapse: the MediaPipe Pose model and Hand
+        # model output landmarks in DIFFERENT coordinate spaces. After the
+        # single global normalizeLandmarks transform (anchor = shoulder
+        # midpoint, scale = shoulder width), the hand block's X/Y coordinates
+        # agree with the pose wrist (within ~0.1 shoulder-widths), but its Z
+        # coordinate is a LOCAL depth relative to the hand's own origin. Measured
+        # hand wrist Z offset from pose wrist Z: ~2.5–3.5 units (nonsensical
+        # cross-space mixing).
+        #
+        # FIX: anchor the hand position at the POSE wrist (the anatomical wrist
+        # in the pose's coordinate space) and use the hand block's INTERNAL
+        # wrist→index-MCP offset as the hand's palm vector. This gives a
+        # geometrically correct hand bone length while keeping the hand
+        # attached to the real wrist.
+        #   - bone length = |hand_block_idx_mcp - hand_block_wrist|  (valid)
+        #   - hand pos    = POSE_wrist + (hand_block_offset)        (consistent)
+        left_hand_idx = name_to_idx["left_hand"]
+        right_hand_idx = name_to_idx["right_hand"]
+
+        # Hand block internal landmarks (for palm length/direction only)
+        left_hand_wrist = mp_lm.get("left_hand_wrist")
+        right_hand_wrist = mp_lm.get("right_hand_wrist")
+        left_idx_mcp = mp_lm.get("left_index_mcp")
+        right_idx_mcp = mp_lm.get("right_index_mcp")
+
+        # Pose wrists (anatomical wrist position in pose coordinate space)
+        left_wrist = mp_lm.get("left_wrist")
+        right_wrist = mp_lm.get("right_wrist")
+
+        # Default palm offset (forward in pose Z +0.2 of shoulder width).
+        DEFAULT_PALM_OFFSET = np.array([0.0, 0.0, 0.2])
+
+        # Left hand
+        l_palm_offset = None
+        if left_idx_mcp is not None and left_hand_wrist is not None:
+            l_palm_offset = left_idx_mcp - left_hand_wrist
+            if np.linalg.norm(l_palm_offset) < 1e-4:
+                l_palm_offset = None
+        if l_palm_offset is not None and left_wrist is not None:
+            ik.joint_positions[left_hand_idx] = left_wrist + l_palm_offset
+        elif left_wrist is not None:
+            ik.joint_positions[left_hand_idx] = left_wrist + DEFAULT_PALM_OFFSET
+        else:
+            ik.joint_positions[left_hand_idx] = ik.joint_positions[name_to_idx["left_forearm"]] + l_forearm_dir * l_forearm_len
+
+        # Right hand
+        r_palm_offset = None
+        if right_idx_mcp is not None and right_hand_wrist is not None:
+            r_palm_offset = right_idx_mcp - right_hand_wrist
+            if np.linalg.norm(r_palm_offset) < 1e-4:
+                r_palm_offset = None
+        if r_palm_offset is not None and right_wrist is not None:
+            ik.joint_positions[right_hand_idx] = right_wrist + r_palm_offset
+        elif right_wrist is not None:
+            ik.joint_positions[right_hand_idx] = right_wrist + DEFAULT_PALM_OFFSET
+        else:
+            ik.joint_positions[right_hand_idx] = ik.joint_positions[name_to_idx["right_forearm"]] + r_forearm_dir * r_forearm_len
 
         # Target positions: actual landmark positions
         # In the IK hierarchy, each joint position = end of that bone (toward child)
@@ -808,6 +885,12 @@ class SmplxFitter:
         # - clavicles target shoulder landmarks (constrains shoulder tilt)
         # - head is NOT targeted (follows from neck)
         # - spine_3 is NOT targeted (torso stays upright — natural for signing)
+        # Hand targets: computed from the POSE wrist + hand-block direction,
+        # NOT the raw hand-block index MCP position. The hand block lives in a
+        # different MediaPipe coordinate space than the pose (measured: pose
+        # wrist z ≈ -2.6, hand-block wrist z ≈ 0.3), so targeting the raw
+        # index MCP drags the hand ~3 units away from the wrist and the
+        # solver collapses the forearm to compensate.
         IK_TO_LANDMARK = {
             "pelvis": None,
             "left_hip": None,
@@ -827,8 +910,8 @@ class SmplxFitter:
             "right_elbow": "right_elbow",
             "left_forearm": "left_wrist",     # constrain wrist position
             "right_forearm": "right_wrist",
-            "left_hand": "left_index_mcp",    # orient hand toward index MCP
-            "right_hand": "right_index_mcp",
+            # Hand targets: computed from pose wrist + hand-block direction * palm_len
+            # (NOT raw hand-block index MCP — that lives in a different coordinate space)
         }
 
         targets = {}
@@ -839,12 +922,27 @@ class SmplxFitter:
             elif name == "pelvis":
                 targets[name] = hip_center.copy()
 
-        # Fallback for hands: if index_mcp landmark is collapsed (same as wrist),
-        # fall back to wrist target so hand extends from forearm
-        for hand_name, fallback_lm in [("left_hand", "left_wrist"), ("right_hand", "right_wrist")]:
-            if hand_name in targets and fallback_lm in mp_lm:
-                if np.allclose(targets[hand_name], mp_lm[fallback_lm], atol=1e-6):
-                    targets[hand_name] = mp_lm[fallback_lm]
+        # Hand targets: pose wrist + hand-block direction * palm length
+        # We already computed these positions when setting initial joint_positions.
+        # The IK solver will use them as targets to orient the hand bone.
+        left_hand_idx = name_to_idx["left_hand"]
+        right_hand_idx = name_to_idx["right_hand"]
+        targets["left_hand"] = ik.joint_positions[left_hand_idx].copy()
+        targets["right_hand"] = ik.joint_positions[right_hand_idx].copy()
+
+        # Fallback for hands: if the hand landmark block is degenerate
+        # (index_mcp equals the hand-block's own wrist), fall back to the
+        # POSE wrist target so the hand extends naturally from the forearm.
+        # This handles frames where the hand landmark detector failed and
+        # collapsed all 21 landmarks to a single point.
+        for hand_name, hand_wrist_key, index_mcp_key, pose_wrist_key in [
+            ("left_hand", "left_hand_wrist", "left_index_mcp", "left_wrist"),
+            ("right_hand", "right_hand_wrist", "right_index_mcp", "right_wrist"),
+        ]:
+            if (hand_name in targets and hand_wrist_key in mp_lm
+                    and index_mcp_key in mp_lm and pose_wrist_key in mp_lm):
+                if np.allclose(targets[hand_name], mp_lm[hand_wrist_key], atol=1e-6):
+                    targets[hand_name] = mp_lm[pose_wrist_key]
 
         # Run IK
         ik.solve(targets, iterations=15, tolerance=1e-3)

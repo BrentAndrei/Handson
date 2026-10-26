@@ -98,7 +98,7 @@ async function main() {
 
   reset();
   const result = retarget(sk, pose);
-  applyBoneRotations(result.boneRotations, sk);
+  applyBoneRotations(result.boneRotations, result.bonePositions, sk);
   scene.updateMatrixWorld(true);
 
   for (const side of ["left", "right"] as const) {

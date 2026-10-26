@@ -78,7 +78,7 @@ DEFAULT_STRIDE = 6
 # frames-per-second-of-real-motion as a live 24fps webcam capture — without
 # this, a clip's motion would look artificially fast or slow relative to
 # what the model sees during live inference.
-TARGET_FPS = 24
+TARGET_FPS = 8
 
 MODEL_URL = (
     "https://storage.googleapis.com/mediapipe-models/holistic_landmarker/"
@@ -94,7 +94,7 @@ def ensure_model() -> str:
     return str(MODEL_CACHE_PATH)
 
 
-def make_landmarker():
+def make_landmarker(use_gpu: bool = False):
     import mediapipe as mp
     from mediapipe.tasks.python import vision
 
@@ -103,8 +103,25 @@ def make_landmarker():
     HolisticLandmarkerOptions = vision.HolisticLandmarkerOptions
     VisionRunningMode = vision.RunningMode
 
+    # Enable GPU delegate for AMD Radeon 780M (DirectML on Windows)
+    base_options = BaseOptions(
+        model_asset_path=ensure_model(),
+        # GPU delegate via DirectML on Windows
+    )
+    if use_gpu:
+        try:
+            from mediapipe.tasks.python.genai import base_options as genai_base_options
+            base_options = BaseOptions(
+                model_asset_path=ensure_model(),
+                delegate=BaseOptions.Delegate.GPU
+            )
+            print("GPU delegate enabled (DirectML)")
+        except Exception as e:
+            print(f"GPU delegate failed, falling back to CPU: {e}")
+            base_options = BaseOptions(model_asset_path=ensure_model())
+
     options = HolisticLandmarkerOptions(
-        base_options=BaseOptions(model_asset_path=ensure_model()),
+        base_options=base_options,
         running_mode=VisionRunningMode.VIDEO,
         min_pose_detection_confidence=0.3,
         min_pose_landmarks_confidence=0.3,
@@ -276,32 +293,41 @@ def frame_to_features(frame_bgr, landmarker, timestamp_ms: int):
 
 
 def extract_clip_features(video_path: str, landmarker) -> list:
+    import cv2
     cap = cv2.VideoCapture(video_path)
-    native_fps = cap.get(cv2.CAP_PROP_FPS) or TARGET_FPS
+    native_fps = cap.get(cv2.CAP_PROP_FPS) or 30
     frame_count = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
     if frame_count <= 0:
         cap.release()
         return []
 
     duration_sec = frame_count / native_fps
-    target_frame_count = max(1, round(duration_sec * TARGET_FPS))
-    sample_indices = np.linspace(0, frame_count - 1, target_frame_count).astype(int)
-    sample_indices = np.unique(sample_indices)
+    # Sample every Nth frame to achieve TARGET_FPS
+    frame_step = max(1, round(native_fps / TARGET_FPS))
+    target_frame_count = max(1, frame_count // frame_step)
+
+    print(f"    Video: {frame_count} frames @ {native_fps:.1f}fps = {duration_sec:.1f}s -> sampling every {frame_step} frames = ~{target_frame_count} frames @ {TARGET_FPS}fps")
 
     clip_features = []
-    for i, frame_idx in enumerate(sample_indices):
-        cap.set(cv2.CAP_PROP_POS_FRAMES, int(frame_idx))
+    frame_idx = 0
+    processed = 0
+    while processed < target_frame_count:
         ok, frame_bgr = cap.read()
         if not ok:
-            continue
-
-        import mediapipe as mp
-
-        timestamp_ms = int(i * 1000 / TARGET_FPS)
-        features, _pose, _lh, _rh, _fc = frame_to_features(
-            frame_bgr, landmarker, timestamp_ms
-        )
-        clip_features.append(features)
+            break
+        
+        if frame_idx % frame_step == 0:
+            timestamp_ms = int((frame_idx / native_fps) * 1000)
+            features, _pose, _lh, _rh, _fc = frame_to_features(
+                frame_bgr, landmarker, timestamp_ms
+            )
+            clip_features.append(features)
+            processed += 1
+            
+            if processed % 30 == 0 or processed == target_frame_count:
+                print(f"      Frame {processed}/{target_frame_count} processed")
+        
+        frame_idx += 1
 
     cap.release()
     return clip_features
@@ -490,6 +516,7 @@ def run_image_mode(input_dir: str, output_dir: str, require_pose: bool = True) -
 
 def main():
     parser = argparse.ArgumentParser()
+    parser.add_argument("--use-gpu", action="store_true", help="Enable GPU delegate (DirectML on Windows)")
     parser.add_argument("--mode", choices=["folder", "csv", "images"])
     parser.add_argument("--root", help="Video root directory")
     parser.add_argument("--out", default="video_dataset.json")
@@ -525,17 +552,27 @@ def main():
 
     print(f"Found {len(pairs)} clips across {len(set(l for _, l in pairs))} labels")
 
+    import time
+    start_time = time.time()
+
     samples = []
     for i, (path, label) in enumerate(pairs):
         if not os.path.exists(path):
             print(f"  [{i+1}/{len(pairs)}] MISSING, skipping: {path}")
             continue
 
-        landmarker = make_landmarker()
+        # Create a fresh landmarker for each clip to satisfy VIDEO mode's
+        # monotonically increasing timestamp requirement across clips.
+        print(f"  [{i+1}/{len(pairs)}] Initializing landmarker...")
+        landmarker = make_landmarker(use_gpu=args.use_gpu)
+
+        clip_start = time.time()
         try:
             clip_features = extract_clip_features(path, landmarker)
-        finally:
+        except Exception as e:
+            print(f"  [{i+1}/{len(pairs)}] ERROR: {path} -> {e}")
             landmarker.close()
+            continue
 
         windows = slice_into_windows(clip_features)
         # Keep every overlapping window from a recording tied to that
@@ -544,7 +581,16 @@ def main():
         clip_id = f"clip_{i:05d}"
         for w in windows:
             samples.append({"label": label, "clip_id": clip_id, "frames": w.tolist()})
-        print(f"  [{i+1}/{len(pairs)}] {path} -> {len(windows)} windows ({label})")
+        
+        landmarker.close()
+        
+        clip_time = time.time() - clip_start
+        elapsed = time.time() - start_time
+        avg_per_clip = elapsed / (i + 1)
+        remaining = len(pairs) - (i + 1)
+        eta = avg_per_clip * remaining
+        
+        print(f"  [{i+1}/{len(pairs)}] {path} -> {len(windows)} windows ({label}) in {clip_time:.1f}s | ETA: {eta/60:.1f}min")
 
     labels = sorted(set(s["label"] for s in samples))
     dataset = {

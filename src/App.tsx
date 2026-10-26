@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { CameraPreview } from "./components/CameraPreview";
 import { PredictionOverlay } from "./components/PredictionOverlay";
+import { AccuracyDashboard } from "./components/AccuracyDashboard";
 import { SentenceOverlay } from "./components/SentenceOverlay";
 import { StatusBar } from "./components/StatusBar";
 import { AccessibilityControls } from "./components/AccessibilityControls";
@@ -60,6 +61,11 @@ const CAPTURE_KEY = "capture";
  *  `selectFeatures` output once per second in the console. */
 const DEBUG_FEATURES = false;
 const FEATURE_DEBUG_INTERVAL_MS = 1000;
+/** Live inference is trained on 8 FPS decimated data (16-frame window =
+ *  2.0 s of real motion). Gate the tf.js pushes to ~8 Hz regardless of
+ *  capture rate so the model sees training-matched temporal scale even
+ *  when HolisticLandmarker runs at 24-30 fps. */
+const INFERENCE_SAMPLE_INTERVAL_MS = 125;
 
 
 interface ResolutionTier {
@@ -70,20 +76,19 @@ interface ResolutionTier {
 }
 
 const RESOLUTION_TIERS: readonly ResolutionTier[] = [
-  { width: 960, height: 540, inferenceWidth: 480, inferenceHeight: 270 },
-  { width: 640, height: 480, inferenceWidth: 320, inferenceHeight: 240 },
-  { width: 424, height: 240 },
-];
+   { width: 640, height: 480, inferenceWidth: 320, inferenceHeight: 240 },
+   { width: 424, height: 240, inferenceWidth: 212, inferenceHeight: 120 },
+   { width: 320, height: 240, inferenceWidth: 160, inferenceHeight: 120 },
+ ];
 
-const FPS_DOWNGRADE_THRESHOLD = 12;
-const LOW_FPS_SAMPLE_INTERVAL_MS = 1000;
-const LOW_FPS_CONSECUTIVE_SAMPLES = 3;
+const FPS_DOWNGRADE_THRESHOLD = 8;
+const LOW_FPS_SAMPLE_INTERVAL_MS = 800;
+const LOW_FPS_CONSECUTIVE_SAMPLES = 5;
 
 function readDownscaleFlag(): boolean {
-  if (typeof window === "undefined") return true;
+  if (typeof window === "undefined") return false;
   const v = new URLSearchParams(window.location.search).get("downscale");
-  if (v === "0" || v === "false") return false;
-  return true;
+  return v === "1" || v === "true";
 }
 
 /**
@@ -120,6 +125,8 @@ function HandSonApp() {
   }, [user?.id]);
   const [showEnglish, setShowEnglish] = useState(true);
   const [textSize, setTextSize] = useState<"sm" | "base" | "lg">("base");
+  const [showAccuracyDashboard, setShowAccuracyDashboard] = useState(false);
+  const [confidenceThreshold, setConfidenceThreshold] = useState(0.6);
   const [highContrast, setHighContrast] = useState(false);
   const [showAvatar, setShowAvatar] = useState(true);
   const avatarLandmarksRef = useRef<Float32Array | null>(null);
@@ -149,22 +156,26 @@ const landmarkSmootherRef = useRef(new LandmarkSmoother(3, true, true));
       window.removeEventListener("offline-change", onSwOffline);
     };
   }, []);
-  const inference = useSignInference("/models/fsl_model/model.json", INFERENCE_LABELS);
+   const inference = useSignInference("/models/fsl_model_v2/model.json", INFERENCE_LABELS);
   const sentenceBuilder = useSentenceBuilder();
   const inferencePushRef = useRef(inference.pushFrame); inferencePushRef.current = inference.pushFrame;
+  const lastInferencePushRef = useRef(0);
   const sentenceOnActivityRef = useRef(sentenceBuilder.onActivity); sentenceOnActivityRef.current = sentenceBuilder.onActivity;
   const sentenceOnPredictionRef = useRef(sentenceBuilder.onPrediction); sentenceOnPredictionRef.current = sentenceBuilder.onPrediction;
   useEffect(() => { if (inference.prediction) sentenceOnPredictionRef.current(inference.prediction, performance.now()); }, [inference.prediction]);
   const handleLandmarks = useCallback((msg: LandmarksResult) => {
+    // Smooth ONLY for avatar display — the classifier must see unsmoothed
+    // features matching the training pipeline (extract_landmarks.py does NOT
+    // smooth, so feeding smoothed data to the model creates a temporal
+    // domain mismatch that degrades accuracy).
     const smoothedBuf = landmarkSmootherRef.current.smooth(new Float32Array(msg.buffer));
-    const smoothedMsg = { ...msg, buffer: smoothedBuf.buffer as ArrayBuffer };
-    const normalized = normalizeLandmarks(smoothedMsg); latestFrameRef.current = normalized;
-    // PHASE 10: hand the SAME normalized vector to the avatar. Published into a
-    // ref (not state) deliberately -- a state update here would re-render the
-    // whole App 30x/second. The seq lets the avatar's render loop detect that
-    // this is a new inference result.
+    // Avatar live path: smoothed + normalized
+    const normalized = normalizeLandmarks({ ...msg, buffer: smoothedBuf.buffer });
     avatarLiveFrameRef.current = { vector: normalized.vector, seq: liveSeqCounterRef.current++ };
-    const features = selectFeatures(normalized.vector);
+
+    // Inference path: unsmoothed + normalized (matching extract_landmarks.py)
+    const inferenceNormalized = normalizeLandmarks(msg); latestFrameRef.current = inferenceNormalized;
+    const features = selectFeatures(inferenceNormalized.vector);
     if (msg.hasRightHand) {
       const view = new Float32Array(msg.buffer);
       avatarLandmarksRef.current = view.subarray(RIGHT_HAND_OFFSET, RIGHT_HAND_OFFSET + HAND_COUNT * 3);
@@ -182,7 +193,12 @@ const landmarkSmootherRef = useRef(new LandmarkSmoother(3, true, true));
       }
     }
 
-    inferencePushRef.current(features); sentenceOnActivityRef.current(msg.hasLeftHand || msg.hasRightHand, performance.now());
+    const now = performance.now();
+    if (now - lastInferencePushRef.current >= INFERENCE_SAMPLE_INTERVAL_MS) {
+      lastInferencePushRef.current = now;
+      inferencePushRef.current(features);
+    }
+    sentenceOnActivityRef.current(msg.hasLeftHand || msg.hasRightHand, performance.now());
   }, []);
   const [isMobile, setIsMobile] = useState(() => 
     typeof window !== "undefined" && window.innerWidth < 768
@@ -201,7 +217,7 @@ const landmarkSmootherRef = useRef(new LandmarkSmoother(3, true, true));
     };
   }, []);
   
-  const confidence = isMobile ? CONFIDENCE_PRESETS.balanced : CONFIDENCE_PRESETS.strict;
+  const confidence = isMobile ? CONFIDENCE_PRESETS.balanced : CONFIDENCE_PRESETS.permissive;
   
   const { ready, error, fps, attachVideo, attachCanvas, setInferenceSize } = useHolisticPipeline(handleLandmarks, { confidence });
 
@@ -294,7 +310,7 @@ const landmarkSmootherRef = useRef(new LandmarkSmoother(3, true, true));
         {view === "translate" && (
           <motion.div
             key={PREDICT_KEY}
-            className={`grid gap-6 ${inference.ready ? "lg:grid-cols-[minmax(320px,1.45fr)_minmax(19rem,0.8fr)]" : "grid-cols-1"} lg:items-start`}
+            className={`grid gap-6 ${inference.ready ? "lg:grid-cols-[minmax(320px,1.45fr)_minmax(19rem,0.8fr)]" : "grid-cols-1"} items-start lg:items-start`}
             variants={pageVariants}
             initial="initial"
             animate="animate"
@@ -302,7 +318,7 @@ const landmarkSmootherRef = useRef(new LandmarkSmoother(3, true, true));
             transition={pageTransition}
           >
             <motion.section
-              className="space-y-4 bg-slate-900/40 border border-slate-800/80 rounded-2xl p-4 relative backdrop-blur-xl shadow-2xl"
+              className="space-y-4 bg-paper-raised border-2 border-ink rounded-none p-4 relative shadow-brutal"
               variants={sectionVariants}
               initial="initial"
               animate="animate"
@@ -311,11 +327,11 @@ const landmarkSmootherRef = useRef(new LandmarkSmoother(3, true, true));
               <div className="flex items-center gap-3">
                 <button
                   onClick={() => setView("home")}
-                  className="rounded-lg px-3 py-1.5 text-sm font-bold text-slate-300 hover:bg-white/10 hover:text-white transition-all duration-200 active:scale-[0.98] focus:outline-none focus:ring-2 focus:ring-cyan-400/40"
+                  className="rounded-lg px-3 py-1.5 text-sm font-bold text-ink-soft hover:bg-ink hover:text-paper transition-all duration-200 active:scale-[0.98] focus:outline-none focus:ring-2 focus:ring-teal"
                 >
-                  â† Back
+                  ← Back
                 </button>
-                <p className="text-sm font-bold text-cyan-400">Predict Mode</p>
+                <p className="text-sm font-bold text-teal-deep">Predict Mode</p>
               </div>
               <CameraPreview onVideoReady={attachVideo} onCanvasReady={attachCanvas} resolution={resolution} showFlipButton />
             </motion.section>
@@ -326,7 +342,7 @@ const landmarkSmootherRef = useRef(new LandmarkSmoother(3, true, true));
               animate="animate"
               transition={sectionTransition(0.1)}
             >
-              <PredictionOverlay ready={inference.ready} error={inference.error} prediction={inference.prediction} />
+              <PredictionOverlay ready={inference.ready} error={inference.error} prediction={inference.prediction} confidenceThreshold={confidenceThreshold} onThresholdChange={setConfidenceThreshold} />
               <SentenceOverlay
                 currentWords={sentenceBuilder.currentWords}
                 currentEnglish={sentenceBuilder.currentEnglish}
@@ -337,13 +353,23 @@ const landmarkSmootherRef = useRef(new LandmarkSmoother(3, true, true));
                 showEnglish={showEnglish}
                 onToggleEnglish={() => setShowEnglish((v) => !v)}
               />
+              <motion.div className="absolute top-3 right-3 z-10">
+                <button
+                  onClick={() => setShowAccuracyDashboard((v) => !v)}
+                  className="glass-pill px-3 py-1 text-xs font-medium text-ink-soft hover:bg-ink/5 transition-colors"
+                  title="Toggle accuracy dashboard"
+                >
+                  {showAccuracyDashboard ? "Hide" : "Show"} stats
+                </button>
+              </motion.div>
+              <AccuracyDashboard show={showAccuracyDashboard} />
             </motion.aside>
           </motion.div>
         )}
         {view === "avatar" && (
           <motion.div
             key={TEXT_KEY}
-            className="grid gap-6 lg:grid-cols-[minmax(320px,1.45fr)_minmax(19rem,0.8fr)] lg:items-start animate-soft-in"
+            className="grid gap-6 lg:grid-cols-[minmax(320px,1.45fr)_minmax(19rem,0.8fr)] items-start lg:items-start animate-soft-in"
             variants={pageVariants}
             initial="initial"
             animate="animate"
@@ -351,7 +377,7 @@ const landmarkSmootherRef = useRef(new LandmarkSmoother(3, true, true));
             transition={pageTransition}
           >
             <motion.section
-              className="space-y-4 bg-slate-900/40 border border-slate-800/80 rounded-2xl p-4 relative backdrop-blur-xl shadow-2xl"
+              className="space-y-4 bg-paper-raised border-2 border-ink rounded-none p-4 relative shadow-brutal"
               variants={sectionVariants}
               initial="initial"
               animate="animate"
@@ -360,11 +386,11 @@ const landmarkSmootherRef = useRef(new LandmarkSmoother(3, true, true));
               <div className="flex items-center gap-3">
                 <button
                   onClick={() => setView("home")}
-                  className="rounded-lg px-3 py-1.5 text-sm font-bold text-slate-300 hover:bg-white/10 hover:text-white transition-all duration-200 active:scale-[0.98] focus:outline-none focus:ring-2 focus:ring-cyan-400/40"
+                  className="rounded-lg px-3 py-1.5 text-sm font-bold text-ink-soft hover:bg-ink hover:text-paper transition-all duration-200 active:scale-[0.98] focus:outline-none focus:ring-2 focus:ring-teal"
                 >
-                  â† Back
+                  ← Back
                 </button>
-                <p className="text-sm font-bold text-cyan-400">Text & Avatar</p>
+                <p className="text-sm font-bold text-teal-deep">Text & Avatar</p>
               </div>
               {showAvatar && (
                 <SignAvatar
@@ -384,28 +410,23 @@ const landmarkSmootherRef = useRef(new LandmarkSmoother(3, true, true));
               <div className="flex items-center gap-3">
                 <button
                   onClick={() => setShowAvatar((v) => !v)}
-                  className={`rounded-lg px-3 py-2.5 text-sm font-bold transition-all duration-200 active:scale-[0.98] focus:outline-none focus:ring-4 focus:ring-cyan-400/30 ${
-                    showAvatar ? "bg-white text-cyan-800 shadow-sm" : "text-slate-300 hover:bg-slate-700/40"
+                  className={`rounded-lg px-3 py-2.5 text-sm font-bold transition-all duration-200 active:scale-[0.98] focus:outline-none focus:ring-4 focus:ring-teal ${
+                    showAvatar ? "bg-teal text-ink shadow-brutal-sm" : "text-ink-soft hover:bg-ink hover:text-paper"
                   }`}
                 >
                   {showAvatar ? "Hide 3D Avatar" : "Show 3D Avatar"}
                 </button>
               </div>
-              <div className={`rounded-xl border px-4 py-3 transition-colors duration-200 ${
-                textStatus === "ready" ? "border-green-400/40 bg-green-400/10" :
-                textStatus === "loading" ? "border-yellow-400/40 bg-yellow-400/10" :
-                textStatus === "error" ? "border-red-400/40 bg-red-400/10" :
-                "border-cyan-400/20 bg-white/5"
-              }`}>
+<div className="rounded-none border-2 border-teal bg-teal/5 px-4 py-3 transition-colors duration-200">
                 <div className="flex items-center gap-2">
                   <div className={`w-2.5 h-2.5 rounded-full ${
-                    textStatus === "ready" ? "bg-green-400" :
-                    textStatus === "loading" ? "bg-yellow-400 animate-pulse" :
-                    textStatus === "error" ? "bg-red-400" :
-                    "bg-cyan-400"
+                    textStatus === "ready" ? "bg-lime" :
+                    textStatus === "loading" ? "bg-sun animate-pulse" :
+                    textStatus === "error" ? "bg-coral" :
+                    "bg-teal"
                   }`} />
-                  <p className="m-0 text-sm font-bold text-slate-200">
-                    {textStatus === "ready" ? "Avatar ready â€” signing your text" :
+                  <p className="m-0 text-sm font-bold text-ink">
+                    {textStatus === "ready" ? "Avatar ready — signing your text" :
                      textStatus === "loading" ? "Loading avatar data..." :
                      textStatus === "error" ? "Error loading avatar" :
                      "Type English below and press Enter to sign it"}

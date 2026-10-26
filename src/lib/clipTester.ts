@@ -23,7 +23,8 @@ import {
 } from "../features/windowBuffer";
 
 /** Same URL the live inference hook uses (App.tsx). */
-export const SIGN_MODEL_URL = "/models/fsl_model/model.json";
+export const SIGN_MODEL_URL = "/models/fsl_model_v2/model.json";
+export const SIGN_MODEL_CLASSES = 303;
 
 let modelPromise: Promise<tf.LayersModel> | null = null;
 

@@ -102,13 +102,13 @@ export function Autocomplete({
         aria-autocomplete="list"
         aria-controls={isOpen ? "autocomplete-list" : undefined}
         aria-activedescendant={activeIndex >= 0 ? `suggestion-${activeIndex}` : undefined}
-        className="min-h-[4.5rem] w-full flex-1 resize-y rounded-xl border border-cyan-400/20 bg-white/5 px-4 py-3 text-base text-white outline-none transition placeholder:text-slate-500 focus:ring-2 focus:ring-cyan-500/40 focus:border-cyan-500 disabled:cursor-not-allowed disabled:opacity-50"
+        className="min-h-[4.5rem] w-full flex-1 resize-y rounded-none border-2 border-ink bg-paper px-4 py-3 text-base text-ink outline-none transition placeholder:text-ink-mute focus:ring-2 focus:ring-teal focus:border-teal disabled:cursor-not-allowed disabled:opacity-50"
       />
       {isOpen && suggestions.length > 0 && (
         <ul
           id="autocomplete-list"
           ref={listRef}
-          className="absolute z-20 mt-2 w-full max-h-60 overflow-auto rounded-xl border border-slate-700/50 bg-slate-900/95 backdrop-blur-xl shadow-2xl"
+          className="absolute z-20 mt-2 w-full max-h-60 overflow-auto rounded-none border-2 border-ink bg-paper-raised shadow-brutal"
         >
           {suggestions.map((word, i) => (
             <li
@@ -117,8 +117,8 @@ export function Autocomplete({
               onClick={() => handleSelect(word)}
               className={`cursor-pointer px-4 py-2.5 text-sm transition-colors duration-150 ${
                 i === activeIndex
-                  ? "bg-cyan-400/15 text-cyan-300"
-                  : "text-slate-300 hover:bg-white/5"
+                  ? "bg-teal text-ink"
+                  : "text-ink-soft hover:bg-ink/5"
               }`}
               role="option"
               aria-selected={i === activeIndex}
@@ -129,7 +129,7 @@ export function Autocomplete({
         </ul>
       )}
       {isOpen && value.trim() && suggestions.length === 0 && (
-        <div className="absolute z-20 mt-2 w-full rounded-xl border border-slate-700/50 bg-slate-900/95 backdrop-blur-xl px-4 py-3 text-sm text-slate-500 shadow-2xl">
+        <div className="absolute z-20 mt-2 w-full rounded-none border-2 border-ink bg-paper-raised px-4 py-3 text-sm text-ink-mute shadow-brutal">
           No matches found
         </div>
       )}

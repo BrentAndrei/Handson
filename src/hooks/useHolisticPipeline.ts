@@ -159,19 +159,32 @@ export function useHolisticPipeline(
       try {
         const vision = await FilesetResolver.forVisionTasks(MEDIAPIPE_WASM_BASE_URL);
 
-        const landmarker = await HolisticLandmarker.createFromOptions(vision, {
-          baseOptions: {
-            modelAssetPath:
-              "https://storage.googleapis.com/mediapipe-models/holistic_landmarker/holistic_landmarker/float16/latest/holistic_landmarker.task",
-            delegate: "CPU",
-          },
-          runningMode: "VIDEO",
-          minPoseDetectionConfidence: confidence?.pose ?? 0.7,
-          minPosePresenceConfidence: confidence?.pose ?? 0.7,
-          minFaceDetectionConfidence: confidence?.face ?? 0.7,
-          minFacePresenceConfidence: confidence?.face ?? 0.7,
-          minHandLandmarksConfidence: confidence?.hand ?? 0.7,
-        });
+        const createLandmarker = (delegate: "GPU" | "CPU") =>
+          HolisticLandmarker.createFromOptions(vision, {
+            baseOptions: {
+              modelAssetPath:
+                "https://storage.googleapis.com/mediapipe-models/holistic_landmarker/holistic_landmarker/float16/latest/holistic_landmarker.task",
+              delegate,
+            },
+            runningMode: "VIDEO",
+            minPoseDetectionConfidence: confidence?.pose ?? 0.7,
+            minPosePresenceConfidence: confidence?.pose ?? 0.7,
+            minFaceDetectionConfidence: confidence?.face ?? 0.7,
+            minFacePresenceConfidence: confidence?.face ?? 0.7,
+            minHandLandmarksConfidence: confidence?.hand ?? 0.7,
+          });
+
+        // GPU delegate is ~2-3x faster than CPU for the holistic model, which is
+        // what makes 16-18 FPS reachable on a mid-range laptop. It is not
+        // universally available (older GPUs / blocked WebGL2), so fall back to
+        // CPU rather than failing the whole pipeline.
+        let landmarker: HolisticLandmarker;
+        try {
+          landmarker = await createLandmarker("GPU");
+        } catch (gpuErr) {
+          console.warn("[holistic] GPU delegate unavailable, falling back to CPU:", gpuErr);
+          landmarker = await createLandmarker("CPU");
+        }
 
         if (cancelled) {
           landmarker.close();
@@ -235,8 +248,7 @@ export function useHolisticPipeline(
         const result = landmarker.detectForVideo(source, ts);
 
         if (!smootherRef.current) smootherRef.current = new HolisticSmoother();
-        const smoothed = smootherRef.current.update(result, ts);
-        drawOverlay(video, canvasElRef, smoothed);
+        smootherRef.current.update(result, ts);
 
         prevRawRef.current = currRawRef.current;
         currRawRef.current = result;

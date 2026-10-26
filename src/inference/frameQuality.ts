@@ -63,9 +63,11 @@ export const MIN_HAND_SPREAD = 0.02;
 export const MAX_FRAME_JUMP = 0.5;
 
 /** Consecutive rest frames before the gate reports isRest.
- *  One dropped frame is common (blink, occlusion); three in a
- *  row means the signer actually stopped. */
-export const REST_FRAME_THRESHOLD = 3;
+ *  One absent frame is a blink; several in a row means the signer
+ *  actually stopped. Raised to 6 because inference is fed at ~8 Hz
+ *  (time-matched to training) so a mid-sign hand flicker must NOT
+ *  wipe the whole sliding window. */
+export const REST_FRAME_THRESHOLD = 6;
 
 /** Offsets of the two hand groups in a selectFeatures() output. */
 const LEFT_HAND_START = 99;

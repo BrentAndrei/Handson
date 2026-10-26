@@ -823,7 +823,7 @@ function runTest(
 
   resetToBind(sk, scene);
   const result = retarget(sk, pose);
-  applyBoneRotations(result.boneRotations, sk);
+  applyBoneRotations(result.boneRotations, result.bonePositions, sk);
   scene.updateMatrixWorld(true);
 
   const spinePoseRot = new THREE.Quaternion().setFromUnitVectors(
@@ -984,7 +984,7 @@ function debugChain(
   const body = bodyFrom(joints);
   resetToBind(sk, scene);
   const result = retarget(sk, poseFrom(joints));
-  applyBoneRotations(result.boneRotations, sk);
+  applyBoneRotations(result.boneRotations, result.bonePositions, sk);
   scene.updateMatrixWorld(true);
   const spinePoseRot = new THREE.Quaternion().setFromUnitVectors(
     restSpineDir.clone().normalize(),

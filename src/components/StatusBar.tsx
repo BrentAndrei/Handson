@@ -57,10 +57,10 @@ export function StatusBar({ items, fps, offline }: Props) {
                 key={it.label}
                 className={`glass-pill ${
                   it.error
-                    ? "border-red-400/30 bg-red-400/10 text-red-200"
+                    ? "border-coral bg-coral/10 text-coral"
                     : it.ready
-                    ? "border-emerald-400/30 bg-emerald-400/10 text-emerald-200"
-                    : "border-amber-400/30 bg-amber-400/10 text-amber-200"
+                    ? "border-lime bg-lime/10 text-lime-deep"
+                    : "border-sun bg-sun/10 text-sun-deep"
                 }`}
                 title={it.error ?? undefined}
                 initial={{ opacity: 0, scale: 0.9 }}
@@ -70,10 +70,10 @@ export function StatusBar({ items, fps, offline }: Props) {
                 <span
                   className={`size-1.5 rounded-full ${
                     it.error
-                      ? "bg-red-400"
+                      ? "bg-coral"
                       : it.ready
-                      ? "bg-emerald-400"
-                      : "animate-pulse bg-amber-400"
+                      ? "bg-lime"
+                      : "animate-pulse bg-sun"
                   }`}
                   aria-hidden="true"
                 />

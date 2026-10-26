@@ -1,0 +1,20 @@
+WARNING: All log messages before absl::InitializeLog() is called are written to STDERR
+I0000 00:00:1792347546.936962   18196 port.cc:153] oneDNN custom operations are on. You may see slightly different numerical results due to floating-point round-off errors from different computation orders. To turn them off, set the environment variable `TF_ENABLE_ONEDNN_OPTS=0`.
+WARNING: All log messages before absl::InitializeLog() is called are written to STDERR
+I0000 00:00:1792347552.598233   18196 port.cc:153] oneDNN custom operations are on. You may see slightly different numerical results due to floating-point round-off errors from different computation orders. To turn them off, set the environment variable `TF_ENABLE_ONEDNN_OPTS=0`.
+WARNING:tensorflow:TensorFlow GPU support is not available on native Windows for TensorFlow >= 2.11. Even if CUDA/cuDNN are installed, GPU will not be used. Please use WSL2 or the TensorFlow-DirectML plugin.
+C:\Users\BRENT\Downloads\handson_fixed\.venv-convert\Lib\site-packages\keras\src\trainers\data_adapters\py_dataset_adapter.py:121: UserWarning: Your `PyDataset` class should call `super().__init__(**kwargs)` in its constructor. `**kwargs` can include `workers`, `use_multiprocessing`, `max_queue_size`. Do not pass these arguments to `fit()`, as they will be ignored.
+  self._warn_if_super_not_called()
+WARNING:absl:You are saving your model as an HDF5 file via `model.save()` or `keras.saving.save_model(model)`. This file format is considered legacy. We recommend using instead the native Keras format, e.g. `model.save('my_model.keras')` or `keras.saving.save_model(model, 'my_model.keras')`. 
+Traceback (most recent call last):
+  File "C:\Users\BRENT\Downloads\handson_fixed\handson\training\train.py", line 352, in <module>
+    main()
+  File "C:\Users\BRENT\Downloads\handson_fixed\handson\training\train.py", line 333, in main
+    print(classification_report(y_val, y_pred, target_names=labels))
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\BRENT\Downloads\handson_fixed\.venv-convert\Lib\site-packages\sklearn\utils\_param_validation.py", line 218, in wrapper
+    return func(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\BRENT\Downloads\handson_fixed\.venv-convert\Lib\site-packages\sklearn\metrics\_classification.py", line 3112, in classification_report
+    raise ValueError(
+ValueError: Number of classes, 262, does not match size of target_names, 399. Try specifying the labels parameter

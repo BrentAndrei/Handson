@@ -114,6 +114,8 @@ export interface RetargetedBody {
   boneRotations: Map<string, Quaternion>;
   /** World-space rotations keyed by bone name (for child lookups like hands). */
   worldRotations: Map<string, Quaternion>;
+  /** Local-space bone positions for arm bones (forearm, hand) keyed by bone name. */
+  bonePositions: Map<string, Vector3>;
 }
 
 /**
@@ -225,7 +227,8 @@ function retargetSingleBone(
  */
 export function retargetBody(
   skeleton: ResolvedSkeleton,
-  body: BodyPose
+  body: BodyPose,
+  bonePositions: Map<string, Vector3>
 ): RetargetedBody {
   const boneRotations = new Map<string, Quaternion>();
   // Track world-space rotations as we go down the hierarchy
@@ -395,8 +398,8 @@ export function retargetBody(
   }
 
   // --- Arms (4-bone chain each) ---
-  retargetArm(skeleton, body, boneRotations, worldRotations, "left");
-  retargetArm(skeleton, body, boneRotations, worldRotations, "right");
+  retargetArm(skeleton, body, boneRotations, worldRotations, bonePositions, "left");
+  retargetArm(skeleton, body, boneRotations, worldRotations, bonePositions, "right");
 
   // --- Legs (3-bone chain each) ---
   retargetLeg(skeleton, body, boneRotations, worldRotations, "left");
@@ -409,6 +412,7 @@ export function retargetBody(
     hipsWorldPos,
     boneRotations,
     worldRotations,
+    bonePositions,
   };
 }
 
@@ -424,6 +428,7 @@ function retargetArm(
   body: BodyPose,
   boneRotations: Map<string, Quaternion>,
   worldRotations: Map<string, Quaternion>,
+  bonePositions: Map<string, Vector3>,
   side: "left" | "right"
 ) {
   const shoulder = skeleton.getBone(`${side}Shoulder` as CanonicalRole);
@@ -483,22 +488,22 @@ function retargetArm(
   // vector to (0,0,0) rather than NaN -- so the normalized length test is a
   // valid 0 and the branch does fire. lengthSq() is used only to avoid the
   // sqrt in the hot path.
-  const armPlaneSide = tmpVec().crossVectors(armDir, forearmDir);
-  if (armPlaneSide.lengthSq() < 0.01) {
-    armPlaneSide.copy(cvec(body.shoulderAxis, _shoulderAxis)).normalize();
-  } else {
-    armPlaneSide.normalize();
-  }
-  // Residual guard: if the arm lies along the shoulder axis, the lateral
-  // reference projects to zero. Use the torso's forward direction (spine x
-  // lateral) instead of world up, for the same reason.
-  armPlaneSide.projectOnPlane(armDir);
-  if (armPlaneSide.length() < 0.1) {
-    armPlaneSide.crossVectors(cvec(body.spineDir, _spineDir), armDir).normalize();
-  }
-  armPlaneSide.normalize();
+const armPlaneSide = tmpVec().crossVectors(armDir, forearmDir);
+   if (armPlaneSide.lengthSq() < 0.01) {
+     armPlaneSide.copy(cvec(body.shoulderAxis, _shoulderAxis)).normalize();
+   } else {
+     armPlaneSide.normalize();
+   }
+   // Residual guard: if the arm lies along the shoulder axis, the lateral
+   // reference projects to zero. Use the torso's forward direction (spine x
+   // lateral) instead of world up, for the same reason.
+   armPlaneSide.projectOnPlane(armDir);
+   if (armPlaneSide.length() < 0.1) {
+     armPlaneSide.crossVectors(cvec(body.spineDir, _spineDir), armDir).normalize();
+   }
+   armPlaneSide.normalize();
 
-   // Shoulder (clavicle): aim at the LATERAL direction from the shoulder toward
+    // Shoulder (clavicle): aim at the LATERAL direction from the shoulder toward
    // the arm, NOT at `armDir`.
    //
    // PHASE 17 ROOT-CAUSE FIX. The clavicle's child is the upper arm, so its bind
@@ -650,10 +655,15 @@ const faParentWorldRot = worldRotations.get(upperArm.name) ?? _identQ.identity()
     // the upper-arm scale stretches the forearm joint and the forearm
     // scale stretches the hand joint. The shoulder joint itself is
     // fixed by the clavicle and must not move.
-    forearm.bone.position.copy(forearm.localPos).multiplyScalar(uaScale);
-    hand.bone.position.copy(hand.localPos).multiplyScalar(faScale);
+    // Store scaled positions in the map for later application during playback.
+    // Positions are reset from `localPos` first so repeated retarget calls
+    // (live path, one per frame) do not compound.
+    const forearmPos = tmpVec().copy(forearm.localPos).multiplyScalar(uaScale);
+    const handPos = tmpVec().copy(hand.localPos).multiplyScalar(faScale);
+    bonePositions.set(forearm.name, forearmPos.clone());
+    bonePositions.set(hand.name, handPos.clone());
     if ((globalThis as any).__ARM_DEBUG) {
-      console.log(`ARMDBG2 ${side} faPosAfter=${forearm.bone.position.length().toFixed(4)} haPosAfter=${hand.bone.position.length().toFixed(4)}`);
+      console.log(`ARMDBG2 ${side} faPosAfter=${forearmPos.length().toFixed(4)} haPosAfter=${handPos.length().toFixed(4)}`);
     }
 
     // Hand: aligned by hand retargeter (called separately)

@@ -11,7 +11,7 @@
  *         else (so a new build ships without a manual cache-bust).
  */
 
-const CACHE_NAME = "handson-v3";
+const CACHE_NAME = "handson-v4";
 const PRECACHE = [
   "/models/fsl_model/model.json",
   "/models/fsl_model/group1-shard1of1.bin",

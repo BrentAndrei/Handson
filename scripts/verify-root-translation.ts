@@ -118,7 +118,7 @@ async function main() {
         b.bone.position.copy(b.localPos);
       }
       const result = retarget(sk, pose);
-      applyBoneRotations(result.boneRotations, sk);
+      applyBoneRotations(result.boneRotations, result.bonePositions, sk);
       scene.updateMatrixWorld(true);
 
       solver.solve(result.hipsWorldPos, offset);

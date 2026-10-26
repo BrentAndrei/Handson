@@ -22,10 +22,13 @@ import { retargetBothHands } from "./handRetargeter";
 
 /** A complete set of bone rotations for the avatar, keyed by bone name. */
 export type AvatarBoneMap = Map<string, Quaternion>;
+export type AvatarBonePositions = Map<string, Vector3>;
 
 export interface RetargetedPose {
   /** Local-space bone rotations keyed by avatar bone name. */
   boneRotations: AvatarBoneMap;
+  /** Local-space bone positions for arm bones (forearm, hand) keyed by bone name. */
+  bonePositions: AvatarBonePositions;
   /** World position of the root (hips) joint. */
   hipsWorldPos: Vector3;
   /** World-space rotations for all bones (for child lookups). */
@@ -45,9 +48,10 @@ export function retarget(
 ): RetargetedPose {
   const boneRotations = new Map<string, Quaternion>();
   const worldRotations = new Map<string, Quaternion>();
+  const bonePositions = new Map<string, Vector3>();
 
   // --- Step 1: Retarget body (spine, head, arms, legs) ---
-  const bodyResult = retargetBody(skeleton, pose.body);
+  const bodyResult = retargetBody(skeleton, pose.body, bonePositions);
 
   // Merge body bone rotations
   for (const [name, rot] of bodyResult.boneRotations) {
@@ -75,6 +79,7 @@ export function retarget(
 
   return {
     boneRotations,
+    bonePositions,
     hipsWorldPos: bodyResult.hipsWorldPos,
     worldRotations,
   };
@@ -101,19 +106,27 @@ export function avatarBoneMapToThree(
 }
 
 /**
- * Apply retargeted bone rotations to a Three.js skeleton.
+ * Apply retargeted bone rotations and positions to a Three.js skeleton.
  *
  * @param boneRotations The rotations from retarget()
+ * @param bonePositions The positions from retarget() (for arm bones)
  * @param skeleton The resolved skeleton (for bone references)
  */
 export function applyBoneRotations(
   boneRotations: AvatarBoneMap,
+  bonePositions: AvatarBonePositions,
   skeleton: ResolvedSkeleton
 ): void {
   for (const [boneName, rotation] of boneRotations) {
     const bone = skeleton.bones.get(boneName);
     if (bone && bone.bone) {
       bone.bone.quaternion.copy(rotation);
+    }
+  }
+  for (const [boneName, position] of bonePositions) {
+    const bone = skeleton.bones.get(boneName);
+    if (bone && bone.bone) {
+      bone.bone.position.copy(position);
     }
   }
 }

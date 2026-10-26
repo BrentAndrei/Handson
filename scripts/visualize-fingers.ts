@@ -240,7 +240,7 @@ async function main() {
 
       resetPose();
       const result = retarget(sk, pose);
-      applyBoneRotations(result.boneRotations, sk);
+      applyBoneRotations(result.boneRotations, result.bonePositions, sk);
       scene.updateMatrixWorld(true);
 
       // rendered shoulder frame (both shoulders, from the skeleton)

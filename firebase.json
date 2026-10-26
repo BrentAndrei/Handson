@@ -8,7 +8,9 @@
       "src",
       "scripts",
       "training",
-      "avatar-data-smplx/**"
+      "avatar-data-smplx/**",
+      "avatar-data/*.bak",
+      "avatar-data/backup*/**"
     ],
     "rewrites": [
       { "source": "**", "destination": "/index.html" }

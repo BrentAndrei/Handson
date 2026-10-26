@@ -141,7 +141,7 @@ async function boot() {
 
   (window as unknown as Record<string, unknown>).__PHASE10__ = {
     start(m: "recorded" | "live") {
-      applyBoneRotations(retargeted[0].boneRotations, sk);
+      applyBoneRotations(retargeted[0].boneRotations, retargeted[0].bonePositions, sk);
       mode = m;
     },
     setMode(m: "recorded" | "live") {

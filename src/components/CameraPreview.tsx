@@ -16,13 +16,13 @@ const DEFAULT_RESOLUTION = { width: 960, height: 540 };
 /**
  * The camera panel — the focal element of Predict mode.
  *
- * The webcam feed fills a dark, rounded frame with a subtle glass rim. The
- * landmark overlay (pose/hands/face) is drawn on a <canvas> stacked above the
- * <video>, never behind a glass pane — the skeleton colors stay readable
- * against the dark feed, and the frame itself stays undistorted.
+ * The webcam feed sits inside a hard-inked, paper-toned frame with a
+ * cast shadow. The landmark overlay (pose/hands/face) is drawn on a
+ * <canvas> stacked above the <video>, never behind a pane — the
+ * skeleton colours stay readable against the dark feed, and the
+ * frame itself stays undistorted.
  *
- * Glass styling belongs to the chrome AROUND the feed (this frame's rim, the
- * status bar, the control panels), not on the video.
+ * Depth is cast down-right like an inked print. No blur, ever.
  */
 export function CameraPreview({ onVideoReady, onCanvasReady, resolution = DEFAULT_RESOLUTION, className, showFlipButton = false }: CameraPreviewProps) {
   const { videoRef, status, error, start, stop } = useCamera({ width: resolution.width, height: resolution.height });
@@ -52,7 +52,7 @@ export function CameraPreview({ onVideoReady, onCanvasReady, resolution = DEFAUL
 
   return (
     <div
-      className={`glass relative w-full overflow-hidden border border-slate-800/80 ${className ?? ""}`}
+      className={`glass relative w-full overflow-hidden ${className ?? ""}`}
       style={{ aspectRatio }}
     >
       {status === "ready" ? (
@@ -71,11 +71,11 @@ export function CameraPreview({ onVideoReady, onCanvasReady, resolution = DEFAUL
           )}
         </>
       ) : status === "error" ? (
-        <div className="absolute inset-0 flex flex-col items-center justify-center gap-4 bg-slate-950/80 p-5 text-center text-base text-white">
+        <div className="absolute inset-0 flex flex-col items-center justify-center gap-4 bg-paper-sunken p-5 text-center text-base text-ink">
           <div>{error}</div>
           <button
             onClick={start}
-            className="rounded-lg bg-white/10 px-4 py-2 font-semibold text-white shadow-sm backdrop-blur-sm transition-all duration-200 active:scale-[0.98] hover:bg-white/20 focus:outline-none focus:ring-4 focus:ring-white/20"
+            className="rounded-none border-2 border-ink bg-paper-raised px-4 py-2 font-bold text-ink shadow-brutal-sm transition-all duration-200 active:scale-[0.98] hover:bg-ink hover:text-paper focus:outline-none focus:ring-2 focus:ring-teal"
           >
             Retry
           </button>

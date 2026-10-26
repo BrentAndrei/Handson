@@ -8,6 +8,8 @@
     "build": "tsc -b && vite build",
     "preview": "vite preview",
     "verify:retarget": "tsx scripts/verify-retarget.ts",
+    "verify:wrist-aim": "tsx scripts/verify-wrist-aim.ts",
+    "verify:real-clip": "tsx scripts/verify-real-clip.ts",
     "verify:browser": "tsx scripts/verify-browser-pose.ts",
     "verify:root": "tsx scripts/verify-root-translation.ts",
     "verify:presentation": "tsx scripts/verify-presentation-layers.ts",

@@ -89,6 +89,21 @@ const SMOOTHING = 0.25;
 const MAX_BONE_ANGLE = Math.PI * 0.9;  // 162 degrees - allows full signing arm movements
 
 /**
+ * PHASE 44 FIX — grace period after the last live frame before the avatar
+ * releases the held pose to idle.
+ *
+ * The live feed is gated by the frame-quality hook in useSignInference: a
+ * rest pose or a dropout resets the buffer and no new frame is published, so
+ * the avatar's live block stops firing. Without this grace the avatar would
+ * snap to idle the instant the signer pauses, which reads as a twitch.
+ *
+ * 300 ms is long enough to ride out a single hand-detector miss (measured
+ * dropouts are 1-3 frames at 24 fps ≈ 40-125 ms) and short enough that a
+ * deliberate stop still releases within a third of a second.
+ */
+const LIVE_STOP_GRACE_MS = 300;
+
+/**
  * PHASE 10 — reusable scratch for the render loop.
  *
  * Module-scoped rather than a `useRef` so it is allocated once per module load
@@ -187,6 +202,9 @@ export default function SignAvatar({
   const liveSeqRef = useRef(-1);
   const livePrevPoseRef = useRef<RetargetedPose | null>(null);
   const liveWasActiveRef = useRef(false);
+  // PHASE 44 FIX — timestamp of the most recent live frame, used to
+  // detect when the signer has stopped and release the pose to idle.
+  const lastLiveFrameTimeRef = useRef(0);
   // PHASE 44 — live stability lock. Holds the last good retargeted
   // pose across a handedness flip so the live feed never flails.
   const liveStabilityGuardRef = useRef<StabilityGuard | null>(null);
@@ -271,8 +289,6 @@ export default function SignAvatar({
               }
             });
 
-            console.log("[avatar] bone types:", boneCountByType, "total named:", allBoneNames.length);
-
             const boneToAvatarKey: Record<string, string> = {};
             for (const [avKey, bone] of Object.entries(bones)) {
               boneToAvatarKey[bone.name] = avKey;
@@ -287,13 +303,10 @@ export default function SignAvatar({
                 boneCountByType,
               );
             } else {
-              console.log(
-                "[avatar] mapped " + Object.keys(bones).length + " bones:",
-                Object.keys(bones).join(", "),
-              );
+              // bones mapped successfully
             }
             if (unmapped.length > 0) {
-              console.log("[avatar] unmapped bones:", unmapped.join(", "));
+              console.warn("[avatar] unmapped bones:", unmapped.join(", "));
             }
             allBoneNamesRef.current = allBoneNames;
 
@@ -381,7 +394,6 @@ export default function SignAvatar({
               // Resolve skeleton using boneResolver for the new retargeting pipeline
               try {
                 resolvedSkeletonRef.current = resolveSkeleton(model);
-                console.log("[avatar] skeleton resolved:", resolvedSkeletonRef.current.boneOrder);
               } catch (e) {
                 console.warn("[avatar] skeleton resolution failed:", e);
               }
@@ -424,11 +436,8 @@ export default function SignAvatar({
 
   const loadSignData = useCallback(async (label: string, parentWorldQuats?: ParentWorldQuats) => {
     if (!hasLabelData(label)) {
-      console.log(`[avatar] loadSignData: ${label} NOT available`);
       return;
     }
-
-     console.log(`[avatar] loadSignData: ${label} OK`);
 
       // Try new CanonicalPose pipeline first (SMPL-X adapter)
       const skeleton = resolvedSkeletonRef.current;
@@ -517,7 +526,7 @@ export default function SignAvatar({
           // Apply initial pose immediately
           const av = avatarRef.current;
           if (skeleton && retargeted[0] && av) {
-            applyBoneRotations(retargeted[0].boneRotations, skeleton);
+            applyBoneRotations(retargeted[0].boneRotations, retargeted[0].bonePositions, skeleton);
             if (av.model) {
               if (APPLY_ROOT_TRANSLATION) {
                 // PHASE 7: new sequence -> the first frame becomes the baseline,
@@ -530,9 +539,8 @@ export default function SignAvatar({
               }
             }
           }
-
-          console.log(`[avatar] loadSignData: canonical path loaded ${retargeted.length} retargeted frames`);
         }
+
         onFrameChange?.(0, currentRetargetedRef.current.length);
         onSignChange?.(label);
       }
@@ -566,23 +574,6 @@ export default function SignAvatar({
     transitionProgressRef.current = 0;
     transitionStartTimeRef.current = timeRef.current;
     isAnimatingRef.current = true;
-
-    const av = avatarRef.current;
-    if (av) {
-      const mappedBones = Object.keys(av.bones);
-      let nonZero = 0;
-      const zeroBones: string[] = [];
-      for (const key of AVATAR_KEYS) {
-        if (av.bones[key] && sampled[0][key]) {
-          const v = sampled[0][key];
-          if (v[0] !== 0 || v[1] !== 0 || v[2] !== 0) nonZero++;
-          else zeroBones.push(key);
-        } else {
-          zeroBones.push(key + "(no bone/frame)");
-        }
-      }
-      console.log(`[avatar] loadSignData: ${mappedBones.length} bones mapped, ${nonZero} non-zero in frame0, zero: ${zeroBones.join(", ") || "none"}`);
-    }
 
     onFrameChange?.(0, sampled.length);
     onSignChange?.(label);
@@ -805,12 +796,13 @@ export default function SignAvatar({
       // changes only which pose lands in the refs, never the code that consumes
       // it, and the existing SMOOTHING slerp below interpolates across the
       // switch instead of snapping.
-      const liveFrame = liveFrameRef?.current ?? null;
+const liveFrame = liveFrameRef?.current ?? null;
       if (liveActiveRef.current && liveFrame && liveFrame.seq !== liveSeqRef.current) {
         const skel = resolvedSkeletonRef.current;
         if (skel) {
           liveSeqRef.current = liveFrame.seq;
-          // Same adapter the recorded SMPL-X path and verify:browser use.
+          lastLiveFrameTimeRef.current = t;
+          // Same adapter the recorded MediaPipe path and verify:browser use.
           const livePose = mediapipeToCanonicalPose(liveFrame.vector, 0);
           if (livePose) {
             // PHASE 44 — route through the stability lock. A
@@ -842,8 +834,36 @@ export default function SignAvatar({
             usedCanonicalRef.current = true;
             isAnimatingRef.current = true;
             transitionProgressRef.current = 1;
+            transitionStartTimeRef.current = t;
           }
         }
+      }
+      // PHASE 44 FIX — release the live pose to idle when the signer stops.
+      //
+      // The live block above only fires when a NEW frame arrives. When the
+      // signer drops their hands the feed stops (the quality gate in
+      // useSignInference resets the buffer, so no new frame is published),
+      // and without this block the avatar would hold the last sign's pose
+      // forever — a frozen model that never returns to rest. A 300 ms
+      // grace period lets a brief dropout (hand detector miss) ride through
+      // without snapping to idle, while a real stop releases cleanly.
+      if (
+        liveWasActiveRef.current &&
+        liveActiveRef.current &&
+        t - lastLiveFrameTimeRef.current > LIVE_STOP_GRACE_MS
+      ) {
+        // PHASE 44 FIX — release the live pose to idle. Drop the live
+        // baseline AND the canonical flag so the interpolation gate below
+        // falls through to the idle-breathing block instead of re-entering
+        // the keyframe-advance branch with a stale target.
+        liveWasActiveRef.current = false;
+        livePrevPoseRef.current = null;
+        liveSeqRef.current = -1;
+        liveStabilityGuardRef.current?.reset();
+        usedCanonicalRef.current = false;
+        prevRetargetedRef.current = null;
+        targetRetargetedRef.current = null;
+        isAnimatingRef.current = false;
       }
       if (!liveActiveRef.current && liveWasActiveRef.current) {
         // Camera disabled: hand control back to recorded playback and drop the
@@ -867,14 +887,38 @@ export default function SignAvatar({
       // because verify:browser drives a standalone harness that re-implements
       // this maths rather than mounting the component.
       // Fix: gate on whichever target ref the ACTIVE source uses.
+      //
+      // PHASE 44 FIX — the live feed is not a keyframe clip. It has no
+      // "next frame" to advance to, so the advance branch below must not run
+      // while the live source is active: it would walk through the recorded
+      // clip's keyframes and overwrite the live pose. Live frames already
+      // publish a fresh target every tick, so the interpolation above is all
+      // the live path needs.
       const gateTarget = usedCanonicalRef.current
         ? targetRetargetedRef.current
         : targetFrameRef2.current;
+      // PHASE 44 — the live feed publishes a fresh target every tick, so the
+      // interpolation/apply above IS the live path (the comment at 918 says as
+      // much). The `!liveWasActiveRef` guard that used to sit here blocked the
+      // WHOLE block during live signing: the live pose was retargeted and
+      // stored in targetRetargetedRef but never applied to any bone, so the
+      // avatar held the recorded clip's pose and ignored the signer. The live
+      // source only needs the ADVANCE branch (rawT >= 1) gated out -- see
+      // below -- not the apply itself.
       if (isAnimatingRef.current && gateTarget && isPlayingRef.current) {
         const elapsed = t - transitionStartTimeRef.current;
         const duration = transitionDuration / playbackSpeedRef.current;
         const rawT = clamp(elapsed / duration, 0, 1);
-        transitionProgressRef.current = easeInOutCubic(rawT);
+        // PHASE 44 — the live feed publishes a fresh target every tick with
+        // transitionStartTimeRef.current == t, so the time-derived rawT is 0
+        // and progress would collapse to 0, applying the PREVIOUS live pose
+        // instead of the current one (a 1-frame lag that reads as a stutter).
+        // The live path wants the current pose applied directly, so progress is
+        // 1 here. Recorded clips still derive progress from wall time.
+        const progress = liveWasActiveRef.current
+          ? 1
+          : easeInOutCubic(rawT);
+        transitionProgressRef.current = progress;
 
         if (usedCanonicalRef.current) {
           // Canonical path: interpolate RetargetedPose using applyBoneRotations + slerp on quaternions
@@ -914,16 +958,48 @@ export default function SignAvatar({
               curRet.boneRotations.forEach((_, name) => allBoneNames.add(name));
               tgtRet.boneRotations.forEach((_, name) => allBoneNames.add(name));
 
-              for (const boneName of allBoneNames) {
-                const curRot = curRet.boneRotations.get(boneName);
-                const tgtRot = tgtRet.boneRotations.get(boneName);
-                const bone = skeleton.bones.get(boneName)?.bone;
-                if (curRot && tgtRot && bone) {
-                  resultQuat.current.slerpQuaternions(curRot, tgtRot, progress);
-                  bone.quaternion.slerp(resultQuat.current, SMOOTHING);
-                  bone.quaternion.normalize();
-                }
-              }
+                for (const boneName of allBoneNames) {
+                  const curRot = curRet.boneRotations.get(boneName);
+                  const tgtRot = tgtRet.boneRotations.get(boneName);
+                  const bone = skeleton.bones.get(boneName)?.bone;
+                  if (curRot && tgtRot && bone) {
+                    // Enforce quaternion sign consistency before slerp: q and -q
+                    // represent the same rotation, but slerp takes the long path
+                    // if the dot is negative — producing an unwanted 360° flip.
+if (curRot.dot(tgtRot) < 0) {
+                       tmpQuat2.current.copy(tgtRot);
+                       tmpQuat2.current.set(-tmpQuat2.current.x, -tmpQuat2.current.y, -tmpQuat2.current.z, -tmpQuat2.current.w);
+                       resultQuat.current.slerpQuaternions(curRot, tmpQuat2.current, progress);
+                     } else {
+                       resultQuat.current.slerpQuaternions(curRot, tgtRot, progress);
+                     }
+                     // Sign-fix the application slerp against the current bone quat too
+                     if (bone.quaternion.dot(resultQuat.current) < 0) {
+                       tmpQuat1.current.copy(bone.quaternion);
+                       tmpQuat1.current.set(-tmpQuat1.current.x, -tmpQuat1.current.y, -tmpQuat1.current.z, -tmpQuat1.current.w);
+                       bone.quaternion.slerp(tmpQuat1.current, SMOOTHING);
+                       bone.quaternion.slerp(resultQuat.current, SMOOTHING);
+                     } else {
+                       bone.quaternion.slerp(resultQuat.current, SMOOTHING);
+                     }
+                     bone.quaternion.normalize();
+                   }
+                 }
+ 
+               // Interpolate arm bone positions (forearm, hand) to match scaled lengths per frame.
+               // These positions are computed per-frame by retargetBody and stored in bonePositions.
+               // Bone names use CanonicalRole: leftForearm / rightForearm / leftHand / rightHand
+               const armCanonRoles = ["leftForearm", "rightForearm", "leftHand", "rightHand"] as const;
+               for (const canonRole of armCanonRoles) {
+const resolved = skeleton.getBone(canonRole);
+                  if (!resolved?.bone) continue;
+                 const bone = resolved.bone;
+                 const curPos = curRet.bonePositions?.get(resolved.name);
+                 const tgtPos = tgtRet.bonePositions?.get(resolved.name);
+                 if (curPos && tgtPos) {
+                   bone.position.lerpVectors(curPos, tgtPos, progress);
+                 }
+               }
 
               // PHASE 9: additive ground contact, applied AFTER the interpolated
               // retargeted pose (not after applyBoneRotations — this path slerps
@@ -999,7 +1075,7 @@ export default function SignAvatar({
         }
         } // end else (traditional path)
 
-         if (rawT >= 1) {
+         if (rawT >= 1 && !liveWasActiveRef.current) {
           isAnimatingRef.current = false;
           if (usedCanonicalRef.current) {
             prevRetargetedRef.current = targetRetargetedRef.current;
@@ -1057,58 +1133,63 @@ export default function SignAvatar({
         // and BOTH hands with idle rotations. That is exactly the "destructive
         // override" the idle layer must never do: with the guard, such a frame
         // simply holds the last retargeted pose, which is safe and correct.
-        const sway = idleWeightRef.current;
+        
+        // Subtle breathing only - no drift rotations
         if (av.bones.head) {
           const bp = bindPoseQuats.current["head"];
           if (bp) {
-            tmpEuler1.current.set(Math.sin(t * 0.5) * 0.03, Math.sin(t * 0.35) * 0.06 + sway * 0.03, 0);
+            tmpEuler1.current.set(0, Math.sin(t * 0.25) * 0.015, 0);
             tmpQuat1.current.setFromEuler(tmpEuler1.current);
             resultQuat.current.multiplyQuaternions(tmpQuat1.current, bp);
-            av.bones.head.quaternion.slerp(resultQuat.current, 0.2);
+            av.bones.head.quaternion.slerp(resultQuat.current, 0.15);
             av.bones.head.quaternion.normalize();
           }
         }
         if (av.bones.neck) {
           const bp = bindPoseQuats.current["neck"];
           if (bp) {
-            tmpEuler1.current.set(0, 0, Math.sin(t * 0.4) * 0.015);
+            tmpEuler1.current.set(0, 0, Math.sin(t * 0.2) * 0.008);
             tmpQuat1.current.setFromEuler(tmpEuler1.current);
             resultQuat.current.multiplyQuaternions(tmpQuat1.current, bp);
-            av.bones.neck.quaternion.slerp(resultQuat.current, 0.2);
+            av.bones.neck.quaternion.slerp(resultQuat.current, 0.15);
             av.bones.neck.quaternion.normalize();
           }
         }
 
-        av.model.position.y = Math.sin(t * 0.6) * 0.008;
-        av.model.rotation.z = Math.sin(t * 0.3) * 0.015 * sway;
+        // Subtle vertical breathing only - no rotation drift
+        av.model.position.y = Math.sin(t * 0.4) * 0.005;
+        av.model.rotation.z = 0;
 
+        // Shoulders - subtle breathing sway only
         if (av.bones.leftShoulder) {
           const bp = bindPoseQuats.current["leftShoulder"];
           if (bp) {
-            tmpEuler1.current.set(0, 0, -0.03 + Math.sin(t * 0.5) * 0.02);
+            tmpEuler1.current.set(Math.sin(t * 0.3) * 0.008, 0, -0.02 + Math.sin(t * 0.25) * 0.006);
             tmpQuat1.current.setFromEuler(tmpEuler1.current);
             resultQuat.current.multiplyQuaternions(tmpQuat1.current, bp);
-            av.bones.leftShoulder.quaternion.slerp(resultQuat.current, 0.2);
+            av.bones.leftShoulder.quaternion.slerp(resultQuat.current, 0.15);
             av.bones.leftShoulder.quaternion.normalize();
           }
         }
         if (av.bones.rightShoulder) {
           const bp = bindPoseQuats.current["rightShoulder"];
           if (bp) {
-            tmpEuler1.current.set(0, 0, 0.03 - Math.sin(t * 0.5) * 0.02);
+            tmpEuler1.current.set(Math.sin(t * 0.3) * 0.008, 0, 0.02 + Math.sin(t * 0.25) * 0.006);
             tmpQuat1.current.setFromEuler(tmpEuler1.current);
             resultQuat.current.multiplyQuaternions(tmpQuat1.current, bp);
-            av.bones.rightShoulder.quaternion.slerp(resultQuat.current, 0.2);
+            av.bones.rightShoulder.quaternion.slerp(resultQuat.current, 0.15);
             av.bones.rightShoulder.quaternion.normalize();
           }
         }
+        
+        // Arms - hold bind pose with very subtle breathing
         if (av.bones.leftUpperArm) {
           const bp = bindPoseQuats.current["leftUpperArm"];
           if (bp) {
             idleAxis.current.set(1, 0, 0);
-            tmpQuat1.current.setFromAxisAngle(idleAxis.current, Math.sin(t * 0.4) * 0.01);
+            tmpQuat1.current.setFromAxisAngle(idleAxis.current, Math.sin(t * 0.2) * 0.005);
             resultQuat.current.multiplyQuaternions(tmpQuat1.current, bp);
-            av.bones.leftUpperArm.quaternion.slerp(resultQuat.current, 0.2);
+            av.bones.leftUpperArm.quaternion.slerp(resultQuat.current, 0.1);
             av.bones.leftUpperArm.quaternion.normalize();
           }
         }
@@ -1116,58 +1197,39 @@ export default function SignAvatar({
           const bp = bindPoseQuats.current["rightUpperArm"];
           if (bp) {
             idleAxis.current.set(1, 0, 0);
-            tmpQuat1.current.setFromAxisAngle(idleAxis.current, Math.sin(t * 0.4 + 0.5) * 0.01);
+            tmpQuat1.current.setFromAxisAngle(idleAxis.current, Math.sin(t * 0.2 + 0.5) * 0.005);
             resultQuat.current.multiplyQuaternions(tmpQuat1.current, bp);
-            av.bones.rightUpperArm.quaternion.slerp(resultQuat.current, 0.2);
+            av.bones.rightUpperArm.quaternion.slerp(resultQuat.current, 0.1);
             av.bones.rightUpperArm.quaternion.normalize();
           }
         }
+        
+        // Forearms and hands - hold bind pose
         if (av.bones.leftForearm) {
           const bp = bindPoseQuats.current["leftForearm"];
-          if (bp) {
-            idleAxis.current.set(1, 0, 0);
-            tmpQuat1.current.setFromAxisAngle(idleAxis.current, Math.sin(t * 0.6 + 1.0) * 0.015);
-            resultQuat.current.multiplyQuaternions(tmpQuat1.current, bp);
-            av.bones.leftForearm.quaternion.slerp(resultQuat.current, 0.2);
-            av.bones.leftForearm.quaternion.normalize();
-          }
+          if (bp) { av.bones.leftForearm.quaternion.slerp(bp, 0.1); av.bones.leftForearm.quaternion.normalize(); }
         }
         if (av.bones.rightForearm) {
           const bp = bindPoseQuats.current["rightForearm"];
-          if (bp) {
-            idleAxis.current.set(1, 0, 0);
-            tmpQuat1.current.setFromAxisAngle(idleAxis.current, Math.sin(t * 0.6 + 1.5) * 0.015);
-            resultQuat.current.multiplyQuaternions(tmpQuat1.current, bp);
-            av.bones.rightForearm.quaternion.slerp(resultQuat.current, 0.2);
-            av.bones.rightForearm.quaternion.normalize();
-          }
+          if (bp) { av.bones.rightForearm.quaternion.slerp(bp, 0.1); av.bones.rightForearm.quaternion.normalize(); }
         }
         if (av.bones.leftHand) {
           const bp = bindPoseQuats.current["leftHand"];
-          if (bp) {
-            idleAxis.current.set(1, 0, 0);
-            tmpQuat1.current.setFromAxisAngle(idleAxis.current, Math.sin(t * 0.5 + 1.0) * 0.01);
-            resultQuat.current.multiplyQuaternions(tmpQuat1.current, bp);
-            av.bones.leftHand.quaternion.slerp(resultQuat.current, 0.2);
-            av.bones.leftHand.quaternion.normalize();
-          }
+          if (bp) { av.bones.leftHand.quaternion.slerp(bp, 0.1); av.bones.leftHand.quaternion.normalize(); }
         }
         if (av.bones.rightHand) {
           const bp = bindPoseQuats.current["rightHand"];
-          if (bp) {
-            idleAxis.current.set(1, 0, 0);
-            tmpQuat1.current.setFromAxisAngle(idleAxis.current, Math.sin(t * 0.5 + 1.5) * 0.01);
-            resultQuat.current.multiplyQuaternions(tmpQuat1.current, bp);
-            av.bones.rightHand.quaternion.slerp(resultQuat.current, 0.2);
-            av.bones.rightHand.quaternion.normalize();
-          }
+          if (bp) { av.bones.rightHand.quaternion.slerp(bp, 0.1); av.bones.rightHand.quaternion.normalize(); }
         }
+        
+        // Torso - subtle breathing
         if (av.bones.torso) {
           const bp = bindPoseQuats.current["torso"];
           if (bp) {
-            tmpQuat1.current.setFromEuler(tmpEuler1.current.set(Math.sin(t * 0.3 + 2.0) * 0.005, 0, Math.sin(t * 0.25) * 0.008));
+            tmpEuler1.current.set(Math.sin(t * 0.2) * 0.004, 0, Math.sin(t * 0.15) * 0.004);
+            tmpQuat1.current.setFromEuler(tmpEuler1.current);
             resultQuat.current.multiplyQuaternions(tmpQuat1.current, bp);
-            av.bones.torso.quaternion.slerp(resultQuat.current, 0.2);
+            av.bones.torso.quaternion.slerp(resultQuat.current, 0.15);
             av.bones.torso.quaternion.normalize();
           }
         }
@@ -1363,47 +1425,47 @@ export default function SignAvatar({
   }, []);
 
   return (
-    <div className="relative w-full h-96 rounded-xl overflow-hidden border border-slate-700/50">
+    <div className="relative w-full h-96 rounded-none overflow-hidden border-2 border-ink shadow-brutal">
       <div ref={containerRef} className="w-full h-full" />
       {!modelReady && !loadingError && (
-        <div className="absolute inset-0 flex flex-col items-center justify-center gap-4 bg-[#050810]">
-          <div className="flex size-12 items-center justify-center rounded-full border-4 border-white/10 border-t-cyan-400 animate-spin" aria-hidden="true" />
-          <p className="text-sm font-semibold text-slate-400">Loading 3D avatar…</p>
+        <div className="absolute inset-0 flex flex-col items-center justify-center gap-4 bg-paper-sunken">
+          <div className="flex size-12 items-center justify-center rounded-full border-4 border-ink/15 border-t-teal animate-spin" aria-hidden="true" />
+          <p className="text-sm font-semibold text-ink-soft">Loading 3D avatar…</p>
         </div>
       )}
       {loadingError && (
-        <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-[#050810] p-6 text-center">
-          <p className="text-sm font-bold text-red-300">3D Avatar Error</p>
-          <p className="text-xs text-slate-500 max-w-xs">{loadingError}</p>
+        <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-paper p-6 text-center">
+          <p className="text-sm font-bold text-coral">3D Avatar Error</p>
+          <p className="text-xs text-ink-mute max-w-xs">{loadingError}</p>
         </div>
       )}
       {totalFrames > 0 && (
-        <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 to-transparent p-3">
+        <div className="absolute bottom-0 left-0 right-0 bg-paper-sunken/95 border-t-2 border-ink p-3">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
               <button
                 onClick={handleStepBack}
-                className="w-8 h-8 rounded-lg bg-white/10 hover:bg-white/20 text-white text-sm flex items-center justify-center transition-all duration-200 active:scale-[0.98] focus:outline-none focus:ring-2 focus:ring-cyan-400/40"
+                className="w-8 h-8 rounded-none border-2 border-ink bg-paper text-ink hover:bg-ink hover:text-paper flex items-center justify-center transition-all duration-200 active:scale-[0.98] focus:outline-none focus:ring-2 focus:ring-teal"
                 title="Step back"
               >
                 {"\u25C0"}
               </button>
               <button
                 onClick={() => setIsPlaying(!isPlaying)}
-                className="w-8 h-8 rounded-lg bg-white/10 hover:bg-white/20 text-white text-sm flex items-center justify-center transition-all duration-200 active:scale-[0.98] focus:outline-none focus:ring-2 focus:ring-cyan-400/40"
+                className="w-8 h-8 rounded-none border-2 border-ink bg-paper text-ink hover:bg-ink hover:text-paper flex items-center justify-center transition-all duration-200 active:scale-[0.98] focus:outline-none focus:ring-2 focus:ring-teal"
                 title={isPlaying ? "Pause" : "Play"}
               >
                 {isPlaying ? "\u275A\u275A" : "\u25B6"}
               </button>
               <button
                 onClick={handleStepForward}
-                className="w-8 h-8 rounded-lg bg-white/10 hover:bg-white/20 text-white text-sm flex items-center justify-center transition-all duration-200 active:scale-[0.98] focus:outline-none focus:ring-2 focus:ring-cyan-400/40"
+                className="w-8 h-8 rounded-none border-2 border-ink bg-paper text-ink hover:bg-ink hover:text-paper flex items-center justify-center transition-all duration-200 active:scale-[0.98] focus:outline-none focus:ring-2 focus:ring-teal"
                 title="Step forward"
               >
                 {"\u25B6\u25B6"}
               </button>
             </div>
-            <div className="text-xs text-slate-400 font-mono">
+            <div className="text-xs text-ink font-mono">
               {effectiveFrameIndex + 1} / {totalFrames}
             </div>
             <div className="flex items-center gap-1">
@@ -1411,10 +1473,10 @@ export default function SignAvatar({
                 <button
                   key={speed}
                   onClick={() => handleSpeedChange(speed)}
-                  className={`px-2 py-0.5 rounded text-xs font-bold transition-all duration-200 active:scale-[0.98] focus:outline-none focus:ring-2 focus:ring-cyan-400/40 ${
+                  className={`px-2 py-0.5 rounded-none text-xs font-bold transition-all duration-200 active:scale-[0.98] focus:outline-none focus:ring-2 focus:ring-teal ${
                     playbackSpeed === speed
-                      ? "bg-cyan-400/30 text-cyan-300 border border-cyan-400/50"
-                      : "bg-white/5 text-slate-400 hover:bg-white/10"
+                      ? "bg-teal text-ink border-2 border-teal-deep"
+                      : "bg-paper text-ink-soft hover:bg-ink/5 border-2 border-transparent"
                   }`}
                 >
                   {speed}x
@@ -1422,9 +1484,9 @@ export default function SignAvatar({
               ))}
             </div>
           </div>
-          <div className="mt-2 h-1 bg-white/10 rounded-full overflow-hidden">
+          <div className="mt-2 h-1 bg-ink/10 rounded-none overflow-hidden">
             <div
-              className="h-full bg-cyan-400 rounded-full transition-all duration-100"
+              className="h-full bg-teal rounded-none transition-all duration-100"
               style={{ width: `${((effectiveFrameIndex + 1) / totalFrames) * 100}%` }}
             />
           </div>

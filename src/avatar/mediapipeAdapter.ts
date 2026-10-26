@@ -762,6 +762,36 @@ function resolveHandAssignment(
       // If neither side is sticky, keep the stateless greedy result.
     }
   }
+
+// PHASE 37 — fix single-hand assignment using shoulder-relative x-sign.
+// When only one hand group is present, the greedy pass may assign it to the
+// wrong side (e.g. right-hand data in left-hand slot due to noisy pose Z).
+// The hand's x-coordinate relative to the shoulder midpoint (positive = image right)
+// reliably indicates the anatomical side when combined with shoulder ordering.
+// This corrects the assignment when detected hand's x-sign disagrees with greedy.
+const presentGroups = [out.left, out.right].filter(
+  (g): g is number => g !== null
+);
+if (presentGroups.length === 1) {
+  const singleGroup = presentGroups[0];
+  // Use shoulder midline to disambiguate left/right in a convention-robust way.
+  const ls = readPoseLM(data, POSE.LEFT_SHOULDER);
+  const rs = readPoseLM(data, POSE.RIGHT_SHOULDER);
+  const shoulderMidX = (ls[0] + rs[0]) * 0.5;
+  const shoulderMidValid = Math.abs(ls[0] - rs[0]) > 1e-4;
+  const handWrist = readHandLM(data, singleGroup, HAND.WRIST);
+  const handX = handWrist[0];
+  const handSideFromX = shoulderMidValid && (handX - shoulderMidX) * (ls[0] - shoulderMidX) > 0
+    ? "left"
+    : "right";
+  const greedySide = out.left !== null ? "left" : out.right !== null ? "right" : null;
+  if (greedySide && greedySide !== handSideFromX) {
+    // Move the single detected group to the correct anatomical side; clear the other.
+    out.left = handSideFromX === "left" ? singleGroup : null;
+    out.right = handSideFromX === "right" ? singleGroup : null;
+  }
+}
+
   return out;
 }
 
@@ -804,7 +834,7 @@ export let lastHandAssignment: HandAssignment | null = null;
 /**
  * Convert a packed MediaPipe landmark buffer to a CanonicalPose.
  *
- * @param data The packed Float32Array from normalizeLandmarks or packHolisticResult
+ * @param data The packed Float32Array from packHolisticResult (raw 345 floats)
  * @param timestamp Frame timestamp in seconds
  */
 export function mediapipeToCanonicalPose(
@@ -832,6 +862,39 @@ export function mediapipeToCanonicalPose(
   ) {
     return null;
   }
+
+  // PHASE 44 — when a hand is detected, make the BODY's wrist target point at
+  // the actual hand position.
+  //
+  // The arm retargeter (bodyRetargeter.ts:454) aims the forearm at
+  // `body.leftWrist` / `body.rightWrist`, which are MediaPipe POSE wrist
+  // landmarks (indices 15/16). The hand retargeter places the hand bone at
+  // `hand.wristPos`, which comes from the HAND GROUP's wrist (offset 99/162).
+  // Those are two DIFFERENT measurements of the same joint, and in these
+  // recordings they disagree badly.
+  //
+  // Measured on ADOPT frame 0 (canonical, shoulder-widths):
+  //   pose left wrist   = [0.634, 0.994, -3.245]
+  //   hand left wrist   = [0.637, 0.898,  0.309]
+  //   separation        = 3.56 shoulder-widths  (~1.07 m)
+  //
+  // The pose wrist is a phantom: MediaPipe's pose model extrapolates the wrist
+  // from the shoulder/elbow line when the hand is out of the pose model's
+  // reach, so it shoots up to 3.9 sh-w forward (HELLO f104: -3.915). The hand
+  // group's wrist is the direct measurement and stays within arm's reach.
+  //
+  // With the old code the arm aimed at the phantom while the hand bone sat at
+  // the real position: the avatar lunged ~1 m forward, hand trailing behind on
+  // a too-short arm. That is the "looks like it's going to another direction"
+  // symptom -- the body points one way, the hand another.
+  //
+  // Overriding `body.wrist` with the detected hand's wristPos makes the arm
+  // aim at the hand by construction. The hand bone's own placement is
+  // unchanged (it already used hand.wristPos), so the two now agree. When no
+  // hand is detected the pose wrist is kept as-is, which is the previous
+  // behaviour for handless clips.
+  if (leftHand) body.leftWrist = leftHand.wristPos;
+  if (rightHand) body.rightWrist = rightHand.wristPos;
 
   // Default hands if not detected
   const leftHandPose: HandPose = leftHand ?? {

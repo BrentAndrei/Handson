@@ -10,9 +10,9 @@
  *   - User already signed in (or use test auth)
  */
 
-import { launch, type Page, type Browser } from "puppeteer-core";
+import { launch, type Page, type ElementHandle } from "puppeteer-core";
 import { existsSync } from "node:fs";
-import { join, resolve } from "node:path";
+import { join } from "node:path";
 import { installAuthBackend, signInViaUi, authStubLog, clickByText } from "./firebase-test-backend";
 
 const ROOT = process.cwd();
@@ -82,7 +82,6 @@ async function main() {
 const browser = await launch({
     executablePath: exe,
     headless: false,
-    ignoreHTTPSErrors: true,
     args: [
       "--no-sandbox", 
       "--disable-setuid-sandbox", 
@@ -242,12 +241,12 @@ async function processVideo(page: Page, video: VideoFile) {
 }
 
 async function exportDataset(page: Page) {
-  const exportBtn = await page.evaluateHandle(() => {
+const exportBtn = await page.evaluateHandle(() => {
     const xpath = '//button[contains(text(), "Export")] | //button[@data-action="export"]';
     const result = document.evaluate(xpath, document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null);
     return result.singleNodeValue;
   });
-  const exportEl = await exportBtn.asElement();
+  const exportEl = await exportBtn.asElement() as ElementHandle<HTMLElement>;
   if (exportEl) {
     await exportEl.click();
     console.log("Export triggered");

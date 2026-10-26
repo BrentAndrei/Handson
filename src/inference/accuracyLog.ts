@@ -65,6 +65,16 @@ export interface AttemptEvent {
 
 export type AccuracyEvent = EmissionEvent | AttemptEvent;
 
+function isAccuracyEvent(e: unknown): e is AccuracyEvent {
+  return (
+    e !== null &&
+    typeof e === "object" &&
+    "type" in e &&
+    (((e as { type: unknown }).type === "emission" ||
+      (e as { type: unknown }).type === "attempt"))
+  );
+}
+
 export const STORAGE_KEY = "handson.accuracy.v1";
 /** Hard cap — roughly a few hundred practice attempts
  *  plus their emission streams. Oldest events drop. */
@@ -102,8 +112,7 @@ export class AccuracyLogger {
           (e): e is AccuracyEvent =>
             e !== null &&
             typeof e === "object" &&
-            ((e as AccuracyEvent).type === "emission" ||
-              (e as AccuracyEvent).type === "attempt")
+            isAccuracyEvent(e)
         );
       }
     } catch {
@@ -149,9 +158,11 @@ export class AccuracyLogger {
   }): void {
     const endT = this.now();
     const predicted: string[] = [];
-    for (const e of this.events) {
+    const lo = this.lowerBound(input.startT);
+    const hi = this.upperBound(endT);
+    for (let i = lo; i < hi; i++) {
+      const e = this.events[i];
       if (e.type !== "emission") continue;
-      if (e.t < input.startT || e.t > endT) continue;
       if (!predicted.includes(e.label)) predicted.push(e.label);
     }
     this.events.push({
@@ -173,12 +184,38 @@ export class AccuracyLogger {
     return this.events.slice();
   }
 
-  /** Emission events within [startT, endT]. */
+  /** Binary search for first event with t >= startT (events are time-ordered). */
+  private lowerBound(startT: number): number {
+    let lo = 0, hi = this.events.length;
+    while (lo < hi) {
+      const mid = (lo + hi) >> 1;
+      if (this.events[mid].t < startT) lo = mid + 1;
+      else hi = mid;
+    }
+    return lo;
+  }
+
+  /** Binary search for first event with t > endT. */
+  private upperBound(endT: number): number {
+    let lo = 0, hi = this.events.length;
+    while (lo < hi) {
+      const mid = (lo + hi) >> 1;
+      if (this.events[mid].t <= endT) lo = mid + 1;
+      else hi = mid;
+    }
+    return lo;
+  }
+
+  /** Emission events within [startT, endT] — O(log n + k) instead of O(n). */
   emissionsBetween(startT: number, endT: number): EmissionEvent[] {
-    return this.events.filter(
-      (e): e is EmissionEvent =>
-        e.type === "emission" && e.t >= startT && e.t <= endT
-    );
+    const lo = this.lowerBound(startT);
+    const hi = this.upperBound(endT);
+    const out: EmissionEvent[] = [];
+    for (let i = lo; i < hi; i++) {
+      const e = this.events[i];
+      if (e.type === "emission") out.push(e);
+    }
+    return out;
   }
 
   /** Per-label emission counts and mean confidence. */
@@ -207,10 +244,13 @@ export class AccuracyLogger {
    */
   confusionSwitches(windowMs = 1500): Array<{ from: string; to: string; count: number }> {
     const counts = new Map<string, number>();
-    const emissions = this.events.filter((e) => e.type === "emission");
+    const emissions: EmissionEvent[] = [];
+    for (const e of this.events) {
+      if (e.type === "emission") emissions.push(e);
+    }
     for (let i = 1; i < emissions.length; i++) {
-      const prev = emissions[i - 1] as EmissionEvent;
-      const cur = emissions[i] as EmissionEvent;
+      const prev = emissions[i - 1];
+      const cur = emissions[i];
       if (cur.t - prev.t > windowMs || cur.label === prev.label) continue;
       const key = `${prev.label}→${cur.label}`;
       counts.set(key, (counts.get(key) ?? 0) + 1);

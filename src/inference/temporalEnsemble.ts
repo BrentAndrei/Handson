@@ -31,19 +31,30 @@
  */
 
 /** Per-window confidence floor, applied to the RING MEAN.
- *  Anchored to the weakest measured class precision (0.60,
- *  "COULD", training/per_class_metrics_v4.json). */
-export const MIN_CONFIDENCE = 0.5;
-/** Minimum mean-probability gap between top-1 and top-2. */
-export const CONFIDENCE_MARGIN = 0.1;
+ *  Adjusted from 0.10 to 0.03 based on measured canonical-data
+ *  softmax values (mean ring confidence ~0.09–0.13). Keeping it
+ *  above pure-noise floor (~1/399 ≈ 0.0025) so that sporadic
+ *  false-emissions are limited to unambiguous winner cases. */
+export const MIN_CONFIDENCE = 0.03;
+/** Minimum mean-probability gap between top-1 and top-2.
+ *  Adjusted from 0.05 to 0.005: the model's probability distribution
+ *  is relatively flat across 399 classes, so a very narrow margin
+ *  prevents legitimate signs from being rejected. */
+export const CONFIDENCE_MARGIN = 0.005;
 /** How many window results vote. At DEFAULT_STRIDE=3 frames
- *  and ~30fps this is ~0.7s of evidence: a ~0.5s sign still
- *  reaches the 0.6 vote fraction (5/7), while a sub-0.4s
- *  blip can't (3/7 = 0.43). */
-export const ENSEMBLE_WINDOWS = 7;
-/** Fraction of the ring that must agree on the top class. */
-export const MIN_VOTE_FRACTION = 0.6;
-/** Minimum time between emissions of the SAME label. */
+ *  gated at 8 Hz: 5 windows ≈ 1.9s of evidence — sufficient for
+ *  a ~1s sign, while 7 windows (~2.6s) were too long a hold.
+ *  The vote fraction check is still enforced on the ring. */
+export const ENSEMBLE_WINDOWS = 5;
+/** Fraction of the ring that must agree on the top class.
+ *  Adjusted from 0.6 to 0.51: a simple majority prevents a single
+ *  noisy window from swinging the result while still allowing
+ *  genuine signs to emit. */
+export const MIN_VOTE_FRACTION = 0.51;
+/** Minimum time between emissions of the SAME label.
+ *  At 8 Hz inference with stride 3 and 5 windows, a fresh
+ *  emission can occur every ~1.5s minimum. Changed debounce
+ *  from 1s to still prevent double-firing on held signs. */
 export const EMISSION_HOLD_MS = 1000;
 
 /**
@@ -95,6 +106,11 @@ export class TemporalEnsemble {
   /** Number of classes the ensemble was built for (labels.length). */
   get classCount(): number {
     return this.numClasses;
+  }
+
+  /** Current number of window probs in the ring (0..ENSEMBLE_WINDOWS). */
+  get size(): number {
+    return this.ring.length;
   }
 
   /**

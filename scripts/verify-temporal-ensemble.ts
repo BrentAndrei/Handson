@@ -57,7 +57,7 @@ const strongB = () => makeProbs({ B: 0.9 });
 
 // E1: five consistent confident windows emit
 {
-  const e = new TemporalEnsemble(LABELS.length, LABELS, 5, 0.6, 0.5, 0.1, 1000, clock);
+  const e = new TemporalEnsemble(LABELS.length, LABELS, 5, 0.6, 0.1, 0.05, 1000, clock);
   const r = feed(e, [strongA(), strongA(), strongA(), strongA(), strongA()]);
   check("E1 consistent ring emits top label",
     r !== null && r.label === "A" && Math.abs(r.confidence - 0.9) < 1e-6,
@@ -66,14 +66,14 @@ const strongB = () => makeProbs({ B: 0.9 });
 
 // E2: partial ring never emits
 {
-  const e = new TemporalEnsemble(LABELS.length, LABELS, 5, 0.6, 0.5, 0.1, 1000, clock);
+  const e = new TemporalEnsemble(LABELS.length, LABELS, 5, 0.6, 0.1, 0.05, 1000, clock);
   const r = feed(e, [strongA(), strongA(), strongA(), strongA()]);
   check("E2 partial ring stays silent", r === null, JSON.stringify(r));
 }
 
 // E3: three-way split has no majority
 {
-  const e = new TemporalEnsemble(LABELS.length, LABELS, 5, 0.6, 0.5, 0.1, 1000, clock);
+  const e = new TemporalEnsemble(LABELS.length, LABELS, 5, 0.6, 0.1, 0.05, 1000, clock);
   const r = feed(e, [
     makeProbs({ A: 0.8 }), makeProbs({ A: 0.8 }),
     makeProbs({ B: 0.8 }), makeProbs({ B: 0.8 }),
@@ -85,7 +85,7 @@ const strongB = () => makeProbs({ B: 0.9 });
 // E4: same label debounced inside the hold window
 {
   t = 0;
-  const e = new TemporalEnsemble(LABELS.length, LABELS, 5, 0.6, 0.5, 0.1, 1000, clock);
+  const e = new TemporalEnsemble(LABELS.length, LABELS, 5, 0.6, 0.1, 0.05, 1000, clock);
   const first = feed(e, [strongA(), strongA(), strongA(), strongA(), strongA()]);
   t = 100;
   const again = feed(e, [strongA(), strongA(), strongA(), strongA(), strongA()]);
@@ -97,7 +97,7 @@ const strongB = () => makeProbs({ B: 0.9 });
 // E5: after the hold window the sign can re-emit
 {
   t = 0;
-  const e = new TemporalEnsemble(LABELS.length, LABELS, 5, 0.6, 0.5, 0.1, 1000, clock);
+  const e = new TemporalEnsemble(LABELS.length, LABELS, 5, 0.6, 0.1, 0.05, 1000, clock);
   feed(e, [strongA(), strongA(), strongA(), strongA(), strongA()]);
   t = 1100;
   const r = feed(e, [strongA(), strongA(), strongA(), strongA(), strongA()]);
@@ -107,21 +107,21 @@ const strongB = () => makeProbs({ B: 0.9 });
 
 // E6: ring-mean confidence below the floor
 {
-  const e = new TemporalEnsemble(LABELS.length, LABELS, 5, 0.6, 0.5, 0.1, 1000, clock);
+  const e = new TemporalEnsemble(LABELS.length, LABELS, 5, 0.6, 0.1, 0.05, 1000, clock);
   const r = feed(e, [
-    makeProbs({ A: 0.4 }), makeProbs({ A: 0.4 }), makeProbs({ A: 0.4 }),
-    makeProbs({ A: 0.4 }), makeProbs({ A: 0.4 }),
+    makeProbs({ A: 0.05 }), makeProbs({ A: 0.05 }), makeProbs({ A: 0.05 }),
+    makeProbs({ A: 0.05 }), makeProbs({ A: 0.05 }),
   ]);
   check("E6 low mean confidence stays silent", r === null, JSON.stringify(r));
 }
 
 // E7: margin below the floor
 {
-  const e = new TemporalEnsemble(LABELS.length, LABELS, 5, 0.6, 0.5, 0.1, 1000, clock);
+  const e = new TemporalEnsemble(LABELS.length, LABELS, 5, 0.6, 0.1, 0.05, 1000, clock);
   const r = feed(e, [
-    makeProbs({ A: 0.55, B: 0.5 }), makeProbs({ A: 0.55, B: 0.5 }),
-    makeProbs({ A: 0.55, B: 0.5 }), makeProbs({ A: 0.55, B: 0.5 }),
-    makeProbs({ A: 0.55, B: 0.5 }),
+    makeProbs({ A: 0.08, B: 0.06 }), makeProbs({ A: 0.08, B: 0.06 }),
+    makeProbs({ A: 0.08, B: 0.06 }), makeProbs({ A: 0.08, B: 0.06 }),
+    makeProbs({ A: 0.08, B: 0.06 }),
   ]);
   check("E7 thin margin stays silent", r === null, JSON.stringify(r));
 }
@@ -129,7 +129,7 @@ const strongB = () => makeProbs({ B: 0.9 });
 // E8: ring resets after an emission
 {
   t = 0;
-  const e = new TemporalEnsemble(LABELS.length, LABELS, 5, 0.6, 0.5, 0.1, 1000, clock);
+  const e = new TemporalEnsemble(LABELS.length, LABELS, 5, 0.6, 0.1, 0.05, 1000, clock);
   feed(e, [strongA(), strongA(), strongA(), strongA(), strongA()]);
   t = 1100;
   const r = e.push(strongA());
@@ -138,7 +138,7 @@ const strongB = () => makeProbs({ B: 0.9 });
 
 // E9: one noisy pre-sign window can't outvote a real sign
 {
-  const e = new TemporalEnsemble(LABELS.length, LABELS, 5, 0.6, 0.5, 0.1, 1000, clock);
+  const e = new TemporalEnsemble(LABELS.length, LABELS, 5, 0.6, 0.1, 0.05, 1000, clock);
   const noisy = makeProbs({ B: 0.06, A: 0.05 });
   const r = feed(e, [noisy, strongA(), strongA(), strongA(), strongA()]);
   check("E9 noisy window outvoted",
@@ -149,7 +149,7 @@ const strongB = () => makeProbs({ B: 0.9 });
 // E10: a different label inside the hold window still emits
 {
   t = 0;
-  const e = new TemporalEnsemble(LABELS.length, LABELS, 5, 0.6, 0.5, 0.1, 1000, clock);
+  const e = new TemporalEnsemble(LABELS.length, LABELS, 5, 0.6, 0.1, 0.05, 1000, clock);
   const first = feed(e, [strongA(), strongA(), strongA(), strongA(), strongA()]);
   t = 100;
   const second = feed(e, [strongB(), strongB(), strongB(), strongB(), strongB()]);
@@ -160,7 +160,7 @@ const strongB = () => makeProbs({ B: 0.9 });
 
 // E11: wrong vector length throws
 {
-  const e = new TemporalEnsemble(LABELS.length, LABELS, 5, 0.6, 0.5, 0.1, 1000, clock);
+  const e = new TemporalEnsemble(LABELS.length, LABELS, 5, 0.6, 0.1, 0.05, 1000, clock);
   let threw = false;
   try {
     e.push(new Float32Array([0.5, 0.5]));
@@ -172,7 +172,7 @@ const strongB = () => makeProbs({ B: 0.9 });
 
 // E12: runner-up travels with the emission
 {
-  const e = new TemporalEnsemble(LABELS.length, LABELS, 5, 0.6, 0.5, 0.1, 1000, clock);
+  const e = new TemporalEnsemble(LABELS.length, LABELS, 5, 0.6, 0.1, 0.05, 1000, clock);
   const probs = () => makeProbs({ A: 0.9, B: 0.6 });
   const r = feed(e, [probs(), probs(), probs(), probs(), probs()]);
   check("E12 runner-up reported",

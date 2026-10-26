@@ -1,0 +1,15 @@
+6528168	C:/Users/BRENT/Downloads/handson_fixed\handson\training\train_out_merged\fsl_model.h5
+6528168	C:/Users/BRENT/Downloads/handson_fixed\handson\training\model_out\fsl_model.h5
+6515952	C:/Users/BRENT/Downloads/handson_fixed\handson\training\train_out_merged\best.weights.h5
+6515952	C:/Users/BRENT/Downloads/handson_fixed\handson\training\model_out\best.weights.h5
+6302304	C:/Users/BRENT/Downloads/handson_fixed\handson\training\model_out_test2\fsl_model.h5
+6291936	C:/Users/BRENT/Downloads/handson_fixed\handson\training\model_out_test2\best.weights.h5
+6291936	C:/Users/BRENT/Downloads/handson_fixed\handson\training\model_out_new\best.weights.h5
+6291936	C:/Users/BRENT/Downloads/handson_fixed\handson\training\best.weights.h5
+13492	C:/Users/BRENT/Downloads/handson_fixed\model_compiled_consolidated_tfjs\model.json
+13492	C:/Users/BRENT/Downloads/handson_fixed\handson\training\train_out_merged\tfjs_model_merged\model.json
+13491	C:/Users/BRENT/Downloads/handson_fixed\handson\training\model_out\tfjs_model_399\model.json
+7624	C:/Users/BRENT/Downloads/handson_fixed\handson\public\models\fsl_model\model.json
+7624	C:/Users/BRENT/Downloads/handson_fixed\handson\dist\models\fsl_model\model.json
+7600	C:/Users/BRENT/Downloads/handson_fixed\handson\training\tfjs_model_old_backup\model.json
+7600	C:/Users/BRENT/Downloads/handson_fixed\handson\dist-verify\models\fsl_model\model.json
