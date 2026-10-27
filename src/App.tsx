@@ -156,7 +156,7 @@ const landmarkSmootherRef = useRef(new LandmarkSmoother(3, true, true));
       window.removeEventListener("offline-change", onSwOffline);
     };
   }, []);
-   const inference = useSignInference("/models/fsl_model/tfjs/model.json", INFERENCE_LABELS);
+   const inference = useSignInference("/models/fsl_model/tfjs_combined/model.json", INFERENCE_LABELS);
   const sentenceBuilder = useSentenceBuilder();
   const inferencePushRef = useRef(inference.pushFrame); inferencePushRef.current = inference.pushFrame;
   const lastInferencePushRef = useRef(0);
