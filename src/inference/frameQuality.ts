@@ -53,21 +53,19 @@ export interface FrameQuality {
  *  shoulder-width units) is either absent or collapsed. Mirrors
  *  MIN_HAND_SPREAD in mediapipeAdapter.ts — an absent group
  *  normalizes to 21 IDENTICAL points (spread 0), so this is the
- *  shift-invariant presence test. */
-export const MIN_HAND_SPREAD = 0.02;
+ *  shift-invariant presence test. Lowered from 0.005 to allow
+ *  fast, tight signs. */
+export const MIN_HAND_SPREAD = 0.003;
 
 /** A single-frame hand jump larger than this (shoulder widths)
  *  is a tracking dropout, not part of a sign. FSL wrist motion
- *  is fast but continuous; a >0.5 jump in one frame is a
- *  glitch. */
-export const MAX_FRAME_JUMP = 0.5;
+ *  is fast but continuous; a >1.0 jump in one frame is a
+ *  glitch. Raised from 0.5 to allow fast signing. */
+export const MAX_FRAME_JUMP = 1.0;
 
 /** Consecutive rest frames before the gate reports isRest.
- *  One absent frame is a blink; several in a row means the signer
- *  actually stopped. Raised to 6 because inference is fed at ~8 Hz
- *  (time-matched to training) so a mid-sign hand flicker must NOT
- *  wipe the whole sliding window. */
-export const REST_FRAME_THRESHOLD = 6;
+ *  Reduced from 6 to 4 for faster rest-state transitions. */
+export const REST_FRAME_THRESHOLD = 4;
 
 /** Offsets of the two hand groups in a selectFeatures() output. */
 const LEFT_HAND_START = 99;

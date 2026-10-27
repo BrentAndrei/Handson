@@ -126,7 +126,7 @@ function HandSonApp() {
   const [showEnglish, setShowEnglish] = useState(true);
   const [textSize, setTextSize] = useState<"sm" | "base" | "lg">("base");
   const [showAccuracyDashboard, setShowAccuracyDashboard] = useState(false);
-  const [confidenceThreshold, setConfidenceThreshold] = useState(0.6);
+  const [confidenceThreshold, setConfidenceThreshold] = useState(0.15);
   const [highContrast, setHighContrast] = useState(false);
   const [showAvatar, setShowAvatar] = useState(true);
   const avatarLandmarksRef = useRef<Float32Array | null>(null);
@@ -156,7 +156,7 @@ const landmarkSmootherRef = useRef(new LandmarkSmoother(3, true, true));
       window.removeEventListener("offline-change", onSwOffline);
     };
   }, []);
-   const inference = useSignInference("/models/fsl_model_v2/model.json", INFERENCE_LABELS);
+   const inference = useSignInference("/models/fsl_model/tfjs/model.json", INFERENCE_LABELS);
   const sentenceBuilder = useSentenceBuilder();
   const inferencePushRef = useRef(inference.pushFrame); inferencePushRef.current = inference.pushFrame;
   const lastInferencePushRef = useRef(0);

@@ -79,3 +79,5 @@ build-after-*.txt
 inspect_output.txt
 inspect_results.txt
 scripts_output.txt
+.vercel
+.env*

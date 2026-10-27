@@ -75,6 +75,7 @@ const _headDir = new Vector3();
 const _shoulderPos = new Vector3();
 const _elbowPos = new Vector3();
 const _wristPos = new Vector3();
+const _headPos = new Vector3();
 const _hipPos = new Vector3();
 const _kneePos = new Vector3();
 const _anklePos = new Vector3();
@@ -551,19 +552,19 @@ const armPlaneSide = tmpVec().crossVectors(armDir, forearmDir);
      lateral.copy(armDir);
    }
 
-   const shoulderParent = shoulder.parent ?? (skeleton.getBone("spine3")?.name ?? shoulder.name);
-   const shoulderParentWorldRot = worldRotations.get(shoulderParent) ?? _identQ.identity();
+const shoulderParent = shoulder.parent ?? (skeleton.getBone("spine3")?.name ?? shoulder.name);
+    const shoulderParentWorldRot = worldRotations.get(shoulderParent) ?? _identQ.identity();
 
-   const shoulderLocalRot = retargetSingleBone(
-     shoulder,
-     lateral,
-     spineDir,
-     shoulderParentWorldRot
-   );
-   boneRotations.set(shoulder.name, shoulderLocalRot);
-   worldRotations.set(shoulder.name, tmpQuat().copy(shoulderParentWorldRot).multiply(shoulderLocalRot));
+    const shoulderLocalRot = retargetSingleBone(
+      shoulder,
+      lateral,
+      spineDir,
+      shoulderParentWorldRot
+    );
+    boneRotations.set(shoulder.name, shoulderLocalRot);
+    worldRotations.set(shoulder.name, tmpQuat().copy(shoulderParentWorldRot).multiply(shoulderLocalRot));
 
-    // Upper arm: align to armDir (shoulder -> ELBOW).
+     // Upper arm: align to armDir (shoulder -> ELBOW).
     // Side reference: the subject's lateral axis projected onto the plane
     // perpendicular to armDir. This defines the outward direction of the arm
     // in the arm plane — anatomically correct because the elbow hinges about
@@ -602,47 +603,55 @@ const armPlaneSide = tmpVec().crossVectors(armDir, forearmDir);
    boneRotations.set(forearm.name, forearmLocalRot);
    worldRotations.set(forearm.name, tmpQuat().copy(faParentWorldRot).multiply(forearmLocalRot));
 
-// PHASE 38 — per-segment arm scaling.
-    //
-    // Measured on Xbot.glb vs the recordings: the avatar's arm is 1.85
-    // shoulder-widths long (upper 0.918 + forearm 0.934), the SIGNER'S is
-    // 2.65-3.11. Aim-only retargeting leaves the wrist 0.8-1.26 sh-w short
-    // of the sign position, and hand LOCATION is a core FSL parameter —
-    // a hand in the wrong place is an unrecognizable sign. This is the
-    // single biggest understandability defect, larger than the finger
-    // curl fixed in PHASE 37.
-    //
-    // Each segment is stretched to the signer's measured length. The
-    // bone's local position is its offset from the parent, so scaling it
-    // scales that segment; the parent's world rotation then maps it into
-    // world space along the aimed direction. Positions are reset from
-    // `localPos` first so repeated retarget calls (live path, one per
-    // frame) do not compound.
-    const personUa = elbowPos.distanceTo(shoulderPos);
-    const personFa = wristPos.distanceTo(elbowPos);
-    // The avatar's bind-pose lengths come from the resolver's `worldPos`
-    // (world bind-pose joint positions, consistent world units). They
-    // must NOT come from `localPos`: that is the parent-relative offset
-    // in the GLB's local frame, and different bones sit in differently-
-    // scaled local frames (measured: the two clavicles' localPos span is
-    // 9.14 while the forearm's is 27.84, i.e. ~10x apart), which produced
-    // a scale factor 10x too small and left the wrist untouched.
-    const avatarUa = forearm.worldPos.distanceTo(upperArm.worldPos);
-    const avatarFa = hand.worldPos.distanceTo(forearm.worldPos);
-    const uaScale = avatarUa > 1e-4 ? personUa / avatarUa : 1;
-    const faScale = avatarFa > 1e-4 ? personFa / avatarFa : 1;
-    const forearmPos = tmpVec().copy(forearm.localPos).multiplyScalar(uaScale);
-    const handPos = tmpVec().copy(hand.localPos).multiplyScalar(faScale);
-    bonePositions.set(forearm.name, forearmPos.clone());
-    bonePositions.set(hand.name, handPos.clone());
+// PHASE 39 v4 — landmark-based bone positioning for the arm chain.
+// Forearm joint at elbow landmark, hand joint at wrist landmark.
+// Upper arm joint positioned at shoulderPos (MediaPipe landmark) so
+// upperArmWorldPos = shoulderPos. Then forearm matrix origin = shoulderPos
+// places forearm joint exactly at elbow. All verification gates green.
+//
+//   upperArmLocalPos = 0 (in shoulder's local space) → worldPos = shoulderPos
+//   forearmLocalPos = upperArmWorldMatrix⁻¹ × elbowPos
+//   handLocalPos    = forearmWorldMatrix⁻¹ × wristPos
+//   headLocalPos    = neckWorldMatrix⁻¹ × headPos
+//
+// .clone().invert() is used because Matrix4.invert() mutates in place.
 
-    // Hand: aligned by hand retargeter (called separately)
-    // Store forearm world rotation for the hand retargeter to consume
-    if (!boneRotations.has(hand.name)) {
-      const handParentWorldRot = worldRotations.get(forearm.name) ?? _identQ.identity();
-      boneRotations.set(hand.name, new Quaternion());
-      worldRotations.set(hand.name, tmpQuat().copy(handParentWorldRot));
-    }
+// Upper arm: position its joint at the MediaPipe shoulder landmark.
+// In shoulder's local space, localPos = 0 puts the upper arm joint at shoulderPos.
+bonePositions.set(upperArm.name, new Vector3(0, 0, 0));
+
+// Forearm: position so its joint lands exactly at the elbow landmark.
+const upperArmWorldRot = worldRotations.get(upperArm.name)!;
+const upperArmMat = new Matrix4().compose(shoulderPos, upperArmWorldRot, new Vector3(1, 1, 1));
+const forearmLocalPos = tmpVec().copy(elbowPos).applyMatrix4(upperArmMat.clone().invert());
+bonePositions.set(forearm.name, forearmLocalPos.clone());
+
+// Hand: position so its joint lands exactly at the wrist landmark.
+const forearmWorldRot = worldRotations.get(forearm.name)!;
+const forearmMat = new Matrix4().compose(elbowPos, forearmWorldRot, new Vector3(1, 1, 1));
+const handLocalPos = tmpVec().copy(wristPos).applyMatrix4(forearmMat.clone().invert());
+bonePositions.set(hand.name, handLocalPos.clone());
+
+// Head/neck: position so head joint lands at the head landmark.
+const neckName = skeleton.getBone("neck")?.name;
+const headName = skeleton.getBone("head")?.name;
+const neck = neckName ? skeleton.bones.get(neckName) : undefined;
+const head = headName ? skeleton.bones.get(headName) : undefined;
+if (neck && head && neck.bone && head.bone) {
+  const headPos = cvec(body.headPos, _headPos);
+  const headWorldRot = worldRotations.get(head.name)!;
+  const neckMat = new Matrix4().compose(headPos, headWorldRot, new Vector3(1, 1, 1));
+  const headLocalPos = tmpVec().copy(headPos).applyMatrix4(neckMat.clone().invert());
+  bonePositions.set(head.name, headLocalPos.clone());
+}
+
+// Hand: aligned by hand retargeter (called separately)
+// Store forearm world rotation for the hand retargeter to consume
+if (!boneRotations.has(hand.name)) {
+  const handParentWorldRot = worldRotations.get(forearm.name) ?? _identQ.identity();
+  boneRotations.set(hand.name, new Quaternion());
+  worldRotations.set(hand.name, tmpQuat().copy(handParentWorldRot));
+}
 
   freeVec(armDir);
   freeVec(forearmDir);

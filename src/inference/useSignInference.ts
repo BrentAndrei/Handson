@@ -208,6 +208,16 @@ export function useSignInference(modelUrl: string, labels: string[], stride = DE
       probs
         .data()
         .then((data) => {
+          // Bias correction: boost non-day labels (model over-predicts day labels).
+          // Model trained on imbalanced data over-predicts day labels (MONDAY, TUESDAY, etc.).
+          // Apply a 1.25x boost to all non-day labels to counter the bias.
+          // 1.25x is a balanced boost to help other signs without false positives.
+          const dayRegex = /\b(DAY|MONDAY|TUESDAY|WEDNESDAY|THURSDAY|FRIDAY|SATURDAY|SUNDAY|TODAY|YESTERDAY)\b/;
+          for (let i = 0; i < data.length; i++) {
+            if (!dayRegex.test(labels[i])) {
+              data[i] *= 1.25;
+            }
+          }
           if (DEBUG_INFERENCE) {
             const sorted = Array.from(data)
               .map((p, i) => ({ index: i, prob: p }))

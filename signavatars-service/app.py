@@ -10,7 +10,7 @@ from flask import Flask, request, jsonify
 from flask_cors import CORS
 import numpy as np
 
-from fit_smplx import SmplxFitter, MP_TO_SMPLX_JOINT_MAP
+from fit_smplx import SmplxFitter, MP_TO_SMPLX_MAP
 
 app = Flask(__name__)
 CORS(app)

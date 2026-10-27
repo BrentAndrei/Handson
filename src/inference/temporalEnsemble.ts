@@ -31,31 +31,25 @@
  */
 
 /** Per-window confidence floor, applied to the RING MEAN.
- *  Adjusted from 0.10 to 0.03 based on measured canonical-data
- *  softmax values (mean ring confidence ~0.09–0.13). Keeping it
- *  above pure-noise floor (~1/399 ≈ 0.0025) so that sporadic
- *  false-emissions are limited to unambiguous winner cases. */
-export const MIN_CONFIDENCE = 0.03;
+ *  Lowered from 0.03 to 0.015 to allow fast, low-confidence signs
+ *  that still have temporal consistency. Pure noise floor ~1/399 ≈ 0.0025. */
+export const MIN_CONFIDENCE = 0.015;
 /** Minimum mean-probability gap between top-1 and top-2.
- *  Adjusted from 0.05 to 0.005: the model's probability distribution
- *  is relatively flat across 399 classes, so a very narrow margin
- *  prevents legitimate signs from being rejected. */
-export const CONFIDENCE_MARGIN = 0.005;
-/** How many window results vote. At DEFAULT_STRIDE=3 frames
- *  gated at 8 Hz: 5 windows ≈ 1.9s of evidence — sufficient for
- *  a ~1s sign, while 7 windows (~2.6s) were too long a hold.
- *  The vote fraction check is still enforced on the ring. */
-export const ENSEMBLE_WINDOWS = 5;
+ *  Lowered from 0.005 to 0.002 for fast signs with flat distributions. */
+export const CONFIDENCE_MARGIN = 0.002;
+/** How many window results vote. At DEFAULT_STRIDE=2 frames
+ *  gated at 12 Hz: 2 windows ≈ 170ms of evidence — fast enough
+ *  for ~1s signs. Majority vote still enforced. */
+export const ENSEMBLE_WINDOWS = 2;
 /** Fraction of the ring that must agree on the top class.
- *  Adjusted from 0.6 to 0.51: a simple majority prevents a single
- *  noisy window from swinging the result while still allowing
- *  genuine signs to emit. */
-export const MIN_VOTE_FRACTION = 0.51;
+ *  Simple majority (0.5) - fastest possible while preventing
+ *  single-window swings. */
+export const MIN_VOTE_FRACTION = 0.5;
 /** Minimum time between emissions of the SAME label.
- *  At 8 Hz inference with stride 3 and 5 windows, a fresh
- *  emission can occur every ~1.5s minimum. Changed debounce
- *  from 1s to still prevent double-firing on held signs. */
-export const EMISSION_HOLD_MS = 1000;
+ *  At 12 Hz inference with stride 2 and 2 windows, a fresh
+ *  emission can occur every ~330ms minimum. Reduced from 1000ms
+ *  to allow rapid successive signs. */
+export const EMISSION_HOLD_MS = 500;
 
 /**
  * Labels whose corpus recording is bit-identical to

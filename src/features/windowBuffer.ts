@@ -4,7 +4,7 @@ export const WINDOW_SIZE = 16;
 // prediction on its own — denser windows only add votes, at
 // ~10 inferences/sec at 30fps. The adaptive-resolution logic
 // in App.tsx lowers the inference size if camera FPS drops.
-export const DEFAULT_STRIDE = 3;
+export const DEFAULT_STRIDE = 2;
 
 /**
  * Fixed-size ring buffer of feature frames for a LIVE sliding window.

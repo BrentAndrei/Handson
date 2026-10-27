@@ -22,7 +22,7 @@ export function PredictionOverlay({
   ready,
   error,
   prediction,
-  confidenceThreshold = 0.6,
+  confidenceThreshold = 0.15,
   secondOpinion = null,
   onThresholdChange,
 }: Props) {
