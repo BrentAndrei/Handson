@@ -151,10 +151,10 @@ export function useSignInference(modelUrl: string, labels: string[], stride = DE
 
         modelRef.current = model;
         setReady(true);
-        if (DEBUG_INFERENCE) console.log('[useSignInference] Ready state set to true');
+        console.log("[inference-ready] model loaded:", modelUrl);
       } catch (err) {
         if (!cancelled) {
-          console.error('[useSignInference] Model load error:', err);
+          console.error("[inference-error] model load failed:", err);
           setError(err instanceof Error ? err.message : "Failed to load model");
         }
       }
@@ -279,6 +279,7 @@ export function useSignInference(modelUrl: string, labels: string[], stride = DE
                 scores: Record<string, number>;
               }
             ) => {
+              console.log("[inference-emit]", label, confidence.toFixed(3));
               setPrediction({ label, confidence });
               // Measurement layer: every emission (with its
               // runner-up, and whether the second opinion

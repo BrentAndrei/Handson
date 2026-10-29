@@ -162,7 +162,12 @@ const landmarkSmootherRef = useRef(new LandmarkSmoother(3, true, true));
   const lastInferencePushRef = useRef(0);
   const sentenceOnActivityRef = useRef(sentenceBuilder.onActivity); sentenceOnActivityRef.current = sentenceBuilder.onActivity;
   const sentenceOnPredictionRef = useRef(sentenceBuilder.onPrediction); sentenceOnPredictionRef.current = sentenceBuilder.onPrediction;
-  useEffect(() => { if (inference.prediction) sentenceOnPredictionRef.current(inference.prediction, performance.now()); }, [inference.prediction]);
+  useEffect(() => {
+    if (inference.prediction) {
+      console.log("[inference-pred]", inference.prediction.label, inference.prediction.confidence.toFixed(3));
+      sentenceOnPredictionRef.current(inference.prediction, performance.now());
+    }
+  }, [inference.prediction]);
   const handleLandmarks = useCallback((msg: LandmarksResult) => {
     // Smooth ONLY for avatar display — the classifier must see unsmoothed
     // features matching the training pipeline (extract_landmarks.py does NOT

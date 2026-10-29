@@ -206,11 +206,6 @@ function retargetSingleBone(
   // reference side with targetSide.
   const worldRot = tmpQuat().copy(twistQuat).multiply(dirQuat);
 
-  if (bone.name === "spine_01") {
-    const checkAim = new Vector3().copy(bindDir).applyQuaternion(worldRot);
-    console.error(`DBG5 spine_01: parentWR=${parentWorldRot.toArray().map(x=>+x.toFixed(4))} worldRot=${worldRot.toArray().map(x=>+x.toFixed(4))} boneWR=${bone.worldRot.toArray().map(x=>+x.toFixed(4))} bindDir=${bindDir.toArray().map(x=>+x.toFixed(4))} targetDir=${targetDir.toArray().map(x=>+x.toFixed(4))} worldRot×bindDir=${checkAim.toArray().map(x=>+x.toFixed(4))}`);
-  }
-
 // Step 6: Convert to local.
 //
 // Desired world rotation for this bone: worldRot_bind × R where R × worldBindDir =
@@ -305,12 +300,11 @@ const boneRotations = new Map<string, Quaternion>();
     //   Y = spine direction (up)
     //   Z = X x Y = the character's facing (+Z world for a neutral pose)
     //
-    // The Hips bone's bind rotation is the identity (measured on Xbot.glb: every node
-    // rotation is [0,0,0,1]), so its bind basis IS the world basis — its local +X is
-    // the MODEL'S LEFT (+X world), +Y is up and +Z is the facing.  `body.shoulderAxis`
-    // is (rightShoulder - leftShoulder) = the subject's RIGHT, so mapping the local X
-    // onto it yawed the whole root 180deg (and, because children inherit the root's
-    // translation frame, it also swapped the Left/Right leg root positions).
+    // The root rotation is the canonical body frame built from landmarks.  For Avery
+    // (whose bind pose is not identity: Root is tilted -90deg about X) this still works
+    // because we OVERWRITE bone.quaternion directly (applyBoneRotations replaces bind),
+    // so no bind-cancel correction is needed here — bodyOrientation IS the final local
+    // rotation of the hips bone.
     const rightDir = tmpVec().copy(shoulderAxis).projectOnPlane(spine).normalize();
     if (rightDir.length() < 0.1) {
       rightDir.crossVectors(CANONICAL_UP, spine).normalize();
@@ -328,28 +322,25 @@ const boneRotations = new Map<string, Quaternion>();
     // --- Populate world rotations for non-retargeted bones whose parent is retargeted ---
     // Bones like the pelvis sit between the retargeted hips and the spine/leg
     // chains. They keep their bind local rotation, so their final world rotation
-    // = parent's final world rotation × their bind local rotation. Without this,
-    // retargetSingleBone would default parentWorldRot to identity for these bones
-    // (since they're not in worldRotations), corrupting every child calculation.
-    for (const name of skeleton.boneOrder) {
-      if (worldRotations.has(name)) continue;
-      const bone = skeleton.bones.get(name)!;
-      const parentName = bone.parent;
-      if (parentName && worldRotations.has(parentName)) {
-        const parentWR = worldRotations.get(parentName)!;
-        // Compute bone.localRot = parent.worldRot_bind.invert() × bone.worldRot_bind.
-        // Using bone.localRot directly can be wrong if bone.matrix wasn't properly
-        // decomposed from the GLTF bind data; composing from world rotations is exact.
-        const parentBone = skeleton.bones.get(parentName)!;
-        const boneLocalRot = tmpQuat().copy(parentBone.worldRot).invert().multiply(bone.worldRot);
-        if (name === "pelvis") {
-          console.error(`DBG8 pelvis: parentBone.worldRot=${parentBone.worldRot.toArray().map(x=>+x.toFixed(4))} pelvis.worldRot=${bone.worldRot.toArray().map(x=>+x.toFixed(4))} boneLocalRot=${boneLocalRot.toArray().map(x=>+x.toFixed(4))} computed=${tmpQuat().copy(parentWR).multiply(boneLocalRot).toArray().map(x=>+x.toFixed(4))}`);
+    // = parent's final world rotation × their bind local rotation. Iterate until
+    // every bone is resolved (boneOrder may not be topologically sorted).
+    let unresolved = new Set(skeleton.boneOrder.filter((n) => !worldRotations.has(n)));
+    while (unresolved.size > 0) {
+      let progress = 0;
+      for (const name of [...unresolved]) {
+        const bone = skeleton.bones.get(name)!;
+        const parentName = bone.parent;
+        if (parentName && worldRotations.has(parentName)) {
+          const parentWR = worldRotations.get(parentName)!;
+          const parentBone = skeleton.bones.get(parentName)!;
+          const boneLocalRot = tmpQuat().copy(parentBone.worldRot).invert().multiply(bone.worldRot);
+          worldRotations.set(name, tmpQuat().copy(parentWR).multiply(boneLocalRot));
+          unresolved.delete(name);
+          progress++;
         }
-        worldRotations.set(name, tmpQuat().copy(parentWR).multiply(boneLocalRot));
       }
+      if (progress === 0) break;
     }
-    console.error(`DBG7 entries=${[...worldRotations.entries()].filter(([k])=>["pelvis","spine_01","Root","LeftLeg","RightLeg"].includes(k)).map(([k,v])=>`${k}:[${v.toArray().map(x=>+x.toFixed(2))}]`).join(" | ")}`);
-    console.error(`DBG9 boneOrder.includes(pelvis)=${skeleton.boneOrder.includes("pelvis")}`);
 
     freeQuat(rootRot);
     freeVec(spine);
