@@ -102,7 +102,7 @@
                 "bias_constraint": null,
                 "dropout": 0.3,
                 "recurrent_dropout": 0.2,
-                "reset_after": true,
+                "reset_after": false,
                 "seed": null
               },
               "registered_name": null,
@@ -172,7 +172,7 @@
                 "bias_constraint": null,
                 "dropout": 0.3,
                 "recurrent_dropout": 0.2,
-                "reset_after": true,
+                "reset_after": false,
                 "seed": null
               },
               "registered_name": null,
@@ -293,7 +293,7 @@
                 "bias_constraint": null,
                 "dropout": 0.3,
                 "recurrent_dropout": 0.2,
-                "reset_after": true,
+                "reset_after": false,
                 "seed": null
               },
               "registered_name": null,
@@ -363,7 +363,7 @@
                 "bias_constraint": null,
                 "dropout": 0.3,
                 "recurrent_dropout": 0.2,
-                "reset_after": true,
+                "reset_after": false,
                 "seed": null
               },
               "registered_name": null,
@@ -732,7 +732,7 @@
                 "bias_constraint": null,
                 "dropout": 0.3,
                 "recurrent_dropout": 0.2,
-                "reset_after": true,
+                "reset_after": false,
                 "seed": null
               },
               "registered_name": null,
@@ -802,7 +802,7 @@
                 "bias_constraint": null,
                 "dropout": 0.3,
                 "recurrent_dropout": 0.2,
-                "reset_after": true,
+                "reset_after": false,
                 "seed": null
               },
               "registered_name": null,
