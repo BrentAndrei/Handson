@@ -401,17 +401,18 @@ function resolveBoneMapping(
 
     for (const [sideUpper, sideLower] of sides) {
       for (const [fingerPart, fingerName] of fingerBases) {
-        // Avery pattern: {finger}_{01|02|03}_{l|r}
-        const averyRegex = new RegExp(
-          `${fingerPart}_0?[123]_${sideLower}$`,
-          "i"
-        );
-        // Xbot pattern: {Left|Right}Hand{Thumb|Index|...}{1..4}
-        const xbotRegex = new RegExp(
-          `${sideUpper}Hand${fingerPart}\\d`,
-          "i"
-        );
-        for (let i = 1; i <= 4; i++) {
+    for (let i = 1; i <= 4; i++) {
+          // Avery pattern: {finger}_0{1|2|3}_{l|r} — index-specific so each
+          // phalanx maps to a distinct bone (findByName returns the first match).
+          const averyRegex = new RegExp(
+            `${fingerPart}_0?${i}_${sideLower}$`,
+            "i"
+          );
+          // Xbot pattern: {Left|Right}Hand{Thumb|Index|...}{1..4}
+          const xbotRegex = new RegExp(
+            `${sideUpper}Hand${fingerPart}${i}`,
+            "i"
+          );
           const roleKey = `${sideLower}Finger_${fingerName}_${i}` as const;
           const bone =
             findByName(averyRegex) || findByName(xbotRegex);

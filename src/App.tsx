@@ -341,7 +341,7 @@ const landmarkSmootherRef = useRef(new LandmarkSmoother(3, true, true));
               <CameraPreview onVideoReady={attachVideo} onCanvasReady={attachCanvas} resolution={resolution} showFlipButton />
             </motion.section>
             <motion.aside
-              className={`space-y-4 ${inference.ready ? "" : "lg:hidden"}`}
+              className={`space-y-4 ${inference.ready ? "" : "opacity-50 pointer-events-none"}`}
               variants={sectionVariants}
               initial="initial"
               animate="animate"

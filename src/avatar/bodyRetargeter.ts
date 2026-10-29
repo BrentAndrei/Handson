@@ -235,10 +235,6 @@ const localRot = tmpQuat()
   // Return a fresh quaternion (caller stores a copy)
 
   // Free temp vecs/quats — we already copied worldRot into localRot
-  if (bone.name === "thigh_l" || bone.name === "spine_01") {
-    const pwr = parentWorldRot;
-    console.error(`DBG ${bone.name}: bindDir=${bone.worldBindDir.toArray().map(x=>+x.toFixed(4))} targetDir=${targetDir.toArray().map(x=>+x.toFixed(4))} parentWR=${pwr.toArray().map(x=>+x.toFixed(4))} worldRot=${worldRot.toArray().map(x=>+x.toFixed(4))} boneWR=${bone.worldRot.toArray().map(x=>+x.toFixed(4))} localRot=${localRot.toArray().map(x=>+x.toFixed(4))}`);
-  }
   return localRot.clone();
 }
 
