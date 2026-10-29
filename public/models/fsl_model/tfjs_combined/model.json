@@ -22,7 +22,9 @@
             "ragged": false,
             "name": "input",
             "optional": false
-          }
+          },
+          "inbound_nodes": [],
+          "name": "inputlayer"
         },
         {
           "class_name": "Bidirectional",
@@ -127,7 +129,9 @@
                 "seed": null
               }
             }
-          }
+          },
+          "inbound_nodes": [],
+          "name": "bidirectional"
         },
         {
           "class_name": "Bidirectional",
@@ -232,7 +236,9 @@
                 "seed": null
               }
             }
-          }
+          },
+          "inbound_nodes": [],
+          "name": "bidirectional"
         },
         {
           "class_name": "MultiHeadAttention",
@@ -269,7 +275,9 @@
             "kernel_constraint": null,
             "bias_constraint": null,
             "seed": null
-          }
+          },
+          "inbound_nodes": [],
+          "name": "multiheadattention"
         },
         {
           "class_name": "Add",
@@ -277,7 +285,9 @@
             "name": "add",
             "trainable": true,
             "dtype": "float32"
-          }
+          },
+          "inbound_nodes": [],
+          "name": "add"
         },
         {
           "class_name": "LayerNormalization",
@@ -304,7 +314,9 @@
             "gamma_regularizer": null,
             "beta_constraint": null,
             "gamma_constraint": null
-          }
+          },
+          "inbound_nodes": [],
+          "name": "layernormalization"
         },
         {
           "class_name": "Bidirectional",
@@ -409,7 +421,9 @@
                 "seed": null
               }
             }
-          }
+          },
+          "inbound_nodes": [],
+          "name": "bidirectional"
         },
         {
           "class_name": "Dropout",
@@ -420,7 +434,9 @@
             "rate": 0.4,
             "seed": null,
             "noise_shape": null
-          }
+          },
+          "inbound_nodes": [],
+          "name": "dropout"
         },
         {
           "class_name": "Dense",
@@ -448,7 +464,9 @@
             "kernel_constraint": null,
             "bias_constraint": null,
             "quantization_config": null
-          }
+          },
+          "inbound_nodes": [],
+          "name": "dense"
         },
         {
           "class_name": "Dropout",
@@ -459,7 +477,9 @@
             "rate": 0.3,
             "seed": null,
             "noise_shape": null
-          }
+          },
+          "inbound_nodes": [],
+          "name": "dropout"
         },
         {
           "class_name": "Dense",
@@ -487,7 +507,9 @@
             "kernel_constraint": null,
             "bias_constraint": null,
             "quantization_config": null
-          }
+          },
+          "inbound_nodes": [],
+          "name": "dense"
         },
         {
           "class_name": "Dropout",
@@ -498,7 +520,9 @@
             "rate": 0.2,
             "seed": null,
             "noise_shape": null
-          }
+          },
+          "inbound_nodes": [],
+          "name": "dropout"
         },
         {
           "class_name": "Dense",
@@ -526,7 +550,9 @@
             "kernel_constraint": null,
             "bias_constraint": null,
             "quantization_config": null
-          }
+          },
+          "inbound_nodes": [],
+          "name": "dense"
         }
       ],
       "input_layers": [
