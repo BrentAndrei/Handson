@@ -565,203 +565,146 @@
   "weightsManifest": [
     {
       "paths": [
-        "group1-shard1of34.bin",
-        "group1-shard2of34.bin",
-        "group1-shard3of34.bin",
-        "group1-shard4of34.bin",
-        "group1-shard5of34.bin",
-        "group1-shard6of34.bin",
-        "group1-shard7of34.bin",
-        "group1-shard8of34.bin",
-        "group1-shard9of34.bin",
-        "group1-shard10of34.bin",
-        "group1-shard11of34.bin",
-        "group1-shard12of34.bin",
-        "group1-shard13of34.bin",
-        "group1-shard14of34.bin",
-        "group1-shard15of34.bin",
-        "group1-shard16of34.bin",
-        "group1-shard17of34.bin",
-        "group1-shard18of34.bin",
-        "group1-shard19of34.bin",
-        "group1-shard20of34.bin",
-        "group1-shard21of34.bin",
-        "group1-shard22of34.bin",
-        "group1-shard23of34.bin",
-        "group1-shard24of34.bin",
-        "group1-shard25of34.bin",
-        "group1-shard26of34.bin",
-        "group1-shard27of34.bin",
-        "group1-shard28of34.bin",
-        "group1-shard29of34.bin",
-        "group1-shard30of34.bin",
-        "group1-shard31of34.bin",
-        "group1-shard32of34.bin",
-        "group1-shard33of34.bin",
-        "group1-shard34of34.bin"
+        "group1-shard1of1.bin"
       ],
       "weights": [
         {
-          "name": "bidirectional_1/forward_gru/kernel:0",
+          "name": "bidirectional_1/forward_gru/gru_cell/kernel:0",
           "shape": [
             63,
             768
           ],
-          "dtype": "float32",
-          "path": "group1-shard1of34.bin"
+          "dtype": "float32"
         },
         {
-          "name": "bidirectional_1/forward_gru/recurrent_kernel:0",
+          "name": "bidirectional_1/forward_gru/gru_cell/recurrent_kernel:0",
           "shape": [
             256,
             768
           ],
-          "dtype": "float32",
-          "path": "group1-shard2of34.bin"
+          "dtype": "float32"
         },
         {
-          "name": "bidirectional_1/forward_gru/bias:0",
+          "name": "bidirectional_1/forward_gru/gru_cell/bias:0",
           "shape": [
-            2,
             768
           ],
-          "dtype": "float32",
-          "path": "group1-shard3of34.bin"
+          "dtype": "float32"
         },
         {
-          "name": "bidirectional_1/backward_gru/kernel:0",
+          "name": "bidirectional_1/backward_gru/gru_cell/kernel:0",
           "shape": [
             63,
             768
           ],
-          "dtype": "float32",
-          "path": "group1-shard4of34.bin"
+          "dtype": "float32"
         },
         {
-          "name": "bidirectional_1/backward_gru/recurrent_kernel:0",
+          "name": "bidirectional_1/backward_gru/gru_cell/recurrent_kernel:0",
           "shape": [
             256,
             768
           ],
-          "dtype": "float32",
-          "path": "group1-shard5of34.bin"
+          "dtype": "float32"
         },
         {
-          "name": "bidirectional_1/backward_gru/bias:0",
+          "name": "bidirectional_1/backward_gru/gru_cell/bias:0",
           "shape": [
-            2,
             768
           ],
-          "dtype": "float32",
-          "path": "group1-shard6of34.bin"
+          "dtype": "float32"
         },
         {
-          "name": "bidirectional_2/forward_gru/kernel:0",
+          "name": "bidirectional_2/forward_gru/gru_cell/kernel:0",
           "shape": [
             512,
             768
           ],
-          "dtype": "float32",
-          "path": "group1-shard7of34.bin"
+          "dtype": "float32"
         },
         {
-          "name": "bidirectional_2/forward_gru/recurrent_kernel:0",
+          "name": "bidirectional_2/forward_gru/gru_cell/recurrent_kernel:0",
           "shape": [
             256,
             768
           ],
-          "dtype": "float32",
-          "path": "group1-shard8of34.bin"
+          "dtype": "float32"
         },
         {
-          "name": "bidirectional_2/forward_gru/bias:0",
+          "name": "bidirectional_2/forward_gru/gru_cell/bias:0",
           "shape": [
-            2,
             768
           ],
-          "dtype": "float32",
-          "path": "group1-shard9of34.bin"
+          "dtype": "float32"
         },
         {
-          "name": "bidirectional_2/backward_gru/kernel:0",
+          "name": "bidirectional_2/backward_gru/gru_cell/kernel:0",
           "shape": [
             512,
             768
           ],
-          "dtype": "float32",
-          "path": "group1-shard10of34.bin"
+          "dtype": "float32"
         },
         {
-          "name": "bidirectional_2/backward_gru/recurrent_kernel:0",
+          "name": "bidirectional_2/backward_gru/gru_cell/recurrent_kernel:0",
           "shape": [
             256,
             768
           ],
-          "dtype": "float32",
-          "path": "group1-shard11of34.bin"
+          "dtype": "float32"
         },
         {
-          "name": "bidirectional_2/backward_gru/bias:0",
+          "name": "bidirectional_2/backward_gru/gru_cell/bias:0",
           "shape": [
-            2,
             768
           ],
-          "dtype": "float32",
-          "path": "group1-shard12of34.bin"
+          "dtype": "float32"
         },
         {
-          "name": "bidirectional_3/forward_gru/kernel:0",
+          "name": "bidirectional_3/forward_gru/gru_cell/kernel:0",
           "shape": [
             512,
             384
           ],
-          "dtype": "float32",
-          "path": "group1-shard23of34.bin"
+          "dtype": "float32"
         },
         {
-          "name": "bidirectional_3/forward_gru/recurrent_kernel:0",
+          "name": "bidirectional_3/forward_gru/gru_cell/recurrent_kernel:0",
           "shape": [
             128,
             384
           ],
-          "dtype": "float32",
-          "path": "group1-shard24of34.bin"
+          "dtype": "float32"
         },
         {
-          "name": "bidirectional_3/forward_gru/bias:0",
+          "name": "bidirectional_3/forward_gru/gru_cell/bias:0",
           "shape": [
-            2,
             384
           ],
-          "dtype": "float32",
-          "path": "group1-shard25of34.bin"
+          "dtype": "float32"
         },
         {
-          "name": "bidirectional_3/backward_gru/kernel:0",
+          "name": "bidirectional_3/backward_gru/gru_cell/kernel:0",
           "shape": [
             512,
             384
           ],
-          "dtype": "float32",
-          "path": "group1-shard26of34.bin"
+          "dtype": "float32"
         },
         {
-          "name": "bidirectional_3/backward_gru/recurrent_kernel:0",
+          "name": "bidirectional_3/backward_gru/gru_cell/recurrent_kernel:0",
           "shape": [
             128,
             384
           ],
-          "dtype": "float32",
-          "path": "group1-shard27of34.bin"
+          "dtype": "float32"
         },
         {
-          "name": "bidirectional_3/backward_gru/bias:0",
+          "name": "bidirectional_3/backward_gru/gru_cell/bias:0",
           "shape": [
-            2,
             384
           ],
-          "dtype": "float32",
-          "path": "group1-shard28of34.bin"
+          "dtype": "float32"
         },
         {
           "name": "dense_1/kernel:0",
@@ -769,16 +712,14 @@
             256,
             512
           ],
-          "dtype": "float32",
-          "path": "group1-shard29of34.bin"
+          "dtype": "float32"
         },
         {
           "name": "dense_1/bias:0",
           "shape": [
             512
           ],
-          "dtype": "float32",
-          "path": "group1-shard30of34.bin"
+          "dtype": "float32"
         },
         {
           "name": "dense_2/kernel:0",
@@ -786,16 +727,14 @@
             512,
             256
           ],
-          "dtype": "float32",
-          "path": "group1-shard31of34.bin"
+          "dtype": "float32"
         },
         {
           "name": "dense_2/bias:0",
           "shape": [
             256
           ],
-          "dtype": "float32",
-          "path": "group1-shard32of34.bin"
+          "dtype": "float32"
         },
         {
           "name": "dense_3/kernel:0",
@@ -803,16 +742,14 @@
             256,
             54
           ],
-          "dtype": "float32",
-          "path": "group1-shard33of34.bin"
+          "dtype": "float32"
         },
         {
           "name": "dense_3/bias:0",
           "shape": [
             54
           ],
-          "dtype": "float32",
-          "path": "group1-shard34of34.bin"
+          "dtype": "float32"
         }
       ]
     }
