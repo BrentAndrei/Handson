@@ -569,7 +569,7 @@
       ],
       "weights": [
         {
-          "name": "bidirectional_1/forward_gru/gru_cell/kernel:0",
+          "name": "bidirectional_1/forward_gru/kernel:0",
           "shape": [
             63,
             768
@@ -577,7 +577,7 @@
           "dtype": "float32"
         },
         {
-          "name": "bidirectional_1/forward_gru/gru_cell/recurrent_kernel:0",
+          "name": "bidirectional_1/forward_gru/recurrent_kernel:0",
           "shape": [
             256,
             768
@@ -585,14 +585,14 @@
           "dtype": "float32"
         },
         {
-          "name": "bidirectional_1/forward_gru/gru_cell/bias:0",
+          "name": "bidirectional_1/forward_gru/bias:0",
           "shape": [
             768
           ],
           "dtype": "float32"
         },
         {
-          "name": "bidirectional_1/backward_gru/gru_cell/kernel:0",
+          "name": "bidirectional_1/backward_gru/kernel:0",
           "shape": [
             63,
             768
@@ -600,7 +600,7 @@
           "dtype": "float32"
         },
         {
-          "name": "bidirectional_1/backward_gru/gru_cell/recurrent_kernel:0",
+          "name": "bidirectional_1/backward_gru/recurrent_kernel:0",
           "shape": [
             256,
             768
@@ -608,14 +608,14 @@
           "dtype": "float32"
         },
         {
-          "name": "bidirectional_1/backward_gru/gru_cell/bias:0",
+          "name": "bidirectional_1/backward_gru/bias:0",
           "shape": [
             768
           ],
           "dtype": "float32"
         },
         {
-          "name": "bidirectional_2/forward_gru/gru_cell/kernel:0",
+          "name": "bidirectional_2/forward_gru/kernel:0",
           "shape": [
             512,
             768
@@ -623,7 +623,7 @@
           "dtype": "float32"
         },
         {
-          "name": "bidirectional_2/forward_gru/gru_cell/recurrent_kernel:0",
+          "name": "bidirectional_2/forward_gru/recurrent_kernel:0",
           "shape": [
             256,
             768
@@ -631,14 +631,14 @@
           "dtype": "float32"
         },
         {
-          "name": "bidirectional_2/forward_gru/gru_cell/bias:0",
+          "name": "bidirectional_2/forward_gru/bias:0",
           "shape": [
             768
           ],
           "dtype": "float32"
         },
         {
-          "name": "bidirectional_2/backward_gru/gru_cell/kernel:0",
+          "name": "bidirectional_2/backward_gru/kernel:0",
           "shape": [
             512,
             768
@@ -646,7 +646,7 @@
           "dtype": "float32"
         },
         {
-          "name": "bidirectional_2/backward_gru/gru_cell/recurrent_kernel:0",
+          "name": "bidirectional_2/backward_gru/recurrent_kernel:0",
           "shape": [
             256,
             768
@@ -654,14 +654,14 @@
           "dtype": "float32"
         },
         {
-          "name": "bidirectional_2/backward_gru/gru_cell/bias:0",
+          "name": "bidirectional_2/backward_gru/bias:0",
           "shape": [
             768
           ],
           "dtype": "float32"
         },
         {
-          "name": "bidirectional_3/forward_gru/gru_cell/kernel:0",
+          "name": "bidirectional_3/forward_gru/kernel:0",
           "shape": [
             512,
             384
@@ -669,7 +669,7 @@
           "dtype": "float32"
         },
         {
-          "name": "bidirectional_3/forward_gru/gru_cell/recurrent_kernel:0",
+          "name": "bidirectional_3/forward_gru/recurrent_kernel:0",
           "shape": [
             128,
             384
@@ -677,14 +677,14 @@
           "dtype": "float32"
         },
         {
-          "name": "bidirectional_3/forward_gru/gru_cell/bias:0",
+          "name": "bidirectional_3/forward_gru/bias:0",
           "shape": [
             384
           ],
           "dtype": "float32"
         },
         {
-          "name": "bidirectional_3/backward_gru/gru_cell/kernel:0",
+          "name": "bidirectional_3/backward_gru/kernel:0",
           "shape": [
             512,
             384
@@ -692,7 +692,7 @@
           "dtype": "float32"
         },
         {
-          "name": "bidirectional_3/backward_gru/gru_cell/recurrent_kernel:0",
+          "name": "bidirectional_3/backward_gru/recurrent_kernel:0",
           "shape": [
             128,
             384
@@ -700,7 +700,7 @@
           "dtype": "float32"
         },
         {
-          "name": "bidirectional_3/backward_gru/gru_cell/bias:0",
+          "name": "bidirectional_3/backward_gru/bias:0",
           "shape": [
             384
           ],
