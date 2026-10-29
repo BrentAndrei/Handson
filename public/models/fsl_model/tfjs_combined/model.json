@@ -130,8 +130,17 @@
               }
             }
           },
-          "inbound_nodes": [],
-          "name": "bidirectional"
+          "inbound_nodes": [
+            [
+              [
+                "inputlayer",
+                0,
+                0,
+                null
+              ]
+            ]
+          ],
+          "name": "bidirectional_1"
         },
         {
           "class_name": "Bidirectional",
@@ -237,86 +246,17 @@
               }
             }
           },
-          "inbound_nodes": [],
-          "name": "bidirectional"
-        },
-        {
-          "class_name": "MultiHeadAttention",
-          "config": {
-            "name": "multi_head_attention",
-            "trainable": true,
-            "dtype": "float32",
-            "num_heads": 8,
-            "key_dim": 64,
-            "value_dim": 64,
-            "dropout": 0,
-            "use_bias": true,
-            "use_gate": false,
-            "output_shape": null,
-            "attention_axes": [
-              1
-            ],
-            "sliding_window": null,
-            "kernel_initializer": {
-              "class_name": "GlorotUniform",
-              "config": {
-                "seed": null,
-                "input_axes": null,
-                "output_axes": null
-              }
-            },
-            "bias_initializer": {
-              "class_name": "Zeros",
-              "config": {}
-            },
-            "kernel_regularizer": null,
-            "bias_regularizer": null,
-            "activity_regularizer": null,
-            "kernel_constraint": null,
-            "bias_constraint": null,
-            "seed": null
-          },
-          "inbound_nodes": [],
-          "name": "multiheadattention"
-        },
-        {
-          "class_name": "Add",
-          "config": {
-            "name": "add",
-            "trainable": true,
-            "dtype": "float32"
-          },
-          "inbound_nodes": [],
-          "name": "add"
-        },
-        {
-          "class_name": "LayerNormalization",
-          "config": {
-            "name": "layer_normalization",
-            "trainable": true,
-            "dtype": "float32",
-            "axis": [
-              -1
-            ],
-            "epsilon": 0.001,
-            "center": true,
-            "scale": true,
-            "rms_scaling": false,
-            "beta_initializer": {
-              "class_name": "Zeros",
-              "config": {}
-            },
-            "gamma_initializer": {
-              "class_name": "Ones",
-              "config": {}
-            },
-            "beta_regularizer": null,
-            "gamma_regularizer": null,
-            "beta_constraint": null,
-            "gamma_constraint": null
-          },
-          "inbound_nodes": [],
-          "name": "layernormalization"
+          "inbound_nodes": [
+            [
+              [
+                "bidirectional_1",
+                0,
+                0,
+                null
+              ]
+            ]
+          ],
+          "name": "bidirectional_2"
         },
         {
           "class_name": "Bidirectional",
@@ -422,8 +362,17 @@
               }
             }
           },
-          "inbound_nodes": [],
-          "name": "bidirectional"
+          "inbound_nodes": [
+            [
+              [
+                "bidirectional_2",
+                0,
+                0,
+                null
+              ]
+            ]
+          ],
+          "name": "bidirectional_3"
         },
         {
           "class_name": "Dropout",
@@ -435,8 +384,17 @@
             "seed": null,
             "noise_shape": null
           },
-          "inbound_nodes": [],
-          "name": "dropout"
+          "inbound_nodes": [
+            [
+              [
+                "bidirectional_3",
+                0,
+                0,
+                null
+              ]
+            ]
+          ],
+          "name": "dropout_1"
         },
         {
           "class_name": "Dense",
@@ -465,8 +423,17 @@
             "bias_constraint": null,
             "quantization_config": null
           },
-          "inbound_nodes": [],
-          "name": "dense"
+          "inbound_nodes": [
+            [
+              [
+                "dropout_1",
+                0,
+                0,
+                null
+              ]
+            ]
+          ],
+          "name": "dense_1"
         },
         {
           "class_name": "Dropout",
@@ -478,8 +445,17 @@
             "seed": null,
             "noise_shape": null
           },
-          "inbound_nodes": [],
-          "name": "dropout"
+          "inbound_nodes": [
+            [
+              [
+                "dense_1",
+                0,
+                0,
+                null
+              ]
+            ]
+          ],
+          "name": "dropout_2"
         },
         {
           "class_name": "Dense",
@@ -508,8 +484,17 @@
             "bias_constraint": null,
             "quantization_config": null
           },
-          "inbound_nodes": [],
-          "name": "dense"
+          "inbound_nodes": [
+            [
+              [
+                "dropout_2",
+                0,
+                0,
+                null
+              ]
+            ]
+          ],
+          "name": "dense_2"
         },
         {
           "class_name": "Dropout",
@@ -521,8 +506,17 @@
             "seed": null,
             "noise_shape": null
           },
-          "inbound_nodes": [],
-          "name": "dropout"
+          "inbound_nodes": [
+            [
+              [
+                "dense_2",
+                0,
+                0,
+                null
+              ]
+            ]
+          ],
+          "name": "dropout_3"
         },
         {
           "class_name": "Dense",
@@ -551,20 +545,21 @@
             "bias_constraint": null,
             "quantization_config": null
           },
-          "inbound_nodes": [],
-          "name": "dense"
+          "inbound_nodes": [
+            [
+              [
+                "dropout_3",
+                0,
+                0,
+                null
+              ]
+            ]
+          ],
+          "name": "dense_3"
         }
       ],
-      "input_layers": [
-        "input",
-        0,
-        0
-      ],
-      "output_layers": [
-        "output",
-        0,
-        0
-      ]
+      "input_layers": [],
+      "output_layers": []
     }
   },
   "weightsManifest": [
@@ -713,97 +708,6 @@
           ],
           "dtype": "float32",
           "path": "group1-shard12of34.bin"
-        },
-        {
-          "name": "weight_12",
-          "shape": [
-            512,
-            8,
-            64
-          ],
-          "dtype": "float32",
-          "path": "group1-shard13of34.bin"
-        },
-        {
-          "name": "weight_13",
-          "shape": [
-            8,
-            64
-          ],
-          "dtype": "float32",
-          "path": "group1-shard14of34.bin"
-        },
-        {
-          "name": "weight_14",
-          "shape": [
-            512,
-            8,
-            64
-          ],
-          "dtype": "float32",
-          "path": "group1-shard15of34.bin"
-        },
-        {
-          "name": "weight_15",
-          "shape": [
-            8,
-            64
-          ],
-          "dtype": "float32",
-          "path": "group1-shard16of34.bin"
-        },
-        {
-          "name": "weight_16",
-          "shape": [
-            512,
-            8,
-            64
-          ],
-          "dtype": "float32",
-          "path": "group1-shard17of34.bin"
-        },
-        {
-          "name": "weight_17",
-          "shape": [
-            8,
-            64
-          ],
-          "dtype": "float32",
-          "path": "group1-shard18of34.bin"
-        },
-        {
-          "name": "weight_18",
-          "shape": [
-            8,
-            64,
-            512
-          ],
-          "dtype": "float32",
-          "path": "group1-shard19of34.bin"
-        },
-        {
-          "name": "weight_19",
-          "shape": [
-            512
-          ],
-          "dtype": "float32",
-          "path": "group1-shard20of34.bin"
-        },
-        {
-          "name": "weight_20",
-          "shape": [
-            512
-          ],
-          "dtype": "float32",
-          "path": "group1-shard21of34.bin"
-        },
-        {
-          "name": "weight_21",
-          "shape": [
-            512
-          ],
-          "dtype": "float32",
-          "path": "group1-shard22of34.bin"
         },
         {
           "name": "weight_22",
