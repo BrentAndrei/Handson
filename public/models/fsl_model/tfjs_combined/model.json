@@ -602,7 +602,7 @@
       ],
       "weights": [
         {
-          "name": "weight_0",
+          "name": "bidirectional_1/forward_gru/kernel:0",
           "shape": [
             63,
             768
@@ -611,7 +611,7 @@
           "path": "group1-shard1of34.bin"
         },
         {
-          "name": "weight_1",
+          "name": "bidirectional_1/forward_gru/recurrent_kernel:0",
           "shape": [
             256,
             768
@@ -620,7 +620,7 @@
           "path": "group1-shard2of34.bin"
         },
         {
-          "name": "weight_2",
+          "name": "bidirectional_1/forward_gru/bias:0",
           "shape": [
             2,
             768
@@ -629,7 +629,7 @@
           "path": "group1-shard3of34.bin"
         },
         {
-          "name": "weight_3",
+          "name": "bidirectional_1/backward_gru/kernel:0",
           "shape": [
             63,
             768
@@ -638,7 +638,7 @@
           "path": "group1-shard4of34.bin"
         },
         {
-          "name": "weight_4",
+          "name": "bidirectional_1/backward_gru/recurrent_kernel:0",
           "shape": [
             256,
             768
@@ -647,7 +647,7 @@
           "path": "group1-shard5of34.bin"
         },
         {
-          "name": "weight_5",
+          "name": "bidirectional_1/backward_gru/bias:0",
           "shape": [
             2,
             768
@@ -656,7 +656,7 @@
           "path": "group1-shard6of34.bin"
         },
         {
-          "name": "weight_6",
+          "name": "bidirectional_2/forward_gru/kernel:0",
           "shape": [
             512,
             768
@@ -665,7 +665,7 @@
           "path": "group1-shard7of34.bin"
         },
         {
-          "name": "weight_7",
+          "name": "bidirectional_2/forward_gru/recurrent_kernel:0",
           "shape": [
             256,
             768
@@ -674,7 +674,7 @@
           "path": "group1-shard8of34.bin"
         },
         {
-          "name": "weight_8",
+          "name": "bidirectional_2/forward_gru/bias:0",
           "shape": [
             2,
             768
@@ -683,7 +683,7 @@
           "path": "group1-shard9of34.bin"
         },
         {
-          "name": "weight_9",
+          "name": "bidirectional_2/backward_gru/kernel:0",
           "shape": [
             512,
             768
@@ -692,7 +692,7 @@
           "path": "group1-shard10of34.bin"
         },
         {
-          "name": "weight_10",
+          "name": "bidirectional_2/backward_gru/recurrent_kernel:0",
           "shape": [
             256,
             768
@@ -701,7 +701,7 @@
           "path": "group1-shard11of34.bin"
         },
         {
-          "name": "weight_11",
+          "name": "bidirectional_2/backward_gru/bias:0",
           "shape": [
             2,
             768
@@ -710,7 +710,7 @@
           "path": "group1-shard12of34.bin"
         },
         {
-          "name": "weight_22",
+          "name": "bidirectional_3/forward_gru/kernel:0",
           "shape": [
             512,
             384
@@ -719,7 +719,7 @@
           "path": "group1-shard23of34.bin"
         },
         {
-          "name": "weight_23",
+          "name": "bidirectional_3/forward_gru/recurrent_kernel:0",
           "shape": [
             128,
             384
@@ -728,7 +728,7 @@
           "path": "group1-shard24of34.bin"
         },
         {
-          "name": "weight_24",
+          "name": "bidirectional_3/forward_gru/bias:0",
           "shape": [
             2,
             384
@@ -737,7 +737,7 @@
           "path": "group1-shard25of34.bin"
         },
         {
-          "name": "weight_25",
+          "name": "bidirectional_3/backward_gru/kernel:0",
           "shape": [
             512,
             384
@@ -746,7 +746,7 @@
           "path": "group1-shard26of34.bin"
         },
         {
-          "name": "weight_26",
+          "name": "bidirectional_3/backward_gru/recurrent_kernel:0",
           "shape": [
             128,
             384
@@ -755,7 +755,7 @@
           "path": "group1-shard27of34.bin"
         },
         {
-          "name": "weight_27",
+          "name": "bidirectional_3/backward_gru/bias:0",
           "shape": [
             2,
             384
@@ -764,7 +764,7 @@
           "path": "group1-shard28of34.bin"
         },
         {
-          "name": "weight_28",
+          "name": "dense_1/kernel:0",
           "shape": [
             256,
             512
@@ -773,7 +773,7 @@
           "path": "group1-shard29of34.bin"
         },
         {
-          "name": "weight_29",
+          "name": "dense_1/bias:0",
           "shape": [
             512
           ],
@@ -781,7 +781,7 @@
           "path": "group1-shard30of34.bin"
         },
         {
-          "name": "weight_30",
+          "name": "dense_2/kernel:0",
           "shape": [
             512,
             256
@@ -790,7 +790,7 @@
           "path": "group1-shard31of34.bin"
         },
         {
-          "name": "weight_31",
+          "name": "dense_2/bias:0",
           "shape": [
             256
           ],
@@ -798,7 +798,7 @@
           "path": "group1-shard32of34.bin"
         },
         {
-          "name": "weight_32",
+          "name": "dense_3/kernel:0",
           "shape": [
             256,
             54
@@ -807,7 +807,7 @@
           "path": "group1-shard33of34.bin"
         },
         {
-          "name": "weight_33",
+          "name": "dense_3/bias:0",
           "shape": [
             54
           ],
