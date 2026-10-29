@@ -12,7 +12,7 @@ import { resolveSkeleton } from "../src/avatar/boneResolver";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-const MODEL_PATH = path.join(__dirname, "..", "public", "models", "Xbot.glb");
+const MODEL_PATH = path.join(__dirname, "..", "public", "models", "Avery.glb");
 
 async function main() {
   const loader = new GLTFLoader();

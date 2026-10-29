@@ -2,7 +2,7 @@
  * PHASE 4 — headless browser verification driver.
  *
  * Bundles scripts/verify-browser-pose.client.ts with esbuild, serves it plus
- * the real Xbot.glb and the extracted 345-float pose fixtures over a throwaway
+ * the real Avery.glb and the extracted 345-float pose fixtures over a throwaway
  * loopback HTTP server, then drives it in headless Chromium/Edge through
  * puppeteer-core and asserts the browser-side gates:
  *
@@ -27,7 +27,7 @@ import puppeteer, { type Browser } from "puppeteer-core";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(__dirname, "..");
-const GLB = path.join(ROOT, "public", "models", "Xbot.glb");
+const GLB = path.join(ROOT, "public", "models", "Avery.glb");
 const FIXTURE_DIR = path.join(__dirname, "fixtures", "poses", "extracted");
 const CLIENT = path.join(__dirname, "verify-browser-pose.client.ts");
 const FEATURE_DIM = 345;
@@ -98,7 +98,7 @@ async function startServer(bundle: string, fixtures: unknown) {
         } else if (url === "/fixtures.js") {
             res.writeHead(200, { "content-type": "text/javascript; charset=utf-8" });
             res.end(`window.__PHASE4_FIXTURES__ = ${JSON.stringify(fixtures)};`);
-        } else if (url === "/Xbot.glb") {
+        } else if (url === "/Avery.glb") {
             res.writeHead(200, { "content-type": "model/gltf-binary" });
             res.end(glb);
         } else if (url === "/favicon.ico") {

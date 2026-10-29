@@ -74,7 +74,7 @@ async function main() {
   scene.add(key);
 
   const loader = new GLTFLoader();
-  const gltf = await loader.loadAsync("/Xbot.glb");
+  const gltf = await loader.loadAsync("/Avery.glb");
   // Mirrors SignAvatar.tsx: model at the origin, unscaled.
   gltf.scene.position.set(0, 0, 0);
   scene.add(gltf.scene);

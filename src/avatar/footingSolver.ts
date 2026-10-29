@@ -169,7 +169,7 @@ function aimWorld(
   currentWorld: Quaternion,
   out: Quaternion
 ): Quaternion {
-  const bind = _bind.copy(bone.localDir).normalize();
+  const bind = _bind.copy(bone.worldBindDir).normalize();
   if (bind.length() < EPS) return out.identity();
 
   // Reference "side" of the current pose, projected perpendicular to the target.

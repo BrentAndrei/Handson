@@ -1,6 +1,6 @@
 /**
  * Driver: bundles scripts/screenshot-fingers.client.ts with esbuild, serves
- * the real Xbot.glb plus recordings from public/avatar-data, renders them
+ * the real Avery.glb plus recordings from public/avatar-data, renders them
  * in headless Edge, and captures a PNG grid for visual inspection of the
  * avatar's finger articulation.
  *
@@ -15,7 +15,7 @@ import puppeteer, { type Browser } from "puppeteer-core";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(__dirname, "..");
-const GLB = path.join(ROOT, "public", "models", "Xbot.glb");
+const GLB = path.join(ROOT, "public", "models", "Avery.glb");
 const DATA_DIR = path.join(ROOT, "public", "avatar-data");
 const CLIENT = path.join(__dirname, "screenshot-fingers.client.ts");
 const OUT = process.argv[2]
@@ -87,7 +87,7 @@ async function main() {
       }
       res.writeHead(200, { "content-type": "application/json" });
       res.end(fs.readFileSync(file));
-    } else if (url === "/Xbot.glb") {
+    } else if (url === "/Avery.glb") {
       res.writeHead(200, { "content-type": "model/gltf-binary" });
       res.end(glb);
     } else if (url === "/favicon.ico") {

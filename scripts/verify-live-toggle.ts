@@ -2,7 +2,7 @@
  * PHASE 10 - live <-> recorded toggle verification driver.
  *
  * Bundles verify-live-toggle.client.ts with esbuild, serves it plus the real
- * Xbot.glb and the extracted MediaPipe fixtures, then drives it in headless
+ * Avery.glb and the extracted MediaPipe fixtures, then drives it in headless
  * Chromium/Edge via puppeteer-core.
  *
  * Gates asserted:
@@ -25,7 +25,7 @@ import puppeteer, { type Browser } from "puppeteer-core";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(__dirname, "..");
-const GLB = path.join(ROOT, "public", "models", "Xbot.glb");
+const GLB = path.join(ROOT, "public", "models", "Avery.glb");
 const FIXTURE_DIR = path.join(__dirname, "fixtures", "poses", "extracted");
 const CLIENT = path.join(__dirname, "verify-live-toggle.client.ts");
 const AVATAR_DIR = path.join(ROOT, "public", "avatar-data-smplx");
@@ -79,7 +79,7 @@ async function startServer(bundle: string, fixtures: unknown) {
         } else if (url === "/fixtures.js") {
             res.writeHead(200, { "content-type": "text/javascript; charset=utf-8" });
             res.end(`window.__PHASE10_FIXTURES__ = ${JSON.stringify(fixtures)};`);
-        } else if (url === "/Xbot.glb") {
+        } else if (url === "/Avery.glb") {
             res.writeHead(200, { "content-type": "model/gltf-binary" });
             res.end(glb);
         } else if (url.startsWith("/avatar-data/")) {

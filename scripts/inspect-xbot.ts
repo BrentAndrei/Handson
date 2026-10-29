@@ -1,7 +1,7 @@
 import * as fs from "fs";
 
 // Extract JSON chunk from GLB
-const buf = fs.readFileSync("public/models/Xbot.glb");
+const buf = fs.readFileSync("public/models/Avery.glb");
 const jsonStart = buf.indexOf("{");
 const jsonEnd = buf.indexOf("}", jsonStart) + 1;
 // The JSON chunk ends before the binary chunk - find the actual end

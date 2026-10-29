@@ -1,7 +1,7 @@
 const fs = require("fs");
 const path = require("path");
 
-const buf = fs.readFileSync("public/models/Xbot.glb");
+const buf = fs.readFileSync("public/models/Avery.glb");
 const chunkLen = buf.readUInt32LE(12);
 const jsonStr = buf.toString("utf8", 20, 20 + chunkLen);
 const json = JSON.parse(jsonStr);

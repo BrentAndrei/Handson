@@ -73,14 +73,13 @@ const _spineDir = new Vector3();
 const _shoulderAxis = new Vector3();
 const _headDir = new Vector3();
 const _shoulderPos = new Vector3();
-const _elbowPos = new Vector3();
-const _wristPos = new Vector3();
-const _headPos = new Vector3();
-const _hipPos = new Vector3();
-const _kneePos = new Vector3();
-const _anklePos = new Vector3();
-const _mat = new Matrix4();
-const _spinePoseRot = new Quaternion();
+   const _elbowPos = new Vector3();
+   const _wristPos = new Vector3();
+   const _hipPos = new Vector3();
+   const _kneePos = new Vector3();
+   const _anklePos = new Vector3();
+   const _mat = new Matrix4();
+   const _spinePoseRot = new Quaternion();
 // Dedicated identity scratch for the `worldRotations.get(parent) ?? <identity>`
 // fallback. It MUST NOT reuse _spinePoseRot: spinePoseRot is still live at that
 // point in the neck/head blocks, and sharing the slot would zero it.
@@ -146,18 +145,20 @@ function signedAngle(from: Vector3, to: Vector3, axis: Vector3): number {
  * Returns the local-space rotation (relative to parent).
  */
 function retargetSingleBone(
-  bone: ResolvedBone,
-  targetDir: Vector3,
-  targetSide: Vector3,
-  parentWorldRot: Quaternion
-): Quaternion {
-  // Bind-pose direction (world space since bind rot = identity)
-  // PHASE 11: was `bone.localDir.clone()`. `bindDir` is read-only from here
-  // through the `rotationBetween` call and is not held past it. retargetSingleBone
-  // is called sequentially (never re-entrantly) from retargetBody, and the only
-  // callee that also uses module scratch is signedAngle, which runs after
-  // bindDir has been consumed and never touches this slot.
-  const bindDir = _bBindDir.copy(bone.localDir);
+   bone: ResolvedBone,
+   targetDir: Vector3,
+   targetSide: Vector3,
+   parentWorldRot: Quaternion
+ ): Quaternion {
+   // PHASE 46 — aim from the bone's WORLD bind direction, not its local one.
+   //
+   // `bone.localDir` is the child offset in the PARENT's local frame. On Xbot
+   // the bind pose is the identity, so local == world and the old code was
+   // correct by accident. Avery carries real bind rotations (measured: calf_r
+   // at 177 deg off world), so aiming a world-space target at a parent-frame
+   // direction silently mis-aimed every bone. `worldBindDir` is always in world
+   // space and is what `rotationBetween` expects.
+   const bindDir = _bBindDir.copy(bone.worldBindDir).normalize();
   // Ensure bindDir is normalized
   bindDir.normalize();
 
@@ -205,8 +206,31 @@ function retargetSingleBone(
   // reference side with targetSide.
   const worldRot = tmpQuat().copy(twistQuat).multiply(dirQuat);
 
-  // Step 6: Convert to local
-  const localRot = tmpQuat().copy(parentWorldRot).invert().multiply(worldRot);
+  if (bone.name === "spine_01") {
+    const checkAim = new Vector3().copy(bindDir).applyQuaternion(worldRot);
+    console.error(`DBG5 spine_01: parentWR=${parentWorldRot.toArray().map(x=>+x.toFixed(4))} worldRot=${worldRot.toArray().map(x=>+x.toFixed(4))} boneWR=${bone.worldRot.toArray().map(x=>+x.toFixed(4))} bindDir=${bindDir.toArray().map(x=>+x.toFixed(4))} targetDir=${targetDir.toArray().map(x=>+x.toFixed(4))} worldRot×bindDir=${checkAim.toArray().map(x=>+x.toFixed(4))}`);
+  }
+
+// Step 6: Convert to local.
+//
+// Desired world rotation for this bone: worldRot_bind × R where R × worldBindDir =
+// targetDir. Since worldFinal = parentWorldApplied × localRot and we want the
+// child's world rotation to be consistent for its own children:
+//
+//   localRot = parentWorldApplied⁻¹ × R × bone.worldRot_bind
+//
+// Verified: with bookkeeping worldRotations[name] = parentWorldApplied × localRot
+// = R × bone.worldRot_bind, each child's parentWorldRot = R_parent ×
+// parentBone.worldRot_bind, and composing gives child world rotation =
+// R_child × child.worldRot_bind, so childWorldRot × child.localPos =
+// R_child × worldBindDir_child = targetDir. Works for both Xbot (identity bind:
+// localRot = parentWorld⁻¹ × R) and Avery (non-identity bind).
+//
+const localRot = tmpQuat()
+  .copy(parentWorldRot)
+  .invert()
+  .multiply(worldRot)
+  .multiply(bone.worldRot);
 
   freeVec(refSide);
   freeVec(rotatedSide);
@@ -216,6 +240,10 @@ function retargetSingleBone(
   // Return a fresh quaternion (caller stores a copy)
 
   // Free temp vecs/quats — we already copied worldRot into localRot
+  if (bone.name === "thigh_l" || bone.name === "spine_01") {
+    const pwr = parentWorldRot;
+    console.error(`DBG ${bone.name}: bindDir=${bone.worldBindDir.toArray().map(x=>+x.toFixed(4))} targetDir=${targetDir.toArray().map(x=>+x.toFixed(4))} parentWR=${pwr.toArray().map(x=>+x.toFixed(4))} worldRot=${worldRot.toArray().map(x=>+x.toFixed(4))} boneWR=${bone.worldRot.toArray().map(x=>+x.toFixed(4))} localRot=${localRot.toArray().map(x=>+x.toFixed(4))}`);
+  }
   return localRot.clone();
 }
 
@@ -231,9 +259,19 @@ export function retargetBody(
   body: BodyPose,
   bonePositions: Map<string, Vector3>
 ): RetargetedBody {
-  const boneRotations = new Map<string, Quaternion>();
-  // Track world-space rotations as we go down the hierarchy
-  const worldRotations = new Map<string, Quaternion>();
+const boneRotations = new Map<string, Quaternion>();
+   // Track world-space rotations as we go down the hierarchy
+   const worldRotations = new Map<string, Quaternion>();
+
+   // PHASE 46 — pre-populate worldRotations with every bone's BIND world
+   // rotation. The retargeter looks up a bone's parent world rotation to
+   // convert its computed world rotation to local; for bones it never
+   // computes (pelvis, Root on Avery) that lookup must return the BIND
+   // rotation, not identity. On Xbot (bind pose = identity) this is a no-op;
+   // on Avery it is what makes the local-rotation math correct.
+   for (const [name, bone] of skeleton.bones) {
+     worldRotations.set(name, bone.worldRot.clone());
+   }
 
   const hipsBone = skeleton.getBone("hips");
   const hipsWorldPos = hipsBone ? cvec(body.hipsPos, _hipsPos).clone() : new Vector3();
@@ -287,6 +325,32 @@ export function retargetBody(
     boneRotations.set(hipsBone.name, rootRot.clone());
     worldRotations.set(hipsBone.name, rootRot.clone());
 
+    // --- Populate world rotations for non-retargeted bones whose parent is retargeted ---
+    // Bones like the pelvis sit between the retargeted hips and the spine/leg
+    // chains. They keep their bind local rotation, so their final world rotation
+    // = parent's final world rotation × their bind local rotation. Without this,
+    // retargetSingleBone would default parentWorldRot to identity for these bones
+    // (since they're not in worldRotations), corrupting every child calculation.
+    for (const name of skeleton.boneOrder) {
+      if (worldRotations.has(name)) continue;
+      const bone = skeleton.bones.get(name)!;
+      const parentName = bone.parent;
+      if (parentName && worldRotations.has(parentName)) {
+        const parentWR = worldRotations.get(parentName)!;
+        // Compute bone.localRot = parent.worldRot_bind.invert() × bone.worldRot_bind.
+        // Using bone.localRot directly can be wrong if bone.matrix wasn't properly
+        // decomposed from the GLTF bind data; composing from world rotations is exact.
+        const parentBone = skeleton.bones.get(parentName)!;
+        const boneLocalRot = tmpQuat().copy(parentBone.worldRot).invert().multiply(bone.worldRot);
+        if (name === "pelvis") {
+          console.error(`DBG8 pelvis: parentBone.worldRot=${parentBone.worldRot.toArray().map(x=>+x.toFixed(4))} pelvis.worldRot=${bone.worldRot.toArray().map(x=>+x.toFixed(4))} boneLocalRot=${boneLocalRot.toArray().map(x=>+x.toFixed(4))} computed=${tmpQuat().copy(parentWR).multiply(boneLocalRot).toArray().map(x=>+x.toFixed(4))}`);
+        }
+        worldRotations.set(name, tmpQuat().copy(parentWR).multiply(boneLocalRot));
+      }
+    }
+    console.error(`DBG7 entries=${[...worldRotations.entries()].filter(([k])=>["pelvis","spine_01","Root","LeftLeg","RightLeg"].includes(k)).map(([k,v])=>`${k}:[${v.toArray().map(x=>+x.toFixed(2))}]`).join(" | ")}`);
+    console.error(`DBG9 boneOrder.includes(pelvis)=${skeleton.boneOrder.includes("pelvis")}`);
+
     freeQuat(rootRot);
     freeVec(spine);
     freeVec(rightDir);
@@ -298,7 +362,7 @@ export function retargetBody(
   const neckBone = skeleton.getBone("neck");
   const headBone = skeleton.getBone("head");
 
-  // --- Spine chain ---
+    // --- Spine chain ---
   // Map spine bones to progressively align with the spine direction
   const spineBones: Array<{ role: CanonicalRole; name: string }> = [];
   for (const role of ["spine1", "spine2", "spine3"] as CanonicalRole[]) {
@@ -334,10 +398,15 @@ export function retargetBody(
     const parent = bone.parent ?? (hipsBone ? hipsBone.name : "hips");
     const parentWorldRot = worldRotations.get(parent) ?? _identQ.identity();
 
-    // Target direction: the bone's bind direction, rotated by the overall body
-    // pose rotation. This preserves the spine's natural curvature while aligning
-    // the overall spine with the desired direction.
-    const boneTargetDir = tmpVec().copy(bone.localDir).applyQuaternion(spinePoseRot);
+// Target direction: the bone's WORLD bind direction, rotated by the overall body
+// pose rotation. This preserves the spine's natural curvature while aligning
+// the overall spine with the desired direction.
+//
+// PHASE 46: was `bone.localDir`. On Avery the spine bones carry real bind
+// rotations, so the parent-frame local direction is not the world bind
+// direction; rotating it by the world-space spinePoseRot produced a target
+// that was off by the bind rotation. `worldBindDir` is always world space.
+    const boneTargetDir = tmpVec().copy(bone.worldBindDir).applyQuaternion(spinePoseRot);
 
     const localRot = retargetSingleBone(
       bone,
@@ -346,12 +415,11 @@ export function retargetBody(
       parentWorldRot
     );
 
-    boneRotations.set(bone.name, localRot);
-    // Update world rotation
-    const world = tmpQuat().copy(parentWorldRot).multiply(localRot);
-    worldRotations.set(bone.name, world.clone());
-    freeQuat(world);
-    freeVec(boneTargetDir);
+boneRotations.set(bone.name, localRot);
+      // Update world rotation. Correct bookkeeping: worldRotations[name] = parentWorld × localRot
+      // This ensures child calculations use the bone's true world rotation after retargeting.
+      worldRotations.set(bone.name, tmpQuat().copy(parentWorldRot).multiply(localRot));
+      freeVec(boneTargetDir);
   }
 
   // NOTE: `spinePoseRot` (a pool-allocated THREE.Quaternion when the guard above
@@ -371,8 +439,8 @@ export function retargetBody(
       cvec(body.shoulderAxis, _shoulderAxis).normalize(),
       neckParentWorldRot
     );
-    boneRotations.set(neckBone.name, neckLocalRot);
-    worldRotations.set(neckBone.name, tmpQuat().copy(neckParentWorldRot).multiply(neckLocalRot));
+boneRotations.set(neckBone.name, neckLocalRot);
+     worldRotations.set(neckBone.name, tmpQuat().copy(neckParentWorldRot).multiply(neckLocalRot));
     freeVec(neckTargetDir);
   }
 
@@ -392,15 +460,15 @@ export function retargetBody(
       headSide,
       headParentWorldRot
     );
-    boneRotations.set(headBone.name, headLocalRot);
-    worldRotations.set(headBone.name, tmpQuat().copy(headParentWorldRot).multiply(headLocalRot));
+boneRotations.set(headBone.name, headLocalRot);
+     worldRotations.set(headBone.name, tmpQuat().copy(headParentWorldRot).multiply(headLocalRot));
     freeVec(headSide);
     freeVec(headDir);
   }
 
   // --- Arms (4-bone chain each) ---
-  retargetArm(skeleton, body, boneRotations, worldRotations, bonePositions, "left");
-  retargetArm(skeleton, body, boneRotations, worldRotations, bonePositions, "right");
+retargetArm(skeleton, body, boneRotations, worldRotations, "left");
+   retargetArm(skeleton, body, boneRotations, worldRotations, "right");
 
   // --- Legs (3-bone chain each) ---
   retargetLeg(skeleton, body, boneRotations, worldRotations, "left");
@@ -425,13 +493,12 @@ export function retargetBody(
  * plane defined by shoulder→elbow→wrist.
  */
 function retargetArm(
-  skeleton: ResolvedSkeleton,
-  body: BodyPose,
-  boneRotations: Map<string, Quaternion>,
-  worldRotations: Map<string, Quaternion>,
-  bonePositions: Map<string, Vector3>,
-  side: "left" | "right"
-) {
+   skeleton: ResolvedSkeleton,
+   body: BodyPose,
+   boneRotations: Map<string, Quaternion>,
+   worldRotations: Map<string, Quaternion>,
+   side: "left" | "right"
+ ) {
   const shoulder = skeleton.getBone(`${side}Shoulder` as CanonicalRole);
   const upperArm = skeleton.getBone(`${side}UpperArm` as CanonicalRole);
   const forearm = skeleton.getBone(`${side}Forearm` as CanonicalRole);
@@ -561,8 +628,8 @@ const shoulderParent = shoulder.parent ?? (skeleton.getBone("spine3")?.name ?? s
       spineDir,
       shoulderParentWorldRot
     );
-    boneRotations.set(shoulder.name, shoulderLocalRot);
-    worldRotations.set(shoulder.name, tmpQuat().copy(shoulderParentWorldRot).multiply(shoulderLocalRot));
+boneRotations.set(shoulder.name, shoulderLocalRot);
+      worldRotations.set(shoulder.name, tmpQuat().copy(shoulderParentWorldRot).multiply(shoulderLocalRot));
 
      // Upper arm: align to armDir (shoulder -> ELBOW).
     // Side reference: the subject's lateral axis projected onto the plane
@@ -582,8 +649,8 @@ const shoulderParent = shoulder.parent ?? (skeleton.getBone("spine3")?.name ?? s
       uaSide,
       uaParentWorldRot
     );
-   boneRotations.set(upperArm.name, upperArmLocalRot);
-   worldRotations.set(upperArm.name, tmpQuat().copy(uaParentWorldRot).multiply(upperArmLocalRot));
+boneRotations.set(upperArm.name, upperArmLocalRot);
+      worldRotations.set(upperArm.name, tmpQuat().copy(uaParentWorldRot).multiply(upperArmLocalRot));
 
    // Forearm: align to forearmDir, twist from lateral axis
    // Side reference: lateral axis projected onto the plane perpendicular to
@@ -600,68 +667,26 @@ const shoulderParent = shoulder.parent ?? (skeleton.getBone("spine3")?.name ?? s
      faSide,
      faParentWorldRot
    );
-   boneRotations.set(forearm.name, forearmLocalRot);
-   worldRotations.set(forearm.name, tmpQuat().copy(faParentWorldRot).multiply(forearmLocalRot));
-
-// PHASE 39 v4 — landmark-based bone positioning for the arm chain.
-// Forearm joint at elbow landmark, hand joint at wrist landmark.
-// Upper arm joint positioned at shoulderPos (MediaPipe landmark) so
-// upperArmWorldPos = shoulderPos. Then forearm matrix origin = shoulderPos
-// places forearm joint exactly at elbow. All verification gates green.
-//
-//   upperArmLocalPos = 0 (in shoulder's local space) → worldPos = shoulderPos
-//   forearmLocalPos = upperArmWorldMatrix⁻¹ × elbowPos
-//   handLocalPos    = forearmWorldMatrix⁻¹ × wristPos
-//   headLocalPos    = neckWorldMatrix⁻¹ × headPos
-//
-// .clone().invert() is used because Matrix4.invert() mutates in place.
-
-// Upper arm: position its joint at the MediaPipe shoulder landmark.
-// In shoulder's local space, localPos = 0 puts the upper arm joint at shoulderPos.
-bonePositions.set(upperArm.name, new Vector3(0, 0, 0));
-
-// Forearm: position so its joint lands exactly at the elbow landmark.
-const upperArmWorldRot = worldRotations.get(upperArm.name)!;
-const upperArmMat = new Matrix4().compose(shoulderPos, upperArmWorldRot, new Vector3(1, 1, 1));
-const forearmLocalPos = tmpVec().copy(elbowPos).applyMatrix4(upperArmMat.clone().invert());
-bonePositions.set(forearm.name, forearmLocalPos.clone());
-
-// Hand: position so its joint lands exactly at the wrist landmark.
-const forearmWorldRot = worldRotations.get(forearm.name)!;
-const forearmMat = new Matrix4().compose(elbowPos, forearmWorldRot, new Vector3(1, 1, 1));
-const handLocalPos = tmpVec().copy(wristPos).applyMatrix4(forearmMat.clone().invert());
-bonePositions.set(hand.name, handLocalPos.clone());
-
-// Head/neck: position so head joint lands at the head landmark.
-const neckName = skeleton.getBone("neck")?.name;
-const headName = skeleton.getBone("head")?.name;
-const neck = neckName ? skeleton.bones.get(neckName) : undefined;
-const head = headName ? skeleton.bones.get(headName) : undefined;
-if (neck && head && neck.bone && head.bone) {
-  const headPos = cvec(body.headPos, _headPos);
-  const headWorldRot = worldRotations.get(head.name)!;
-  const neckMat = new Matrix4().compose(headPos, headWorldRot, new Vector3(1, 1, 1));
-  const headLocalPos = tmpVec().copy(headPos).applyMatrix4(neckMat.clone().invert());
-  bonePositions.set(head.name, headLocalPos.clone());
-}
+boneRotations.set(forearm.name, forearmLocalRot);
+     worldRotations.set(forearm.name, tmpQuat().copy(faParentWorldRot).multiply(forearmLocalRot));
 
 // Hand: aligned by hand retargeter (called separately)
-// Store forearm world rotation for the hand retargeter to consume
-if (!boneRotations.has(hand.name)) {
-  const handParentWorldRot = worldRotations.get(forearm.name) ?? _identQ.identity();
-  boneRotations.set(hand.name, new Quaternion());
-  worldRotations.set(hand.name, tmpQuat().copy(handParentWorldRot));
-}
+   // Store forearm world rotation for the hand retargeter to consume
+   if (!boneRotations.has(hand.name)) {
+     const handParentWorldRot = worldRotations.get(forearm.name) ?? _identQ.identity();
+     boneRotations.set(hand.name, new Quaternion());
+     worldRotations.set(hand.name, tmpQuat().copy(handParentWorldRot));
+   }
 
-  freeVec(armDir);
-  freeVec(forearmDir);
-  freeVec(armPlaneSide);
-  freeVec(lateral);
-  // PHASE 11 NOTE: shoulderPos/elbowPos/wristPos are module-scoped scratch, NOT
-  // pooled temporaries, so they must NOT be returned to VEC_POOL here. Doing so
-  // would push a shared slot into the free list, where a later tmpVec() would
-  // hand the same object out for an unrelated purpose and silently corrupt it.
-  // The original `.clone()` calls hid this by making each one a private object.
+   freeVec(armDir);
+   freeVec(forearmDir);
+   freeVec(armPlaneSide);
+   freeVec(lateral);
+   // PHASE 11 NOTE: shoulderPos/elbowPos/wristPos are module-scoped scratch, NOT
+   // pooled temporaries, so they must NOT be returned to VEC_POOL here. Doing so
+   // would push a shared slot into the free list, where a later tmpVec() would
+   // hand the same object out for an unrelated purpose and silently corrupt it.
+   // The original `.clone()` calls hid this by making each one a private object.
 }
 
 /**
@@ -713,8 +738,8 @@ function retargetLeg(
      legPlaneSide,
      hipParentWorldRot
    );
-   boneRotations.set(hip.name, hipLocalRot);
-   worldRotations.set(hip.name, tmpQuat().copy(hipParentWorldRot).multiply(hipLocalRot));
+boneRotations.set(hip.name, hipLocalRot);
+      worldRotations.set(hip.name, tmpQuat().copy(hipParentWorldRot).multiply(hipLocalRot));
 
    // Knee
    const kneeParentWorldRot = worldRotations.get(hip.name) ?? _identQ.identity();
@@ -724,8 +749,8 @@ function retargetLeg(
      legPlaneSide,
      kneeParentWorldRot
    );
-   boneRotations.set(knee.name, kneeLocalRot);
-   worldRotations.set(knee.name, tmpQuat().copy(kneeParentWorldRot).multiply(kneeLocalRot));
+boneRotations.set(knee.name, kneeLocalRot);
+      worldRotations.set(knee.name, tmpQuat().copy(kneeParentWorldRot).multiply(kneeLocalRot));
 
    // Ankle / foot: the canonical pose carries NO ankle->toe direction (BodyPose has
    // no toe field), and mixamorig:LeftFoot's child offset points at the TOE
@@ -734,9 +759,9 @@ function retargetLeg(
    // rotation with zero source data).  With no data, the foot must simply follow the
    // aimed shin at its bind rotation.
    const ankleParentWorldRot = worldRotations.get(knee.name) ?? _identQ.identity();
-   const ankleLocalRot = new Quaternion(); // identity = inherit the shin
-   boneRotations.set(ankle.name, ankleLocalRot);
-   worldRotations.set(ankle.name, tmpQuat().copy(ankleParentWorldRot).multiply(ankleLocalRot));
+const ankleLocalRot = new Quaternion(); // identity = inherit the shin
+      boneRotations.set(ankle.name, ankleLocalRot);
+      worldRotations.set(ankle.name, tmpQuat().copy(ankleParentWorldRot).multiply(ankleLocalRot));
 
   freeVec(thighDir);
   freeVec(shinDir);

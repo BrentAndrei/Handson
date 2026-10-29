@@ -52,7 +52,7 @@ async function main() {
   fill.position.set(-4, 2, -3);
   scene.add(fill);
 
-  const gltf = await new GLTFLoader().loadAsync("/Xbot.glb");
+  const gltf = await new GLTFLoader().loadAsync("/Avery.glb");
   gltf.scene.position.set(0, 0, 0); scene.add(gltf.scene);
   scene.updateMatrixWorld(true);
 

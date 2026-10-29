@@ -114,10 +114,21 @@ export function useSignInference(modelUrl: string, labels: string[], stride = DE
     (async () => {
       try {
         if (DEBUG_INFERENCE) console.log('[useSignInference] Starting model load...');
-        await tf.setBackend("webgl");
-        await tf.ready();
+        
+        // Try WebGL first, fall back to CPU if it fails
+        try {
+          await tf.setBackend("webgl");
+          await tf.ready();
+          if (DEBUG_INFERENCE) console.log('[useSignInference] WebGL backend ready');
+        } catch (webglErr) {
+          console.warn('[useSignInference] WebGL backend failed, falling back to CPU:', webglErr);
+          await tf.setBackend("cpu");
+          await tf.ready();
+          if (DEBUG_INFERENCE) console.log('[useSignInference] CPU backend ready');
+        }
+        
         if (DEBUG_INFERENCE) console.log('[useSignInference] Backend ready, loading model...');
-
+        
         const model = await tf.loadLayersModel(modelUrl);
         if (DEBUG_INFERENCE) console.log('[useSignInference] Model loaded successfully');
         if (cancelled) {
@@ -128,13 +139,19 @@ export function useSignInference(modelUrl: string, labels: string[], stride = DE
         // Warm-up pass so the first real prediction isn't also paying for
         // WebGL shader compilation on the critical path (that first call
         // can otherwise take 10-100x longer than steady-state).
-        const warm = tf.zeros([1, WINDOW_SIZE, FEATURE_DIM]);
-        const warmOut = model.predict(warm) as tf.Tensor;
-        warmOut.dispose();
-        warm.dispose();
+        try {
+          const warm = tf.zeros([1, WINDOW_SIZE, FEATURE_DIM]);
+          const warmOut = model.predict(warm) as tf.Tensor;
+          warmOut.dispose();
+          warm.dispose();
+          if (DEBUG_INFERENCE) console.log('[useSignInference] Warm-up complete');
+        } catch (warmErr) {
+          console.warn('[useSignInference] Warm-up failed, continuing anyway:', warmErr);
+        }
 
         modelRef.current = model;
         setReady(true);
+        if (DEBUG_INFERENCE) console.log('[useSignInference] Ready state set to true');
       } catch (err) {
         if (!cancelled) {
           console.error('[useSignInference] Model load error:', err);

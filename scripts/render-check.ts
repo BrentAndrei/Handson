@@ -18,7 +18,7 @@ import puppeteer from "puppeteer-core";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(__dirname, "..");
-const GLB = path.join(ROOT, "public", "models", "Xbot.glb");
+const GLB = path.join(ROOT, "public", "models", "Avery.glb");
 const DATA_DIR = path.join(ROOT, "public", "avatar-data");
 const OUT_DIR = path.join(__dirname, "fixtures", "render");
 const CLIENT = path.join(__dirname, "render-check.client.ts");
@@ -57,7 +57,7 @@ function serve(req: http.IncomingMessage, res: http.ServerResponse) {
   if (u.pathname === "/bundle.js") {
     res.setHeader("Content-Type", "application/javascript; charset=utf-8");
     res.end(bundled);
-  } else if (u.pathname === "/Xbot.glb") {
+  } else if (u.pathname === "/Avery.glb") {
     res.setHeader("Content-Type", "application/octet-stream");
     fs.createReadStream(GLB).pipe(res);
   } else if (u.pathname.startsWith("/avatar-data/")) {

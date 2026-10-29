@@ -195,19 +195,25 @@ export function smplxPoseToAvatarFrame(
   // Right shoulder (clavicle): SMPL-X joint 14
   frame.rightShoulder = [...getBodyJointQuat(14, "rightShoulder")] as [number, number, number, number];
 
-  // Left upper arm: SMPL-X joint 16
+// Left upper arm: SMPL-X joint 16
   frame.leftUpperArm = [...getBodyJointQuat(16, "leftUpperArm")] as [number, number, number, number];
 
   // Right upper arm: SMPL-X joint 17
   frame.rightUpperArm = [...getBodyJointQuat(17, "rightUpperArm")] as [number, number, number, number];
 
-    // Left forearm: SMPL-X joint 18 (left_forearm)
-    frame.leftForearm = [...getBodyJointQuat(18, "leftForearm")] as [number, number, number, number];
+  // Left elbow: SMPL-X joint 18 (left_elbow)
+  frame.leftForearm = [...getBodyJointQuat(18, "leftForearm")] as [number, number, number, number];
 
-    // Right forearm: SMPL-X joint 19 (right_forearm)
-    frame.rightForearm = [...getBodyJointQuat(19, "rightForearm")] as [number, number, number, number];
+  // Right elbow: SMPL-X joint 19 (right_elbow)
+  frame.rightForearm = [...getBodyJointQuat(19, "rightForearm")] as [number, number, number, number];
 
-    // Left hand: SMPL-X joint 20 (left_hand) + hand_pose (pose[66:69])
+  // Left forearm: SMPL-X joint 20 (left_forearm)
+  frame.leftForearm = [...getBodyJointQuat(20, "leftForearm")] as [number, number, number, number];
+
+  // Right forearm: SMPL-X joint 21 (right_forearm)
+  frame.rightForearm = [...getBodyJointQuat(21, "rightForearm")] as [number, number, number, number];
+
+  // Left hand: SMPL-X joint 20 (left_hand) + hand_pose (pose[66:69])
     // hand_pose is computed in SMPL-X local frame (see fit_smplx.py:rotate_vector_by_inverse_quat)
     // Combine body_pose hand rotation with hand_pose in SMPL-X local frame, THEN apply frame correction.
     {

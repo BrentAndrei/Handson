@@ -32,7 +32,7 @@ import type { Vec3 } from "../src/avatar/canonicalPose";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(__dirname, "..");
-const MODEL_PATH = path.join(ROOT, "public", "models", "Xbot.glb");
+const MODEL_PATH = path.join(ROOT, "public", "models", "Avery.glb");
 const DATA_DIR = path.join(ROOT, "public", "avatar-data");
 const FRAME_FLOATS = 345;
 const HAND = { WRIST: 0, INDEX_MCP: 5, INDEX_PIP: 6, INDEX_DIP: 7, INDEX_TIP: 8,

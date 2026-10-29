@@ -24,7 +24,7 @@ import { gltfToCanonical, mediapipeToCanonical } from "../src/avatar/coordinateS
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(__dirname, "..");
-const MODEL = path.join(ROOT, "public", "models", "Xbot.glb");
+const MODEL = path.join(ROOT, "public", "models", "Avery.glb");
 const DATA_DIR = path.join(ROOT, "public", "avatar-data");
 const FF = 345;
 const LEFT_SLOT = 99;

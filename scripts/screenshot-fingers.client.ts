@@ -46,7 +46,7 @@ function resetToBind(sk: ResolvedSkeleton) {
 }
 
 async function main() {
-  const gltf = await new GLTFLoader().loadAsync("/Xbot.glb");
+  const gltf = await new GLTFLoader().loadAsync("/Avery.glb");
 
   const recordings: Record<string, number[]> = {};
   for (const name of RECORDINGS) {

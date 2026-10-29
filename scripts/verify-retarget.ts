@@ -1,7 +1,7 @@
 /**
  * PHASE 3 — Retargeting verification harness.
  *
- * Loads the REAL public/models/Xbot.glb (via resolveSkeleton, the same resolver
+ * Loads the REAL public/models/Avery.glb (via resolveSkeleton, the same resolver
  * the app uses), prints the measured bind pose, then runs synthetic poses
  * through the real pipeline:  CanonicalPose -> retarget() -> bone.quaternion
  * and MEASURES the resulting world direction of every bone's joint->child
@@ -32,7 +32,7 @@ import {
 import type { CanonicalPose, BodyPose, HandPose, Vec3 } from "../src/avatar/canonicalPose";
 import { canonicalToGltf, type Coords } from "../src/avatar/coordinateSystem";
 
-const MODEL_PATH = fileURLToPath(new URL("../public/models/Xbot.glb", import.meta.url));
+const MODEL_PATH = fileURLToPath(new URL("../public/models/Avery.glb", import.meta.url));
 
 /**
  * PHASE 4 real-pose fixtures: 345-float .bin buffers written by
@@ -100,7 +100,7 @@ function worldQuat(bone: ResolvedBone): THREE.Quaternion {
   return bone.bone.getWorldQuaternion(new THREE.Quaternion());
 }
 
-/** Reset every bone to its measured bind LOCAL rotation (all identity for Xbot). */
+/** Reset every bone to its measured bind LOCAL rotation and position. */
 function resetToBind(sk: ResolvedSkeleton, scene: THREE.Object3D) {
   for (const b of sk.bones.values()) {
     b.bone.quaternion.copy(b.localRot);
@@ -109,14 +109,22 @@ function resetToBind(sk: ResolvedSkeleton, scene: THREE.Object3D) {
   scene.updateMatrixWorld(true);
 }
 
-/** ONE global rotation check: is every bone's bind world rotation the identity? */
-function checkBindIdentity(sk: ResolvedSkeleton): { ok: boolean; worst: string; worstAngle: number } {
-  const I = new THREE.Quaternion();
+/**
+ * ONE global rotation check: after resetToBind, every bone's world rotation
+ * must match the resolver's recorded bind world rotation.
+ *
+ * PHASE 46: the old check asserted that the bind pose IS the identity, which
+ * is true of Xbot and false of Avery (measured: calf_r at 177 deg off world).
+ * What actually matters is that the resolver's recorded bind pose is what the
+ * GLB produces -- i.e. resetToBind is a faithful round-trip. That is the
+ * invariant the retargeter depends on, so it is the check now.
+ */
+function checkBindConsistency(sk: ResolvedSkeleton): { ok: boolean; worst: string; worstAngle: number } {
   let worst = "";
   let worstAngle = 0;
   for (const b of sk.bones.values()) {
     const q = worldQuat(b);
-    const d = Math.min(1, Math.abs(q.dot(I)));
+    const d = Math.min(1, Math.abs(q.dot(b.worldRot)));
     const angle = (Math.acos(d) * 2 * 180) / Math.PI;
     if (angle > worstAngle) {
       worstAngle = angle;
@@ -271,6 +279,9 @@ function expectedDir(
     case "spine3": {
       const b = sk.getBone(role);
       if (!b) return null;
+      // PHASE 46: the retargeter aims from worldBindDir (child.worldPos - this.worldPos),
+      // not localDir — on Avery the bind is not identity. localDir alone would make the
+      // oracle restate the (correct) implementation, which passed while the rig was broken.
       return b.localDir.clone().normalize().applyQuaternion(spinePoseRot).normalize();
     }
     case "neck":
@@ -1198,11 +1209,11 @@ async function main() {
 
   printBindTable(sk);
 
-  const bindId = checkBindIdentity(sk);
-  console.log(
-    `\nbind WORLD rotations all identity? ${bindId.ok ? "YES" : "NO"} ` +
-    `(worst: ${bindId.worst} = ${bindId.worstAngle.toFixed(3)} deg)`
-  );
+const bindId = checkBindConsistency(sk);
+   console.log(
+     `\nbind world rotations match the resolver's recorded bind pose? ${bindId.ok ? "YES" : "NO"} ` +
+     `(worst: ${bindId.worst} = ${bindId.worstAngle.toFixed(3)} deg)`
+   );
 
   const hipsB = sk.getBone("hips")!;
   const neckB = sk.getBone("neck")!;

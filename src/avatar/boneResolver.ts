@@ -18,29 +18,45 @@ import {
 import { decomposeMatrix } from "./canonicalPose";
 
 export interface ResolvedBone {
-  name: string;
-  /** Three.js Bone object from the skeleton. */
-  bone: Bone;
-  /** Index in skeleton.bones array. */
-  index: number;
-  /** Parent bone name (null = root). */
-  parent: string | null;
-  /** Direct children bone names. */
-  children: string[];
-  /** Bone direction in avatar local space (child position - parent position), normalized. */
-  localDir: Vector3;
-  /** Bone length in meters (avatar local units, accounting for armature scale). */
-  length: number;
-  /** Local bind-pose position (relative to parent). */
-  localPos: Vector3;
-  /** Local bind-pose quaternion (relative to parent). */
-  localRot: Quaternion;
-  /** World bind-pose position of the joint (absolute). */
-  worldPos: Vector3;
-  /** World bind-pose quaternion of the joint (absolute). */
-  worldRot: Quaternion;
-  /** The avatar-local-space "forward" axis this bone represents, mapped from canonical. */
-  avatarForward: Vector3;
+   name: string;
+   /** Three.js Bone object from the skeleton. */
+   bone: Bone;
+   /** Index in skeleton.bones array. */
+   index: number;
+   /** Parent bone name (null = root). */
+   parent: string | null;
+   /** Direct children bone names. */
+   children: string[];
+   /**
+    * Bone direction in avatar LOCAL space (child position - parent position), normalized.
+    *
+    * PHASE 46 — this is the direction in the PARENT's local frame. It is correct
+    * for Xbot (whose bind pose is identity, so local == world) but NOT for Avery,
+    * whose bones carry real bind rotations. Use `worldBindDir` for any computation
+    * that compares against a world-space target.
+    */
+   localDir: Vector3;
+   /**
+    * Bone direction in WORLD space at bind pose (child worldPos - this worldPos), normalized.
+    *
+    * PHASE 46 — added for Avery. The retargeter aims each bone from its bind
+    * direction to a world-space target direction; `localDir` is in the parent's
+    * frame and mixing it with a world target silently mis-aims every bone on a
+    * rig whose bind pose is not identity. `worldBindDir` is always in world space.
+    */
+   worldBindDir: Vector3;
+   /** Bone length in meters (avatar local units, accounting for armature scale). */
+   length: number;
+   /** Local bind-pose position (relative to parent). */
+   localPos: Vector3;
+   /** Local bind-pose quaternion (relative to parent). */
+   localRot: Quaternion;
+   /** World bind-pose position of the joint (absolute). */
+   worldPos: Vector3;
+   /** World bind-pose quaternion of the joint (absolute). */
+   worldRot: Quaternion;
+   /** The avatar-local-space "forward" axis this bone represents, mapped from canonical. */
+   avatarForward: Vector3;
 }
 
 export interface ResolvedSkeleton {
@@ -182,21 +198,38 @@ export function resolveSkeleton(
       localDir.normalize();
     }
 
-    bones.set(name, {
-      name,
-      bone,
-      index: idx,
-      parent,
-      children,
-      localDir,
-      length,
-      localPos,
-      localRot: localDecomp.quaternion.clone(),
-      worldPos: worldDecomp.position.clone(),
-      worldRot: worldDecomp.quaternion.clone(),
-      avatarForward: new Vector3(), // filled below
-    });
+bones.set(name, {
+     name,
+     bone,
+     index: idx,
+     parent,
+     children,
+     localDir,
+     length,
+     localPos,
+     localRot: localDecomp.quaternion.clone(),
+     worldPos: worldDecomp.position.clone(),
+     worldRot: worldDecomp.quaternion.clone(),
+     avatarForward: new Vector3(), // filled below
+     worldBindDir: new Vector3(),  // filled below
+   });
   });
+
+  // --- PHASE 46: compute world-space bind directions ---
+  // `localDir` is in the parent's frame. On Xbot (bind pose = identity) local
+  // == world, so the retargeter's old code got away with aiming a world target
+  // at a local bind direction. Avery carries real bind rotations, so that mix
+  // silently mis-aimed every bone. `worldBindDir` is always in world space.
+for (const [, bone] of bones) {
+     if (bone.children.length === 0) continue;
+     const child = bones.get(bone.children[0]);
+    if (!child) continue;
+    const d = new Vector3().subVectors(child.worldPos, bone.worldPos);
+    if (d.lengthSq() > 1e-12) {
+      bone.worldBindDir.copy(d).normalize();
+      bone.length = d.length();
+    }
+  }
 
   // --- Resolve bone name mappings ---
   const boneMapping = resolveBoneMapping(bones, options?.boneMapping);
@@ -322,8 +355,8 @@ function resolveBoneMapping(
   if (rightUpperArm) mapping.rightUpperArm = rightUpperArm.name;
 
   // Forearms
-  const leftForearm = findByName(/leftforearm|leftforearm|leftelbow/i);
-  const rightForearm = findByName(/rightforearm|rightforearm|rightelbow/i);
+  const leftForearm = findByName(/leftforearm|leftelbow/i);
+  const rightForearm = findByName(/rightforearm|rightelbow/i);
   if (leftForearm) mapping.leftForearm = leftForearm.name;
   if (rightForearm) mapping.rightForearm = rightForearm.name;
 
@@ -333,42 +366,59 @@ function resolveBoneMapping(
   if (leftHand) mapping.leftHand = leftHand.name;
   if (rightHand) mapping.rightHand = rightHand.name;
 
-  // Hips / legs
-  const leftHip = findByName(/leftupleg|lefthip/i);
-  const rightHip = findByName(/rightupleg|righthip/i);
-  if (leftHip) mapping.leftHip = leftHip.name;
-  if (rightHip) mapping.rightHip = rightHip.name;
+// Hips / legs — supports two naming conventions:
+    //   Xbot:  mixamorig:LeftUpLeg, LeftLeg, LeftFoot, LeftToeBase
+    //   Avery:  thigh_l, calf_l, foot_l, ball_l
+    const leftHip = findByName(/leftupleg|lefthip|thigh_l/i);
+    const rightHip = findByName(/rightupleg|righthip|thigh_r/i);
+    if (leftHip) mapping.leftHip = leftHip.name;
+    if (rightHip) mapping.rightHip = rightHip.name;
 
-  const leftKnee = findByName(/leftleg|leftknee/i);
-  const rightKnee = findByName(/rightleg|rightknee/i);
-  if (leftKnee) mapping.leftKnee = leftKnee.name;
-  if (rightKnee) mapping.rightKnee = rightKnee.name;
+    const leftKnee = findByName(/leftleg|leftknee|calf_l/i);
+    const rightKnee = findByName(/rightleg|rightknee|calf_r/i);
+    if (leftKnee) mapping.leftKnee = leftKnee.name;
+    if (rightKnee) mapping.rightKnee = rightKnee.name;
 
-  const leftAnkle = findByName(/leftfoot|leftankle/i);
-  const rightAnkle = findByName(/rightfoot|rightankle/i);
-  if (leftAnkle) mapping.leftAnkle = leftAnkle.name;
-  if (rightAnkle) mapping.rightAnkle = rightAnkle.name;
+    const leftAnkle = findByName(/leftfoot|leftankle|foot_l|ball_l/i);
+    const rightAnkle = findByName(/rightfoot|rightankle|foot_r|ball_r/i);
+    if (leftAnkle) mapping.leftAnkle = leftAnkle.name;
+    if (rightAnkle) mapping.rightAnkle = rightAnkle.name;
 
-  // Fingers — Xbot bone names are like mixamorig:LeftHandThumb1, etc.
-  const fingerBases: Array<[string, FingerName]> = [
-    ["Thumb", "thumb"],
-    ["Index", "index"],
-    ["Middle", "middle"],
-    ["Ring", "ring"],
-    ["Pinky", "pinky"],
-  ];
+// Fingers — supports two naming conventions:
+    //   Xbot:  mixamorig:LeftHandThumb1..4, LeftHandIndex1..4, ...
+    //   Avery:  thumb_01_l, thumb_02_l, thumb_03_l, index_01_l, ...
+    // Avery carries 3 phalanges per finger (Xbot has 4), so the loop runs
+    // 1..4 and skips any role that finds no bone.
+    const fingerBases: Array<[string, FingerName]> = [
+      ["thumb", "thumb"],
+      ["index", "index"],
+      ["middle", "middle"],
+      ["ring", "ring"],
+      ["pinky", "pinky"],
+    ];
 
-  const sides: Array<["Left", "left"] | ["Right", "right"]> = [["Left", "left"], ["Right", "right"]];
+    const sides: Array<["Left", "left"] | ["Right", "right"]> = [["Left", "left"], ["Right", "right"]];
 
-  for (const [sideUpper, sideLower] of sides) {
-    for (const [fingerPart, fingerName] of fingerBases) {
-      for (let i = 1; i <= 4; i++) {
-        const roleKey = `${sideLower}Finger_${fingerName}_${i}` as const;
-        const bone = findByName(new RegExp(`${sideUpper}Hand${fingerPart}${i}`, "i"));
-        if (bone) mapping[roleKey] = bone.name;
+    for (const [sideUpper, sideLower] of sides) {
+      for (const [fingerPart, fingerName] of fingerBases) {
+        // Avery pattern: {finger}_{01|02|03}_{l|r}
+        const averyRegex = new RegExp(
+          `${fingerPart}_0?[123]_${sideLower}$`,
+          "i"
+        );
+        // Xbot pattern: {Left|Right}Hand{Thumb|Index|...}{1..4}
+        const xbotRegex = new RegExp(
+          `${sideUpper}Hand${fingerPart}\\d`,
+          "i"
+        );
+        for (let i = 1; i <= 4; i++) {
+          const roleKey = `${sideLower}Finger_${fingerName}_${i}` as const;
+          const bone =
+            findByName(averyRegex) || findByName(xbotRegex);
+          if (bone) mapping[roleKey] = bone.name;
+        }
       }
     }
-  }
 
   // Apply user overrides
   if (override) {

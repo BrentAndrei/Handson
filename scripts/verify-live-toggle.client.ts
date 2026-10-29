@@ -77,7 +77,7 @@ async function boot() {
 
   mark("pre-service");   enableSmplxService(true);
   const model = await new Promise<THREE.Group>((res, rej) => {
-    new GLTFLoader().load("/Xbot.glb", (g) => res(g.scene), undefined, rej);
+    new GLTFLoader().load("/Avery.glb", (g) => res(g.scene), undefined, rej);
   });
   mark("model-loaded");   scene.add(model);
   model.updateMatrixWorld(true);

@@ -21,10 +21,12 @@ import { solveFooting } from "../avatar/footingSolver";
 import { mediapipeToCanonicalPose } from "../avatar/mediapipeAdapter";
 import { sameSignSequence, signHoldMs } from "../avatar/signSequence";
 
-/** PHASE 9: Xbot's bind-pose floor. Measured from the real GLB — its lowest
- *  bone (mixamorigLeftToe_End) sits at y = -0.0029 m at bind, so the floor is
- *  that value, NOT y = 0. */
-const FOOTING_FLOOR_Y = -0.0029;
+/**
+ * PHASE 46 — Avery's bind-pose floor. Measured from the real GLB: its lowest
+ * bone (ball_l / ball_r, the toe balls) sits at y = -0.00015 m at bind, so the
+ * floor is that value, NOT y = 0. The old Xbot rig's floor was -0.0029.
+ */
+const FOOTING_FLOOR_Y = -0.00015;
 
 interface SignAvatarProps {
   signSequence?: string[];
@@ -57,18 +59,32 @@ interface SignAvatarProps {
 }
 
 const BONE_MAP: Record<string, string> = {
-  Hips: "root",
-  Spine: "torso",
-  Head: "head",
-  Neck: "neck",
-  LeftShoulder: "leftShoulder",
-  LeftArm: "leftUpperArm",
-  LeftForeArm: "leftForearm",
-  LeftHand: "leftHand",
-  RightShoulder: "rightShoulder",
-  RightArm: "rightUpperArm",
-  RightForeArm: "rightForearm",
-  RightHand: "rightHand",
+  // Avery | anatomical body.rig naming (the current avatar model).
+  // Measured bind pose: floor y=-0.00015, height 1.535 m, arms in a
+  // natural hanging pose (elbows bent, forearms angled down) rather than
+  // the horizontal T-pose the old Xbot rig used.
+  pelvis: "hips",
+  spine_01: "torso",
+  spine_02: "torso",
+  spine_03: "torso",
+  neck_01: "neck",
+  head: "head",
+  clavicle_l: "leftShoulder",
+  upperarm_l: "leftUpperArm",
+  lowerarm_l: "leftForearm",
+  hand_l: "leftHand",
+  clavicle_r: "rightShoulder",
+  upperarm_r: "rightUpperArm",
+  lowerarm_r: "rightForearm",
+  hand_r: "rightHand",
+  thigh_l: "leftHip",
+  calf_l: "leftKnee",
+  foot_l: "leftAnkle",
+  ball_l: "leftAnkle",
+  thigh_r: "rightHip",
+  calf_r: "rightKnee",
+  foot_r: "rightAnkle",
+  ball_r: "rightAnkle",
 };
 
 const AVATAR_KEYS: (keyof AvatarFrame)[] = [
@@ -244,11 +260,11 @@ export default function SignAvatar({
     onModelReady?.(modelReady);
   }, [modelReady, onModelReady]);
 
-  const loadXbot = useCallback((scene: THREE.Scene) => {
+  const loadAvatar = useCallback((scene: THREE.Scene) => {
     return new Promise<{ model: THREE.Group; bones: Record<string, THREE.Bone> }>((resolve, reject) => {
       const loader = new GLTFLoader();
       loader.load(
-        "/models/Xbot.glb",
+        "/models/Avery.glb",
         (gltf) => {
           try {
             const model = gltf.scene;
@@ -711,8 +727,8 @@ export default function SignAvatar({
         const labels = await loadAvatarData();
         allAvailableRef.current = labels;
 
-        const modelLoaded = await loadXbot(scene).catch((err) => {
-          console.error("[avatar] Xbot load failed:", err);
+        const modelLoaded = await loadAvatar(scene).catch((err) => {
+          console.error("[avatar] Avery load failed:", err);
           throw err;
         });
         avatarRef.current = modelLoaded;

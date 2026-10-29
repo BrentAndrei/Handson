@@ -168,15 +168,17 @@ const _hCross = new Vector3();
 const _identH = new Quaternion();
 
 function retargetBoneDirection(
-  bone: ResolvedBone,
-  targetDir: Vector3,
-  targetSide: Vector3,
-  parentWorldRot: Quaternion
-): Quaternion {
-  // PHASE 11: was `bone.localDir.clone()`. `bindDir` is read-only from here to
-  // the `rotationBetween` call and is not held past it, so a shared slot is safe
-  // (see the module-scratch note above for the ordering argument).
-  const bindDir = _hBindDir.copy(bone.localDir).normalize();
+   bone: ResolvedBone,
+   targetDir: Vector3,
+   targetSide: Vector3,
+   parentWorldRot: Quaternion
+ ): Quaternion {
+   // PHASE 46 — aim from the bone's WORLD bind direction.
+   //
+   // Same rationale as bodyRetargeter.retargetSingleBone: `bone.localDir` is in
+   // the parent's frame, and Avery's bind pose is not identity, so aiming a
+   // world target at a local bind direction mis-aimed every finger bone.
+   const bindDir = _hBindDir.copy(bone.worldBindDir).normalize();
 
   if (bindDir.length() < 1e-6) {
     return new Quaternion();
@@ -233,8 +235,15 @@ function retargetBoneDirection(
   // Twist must be applied AFTER the aim in world space (W = twist * aim) — the twist
   // axis is the bone's post-aim axis (targetDir); `aim * twist` drags the bone off
   // target whenever the twist is non-zero.
-  const worldRot = tmpQuat().copy(twistQuat).multiply(dirQuat);
-  const localRot = tmpQuat().copy(parentWorldRot).invert().multiply(worldRot);
+const worldRot = tmpQuat().copy(twistQuat).multiply(dirQuat);
+   // PHASE 46: compose with the bone's bind WORLD rotation (see
+   // bodyRetargeter.retargetSingleBone step 6 for the derivation). On Xbot
+   // bone.worldRot is the identity so this is bit-identical to the old line.
+    const localRot = tmpQuat()
+      .copy(parentWorldRot)
+      .invert()
+      .multiply(worldRot)
+      .multiply(bone.worldRot);
 
   freeVec(refSide);
   freeVec(rotatedSide);
@@ -343,8 +352,10 @@ export function retargetHand(
   // Right-handed third axis: X x Y, with X = palmDir and Y = palmNormal.
   const palmSide = tmpVec().crossVectors(palmDir, palmNormal).normalize();
 
-  // The bind-pose hand direction (from parent to hand in T-pose)
-  const bindDir = _handBindDir.copy(handBone.localDir).normalize();
+// The bind-pose hand direction (from parent to hand in world space).
+   // PHASE 46: use worldBindDir — on Avery the hand bone carries a real bind
+   // rotation, so the parent-frame localDir is not the world direction.
+   const bindDir = _handBindDir.copy(handBone.worldBindDir).normalize();
 
   if (bindDir.length() < 1e-6) {
     // Zero-length bone (e.g. no children) — can't orient, inherit parent rotation
@@ -385,10 +396,11 @@ export function retargetHand(
     handWorldRot = tmpQuat().copy(handWorldRot);
   }
 
-  const handLocalRot = tmpQuat()
-    .copy(handParentWorldRot)
-    .invert()
-    .multiply(handWorldRot);
+const handLocalRot = tmpQuat()
+     .copy(handBone.localRot)
+     .invert()
+     .multiply(tmpQuat().copy(handParentWorldRot).invert().multiply(handWorldRot))
+     .multiply(handBone.worldRot);
 
   boneRotations.set(handBone.name, handLocalRot.clone());
   freeVec(palmSide);
@@ -595,10 +607,10 @@ function retargetSingleFinger(
 
     // PHASE 26 — leaf phalanges must inherit the parent's bind direction.
     //
-    // `bone.localDir` is defined by the resolver as (child - this bone) in local
-    // space, so a LEAF bone (no children) has localDir === (0,0,0). Measured on
-    // Xbot: 10 of 40 finger bones are in that state -- the 4th phalanx of every
-    // finger on both hands (Index4, Middle4, Ring4, Pinky4, Thumb4).
+    // `bone.worldBindDir` is defined by the resolver as (child worldPos - this
+    // worldPos) at bind, so a LEAF bone (no children) has worldBindDir ===
+    // (0,0,0). Measured on Avery: 6 of 30 finger bones are in that state --
+    // the 3rd phalanx of every finger on both hands (thumb_03, index_03, etc.).
     //
     // The old code normalized that zero vector and, finding length < 1e-6,
     // assigned IDENTITY and `continue`d. So the most distal bone of every
@@ -607,16 +619,14 @@ function retargetSingleFinger(
     // clawing/splaying: the last segment is rigid and the chain above it is
     // being asked to absorb the whole curl.
     //
-    // The fix uses the PARENT bone's localDir as the stand-in. For a relaxed
-    // hand the last two phalanges are near-collinear, so this is the correct
-    // direction, and it keeps the chain coherent: measured dot products between
-    // consecutive effective directions are all >= 0.99 (0 discontinuities at a
-    // 0.5 threshold) across all five left-hand fingers.
-    const bindDir = _hBindDir.copy(bone.localDir).normalize();
+    // The fix uses the PARENT bone's worldBindDir as the stand-in. For a
+    // relaxed hand the last two phalanges are near-collinear, so this is the
+    // correct direction, and it keeps the chain coherent.
+    const bindDir = _hBindDir.copy(bone.worldBindDir).normalize();
     if (bindDir.length() < 1e-6) {
       const parentBone = bone.parent ? skeleton.bones.get(bone.parent) : undefined;
-      if (parentBone && parentBone.localDir.lengthSq() > 1e-12) {
-        bindDir.copy(parentBone.localDir).normalize();
+      if (parentBone && parentBone.worldBindDir.lengthSq() > 1e-12) {
+        bindDir.copy(parentBone.worldBindDir).normalize();
       }
     }
     if (bindDir.length() < 1e-6) {

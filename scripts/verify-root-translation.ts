@@ -29,7 +29,7 @@ import { LandmarkSmoother } from "../src/utils/landmarkSmoother";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(__dirname, "..");
-const MODEL_PATH = path.join(ROOT, "public", "models", "Xbot.glb");
+const MODEL_PATH = path.join(ROOT, "public", "models", "Avery.glb");
 const DATA_DIR = path.join(ROOT, "public", "avatar-data");
 const FEATURE_DIM = 345;
 const DEFAULT_LABELS = ["YES", "HELLO", "THANK_YOU", "MOTHER", "DEAF"];

@@ -30,7 +30,7 @@ import type { CanonicalPose } from "../src/avatar/canonicalPose";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(__dirname, "..");
-const GLB = path.join(ROOT, "public", "models", "Xbot.glb");
+const GLB = path.join(ROOT, "public", "models", "Avery.glb");
 const FIXTURE_DIR = path.join(__dirname, "fixtures", "poses", "extracted");
 const GOLDEN = path.join(__dirname, "fixtures", "golden-phase11.json");
 const FEATURE_DIM = 345;

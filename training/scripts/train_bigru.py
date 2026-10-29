@@ -55,7 +55,7 @@ from sklearn.utils.class_weight import compute_class_weight
 from pathlib import Path
 
 # Config
-KAGGLE_DATA_DIR = "training/data/processed_all"
+KAGGLE_DATA_DIR = "training/data/processed_all83"
 WINDOW_SIZE = 16
 FEATURE_DIM = 63  # 21 hand landmarks * 3 coords (right hand only)
 BATCH_SIZE = 64
@@ -63,8 +63,8 @@ EPOCHS = 120
 PATIENCE = 20
 LEARNING_RATE = 1e-3
 MIN_LR = 1e-6
-MODEL_SAVE_PATH = "public/models/fsl_model/fsl_bigru_v3_all54"
-NUM_CLASSES = 54  # 28 Kaggle + 26 Transactional = 54 classes
+MODEL_SAVE_PATH = "public/models/fsl_model/fsl_bigru_v5_81"
+NUM_CLASSES = 81  # 28 Kaggle + 26 Trans NPY + 26 Trans Vid + 29 FSL-105 - overlaps = 81
 LABEL_SMOOTHING = 0.1
 FOCAL_GAMMA = 2.0
 FOCAL_ALPHA = 0.25

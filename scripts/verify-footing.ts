@@ -32,7 +32,7 @@ import type { SmplxPose } from "../src/avatar/smplxConverter";
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(__dirname, "..");
 const SMPLX_DIR = path.join(ROOT, "public", "avatar-data-smplx");
-const MODEL_PATH = path.join(ROOT, "public", "models", "Xbot.glb");
+const MODEL_PATH = path.join(ROOT, "public", "models", "Avery.glb");
 
 const TARGETS = [
   { label: "YESTERDAY", why: "extreme clip - 16.6% penetration in Phase 8" },

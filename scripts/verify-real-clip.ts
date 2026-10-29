@@ -29,7 +29,7 @@ import { LandmarkSmoother } from "../src/utils/landmarkSmoother";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(__dirname, "..");
-const GLB = path.join(ROOT, "public", "models", "Xbot.glb");
+const GLB = path.join(ROOT, "public", "models", "Avery.glb");
 const DATA_DIR = path.join(ROOT, "public", "avatar-data");
 
 const MEDIAPIPE_FRAME_FLOATS = 345;
@@ -104,7 +104,7 @@ async function main() {
   let hasSkinned = false;
   scene.traverse((o) => { if ((o as THREE.SkinnedMesh).isSkinnedMesh) hasSkinned = true; });
   if (!hasSkinned) {
-    console.error("No skinned meshes in Xbot.glb");
+    console.error("No skinned meshes in Avery.glb");
     process.exit(1);
   }
   const all: string[] = [];

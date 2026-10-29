@@ -7,7 +7,7 @@ async function main() {
   const output: string[] = [];
   const log = (...args: any[]) => { output.push(args.map(String).join(" ")); };
 
-  const buf = fs.readFileSync("public/models/Xbot.glb");
+  const buf = fs.readFileSync("public/models/Avery.glb");
   log("buffer length:", buf.length);
 
   const loader = new GLTFLoader();
